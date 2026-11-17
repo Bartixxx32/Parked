@@ -21,7 +21,7 @@ UI (Compose) ── MainViewModel ── AppContainer
  BluetoothRepository              LocationValidator
       │
       ├─ dynamiczne broadcasty ACL / adapter / bond
-      └─ poll co 20 s (BluetoothDevice.isConnected + profile)
+      └─ poll co 20 s + proxy profili (HFP/A2DP/LE Audio)
 ```
 
 `AppContainer` jest tworzony raz w `ParkedApp.onCreate` i współdzielony przez Activity,

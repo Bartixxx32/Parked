@@ -1,8 +1,11 @@
 package io.github.bartixxx32.parked.monitor
 
 import android.app.Service
+import android.bluetooth.BluetoothA2dp
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothHeadset
+import android.bluetooth.BluetoothLeAudio
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -122,6 +125,7 @@ class BluetoothMonitorService : Service() {
         isRunning = false
         serviceScope.cancel()
         unregisterBluetoothReceiver()
+        container.bluetoothRepository.stopConnectionTracking()
         runCatching {
             stopForeground(STOP_FOREGROUND_REMOVE)
         }
@@ -178,11 +182,21 @@ class BluetoothMonitorService : Service() {
         if (monitoringStarted) return
         monitoringStarted = true
         registerBluetoothReceiver()
+        container.bluetoothRepository.startConnectionTracking()
 
         pollJob = serviceScope.launch {
             while (isActive) {
                 delay(POLL_INTERVAL_MS)
                 if (initialized) reconcile("cykliczne sprawdzenie")
+            }
+        }
+
+        // Profile proxies bind asynchronously. Re-check shortly after start so an already
+        // connected device is shown as connected without waiting for the 20 s poll.
+        listOf(PROFILE_WARMUP_RECHECK_MS, PROFILE_WARMUP_RECHECK_MS * 3).forEach { delayMs ->
+            serviceScope.launch {
+                delay(delayMs)
+                if (initialized) reconcile("rozgrzewka profili Bluetooth")
             }
         }
 
@@ -522,25 +536,26 @@ class BluetoothMonitorService : Service() {
             addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED)
             addAction(BluetoothAdapter.ACTION_STATE_CHANGED)
             addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED)
+            addAction(BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED)
+            addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                addAction(BluetoothLeAudio.ACTION_LE_AUDIO_CONNECTION_STATE_CHANGED)
+            }
         }
         val newReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 if (intent == null) return
                 val action = intent.action ?: return
-                if (action == BluetoothDevice.ACTION_ACL_CONNECTED ||
-                    action == BluetoothDevice.ACTION_ACL_DISCONNECTED
+                val device = IntentCompat.getParcelableExtra(
+                    intent,
+                    BluetoothDevice.EXTRA_DEVICE,
+                    BluetoothDevice::class.java,
+                )
+                val selected = settings?.deviceAddress
+                if (selected != null && device != null &&
+                    !device.address.equals(selected, ignoreCase = true)
                 ) {
-                    val device = IntentCompat.getParcelableExtra(
-                        intent,
-                        BluetoothDevice.EXTRA_DEVICE,
-                        BluetoothDevice::class.java,
-                    )
-                    val selected = settings?.deviceAddress
-                    if (selected != null && device != null &&
-                        !device.address.equals(selected, ignoreCase = true)
-                    ) {
-                        return
-                    }
+                    return
                 }
                 serviceScope.launch { reconcile("broadcast: $action") }
             }
@@ -578,6 +593,7 @@ class BluetoothMonitorService : Service() {
             runCatching { container.triggerStateRepository.save(currentState) }
         }
         unregisterBluetoothReceiver()
+        container.bluetoothRepository.stopConnectionTracking()
         runCatching { NotificationManagerCompat.from(this).cancel(NotificationHelper.MONITOR_NOTIFICATION_ID) }
     }
 
@@ -612,6 +628,7 @@ class BluetoothMonitorService : Service() {
         const val ACTION_CANCEL_PENDING = "io.github.bartixxx32.parked.action.CANCEL_PENDING"
 
         private const val POLL_INTERVAL_MS = 20_000L
+        private const val PROFILE_WARMUP_RECHECK_MS = 1_500L
         private const val MAX_CAPTURE_WAKE_LOCK_MS = 3 * 60_000L
 
         @Volatile
