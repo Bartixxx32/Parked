@@ -32,6 +32,10 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # Since cmdline-tools 19 the obsolete "tools" package no longer
+          # exists; pinning packages avoids setup-android's default "tools".
+          packages: 'platform-tools'
 
       - name: Install Android SDK packages
         run: |
