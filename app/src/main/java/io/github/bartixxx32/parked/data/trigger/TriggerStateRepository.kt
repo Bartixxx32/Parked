@@ -48,10 +48,12 @@ class TriggerStateRepository(private val context: Context) {
     suspend fun clear() {
         context.triggerStateDataStore.edit { preferences ->
             preferences.remove(Keys.PHASE)
-            preferences.remove(Keys.CYCLE_ID)
+            // Deliberately keep CYCLE_ID and LAST_AUTO_SAVE_AT: they are monotonic /
+            // cooldown values, not part of the active cycle. Resetting CYCLE_ID would
+            // make the unique DB index reject the first automatic save after monitoring
+            // is re-enabled as a "duplicate".
             preferences.remove(Keys.DEVICE_ADDRESS)
             preferences.remove(Keys.PENDING_AT)
-            preferences.remove(Keys.LAST_AUTO_SAVE_AT)
         }
     }
 

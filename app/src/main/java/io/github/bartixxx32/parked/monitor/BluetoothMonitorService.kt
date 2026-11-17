@@ -226,14 +226,20 @@ class BluetoothMonitorService : Service() {
         val persisted = runCatching { container.triggerStateRepository.current() }
             .getOrDefault(TriggerState())
         val address = currentSettings.deviceAddress
+        // cycleId guards a unique index in Room. Seed it from every source that may have
+        // survived a crash, so re-enabling monitoring can never look like a duplicate of
+        // an older saved spot.
+        val storedCycleId = runCatching { container.parkingRepository.maxCycleId() }
+            .getOrDefault(0L)
+        val seededCycleId = maxOf(persisted.cycleId, storedCycleId, currentState.cycleId)
 
         currentState = if (!address.isNullOrBlank() && persisted.deviceAddress == address) {
-            persisted
+            persisted.copy(cycleId = seededCycleId)
         } else {
-            TriggerState(deviceAddress = address)
+            TriggerState(deviceAddress = address, cycleId = seededCycleId)
         }
         if (persisted != currentState) {
-            runCatching { container.triggerStateRepository.clear() }
+            runCatching { container.triggerStateRepository.save(currentState) }
         }
 
         if (address.isNullOrBlank()) {
@@ -270,7 +276,6 @@ class BluetoothMonitorService : Service() {
                     "Bluetooth wyłączony — wstrzymano monitorowanie ($reason)",
                 )
                 process { state -> stateMachine.onMonitoringStopped(state) }
-                runCatching { container.triggerStateRepository.clear() }
                 lastObservedConnected = null
             }
             updateRuntime(error = "Bluetooth jest wyłączony")
@@ -314,9 +319,13 @@ class BluetoothMonitorService : Service() {
         captureJob?.cancel()
         captureJob = null
         transitionMutex.withLock {
-            currentState = TriggerState(deviceAddress = newSettings.deviceAddress)
+            currentState = TriggerState(
+                deviceAddress = newSettings.deviceAddress,
+                cycleId = currentState.cycleId,
+                lastAutoSaveAtEpochMs = currentState.lastAutoSaveAtEpochMs,
+            )
             lastObservedConnected = null
-            runCatching { container.triggerStateRepository.clear() }
+            runCatching { container.triggerStateRepository.save(currentState) }
         }
         container.diagnosticsRepository.info(
             "Bluetooth",
@@ -565,8 +574,8 @@ class BluetoothMonitorService : Service() {
         captureJob?.cancel()
         captureJob = null
         transitionMutex.withLock {
-            currentState = TriggerState(deviceAddress = settings?.deviceAddress)
-            runCatching { container.triggerStateRepository.clear() }
+            currentState = stateMachine.onMonitoringStopped(currentState).state
+            runCatching { container.triggerStateRepository.save(currentState) }
         }
         unregisterBluetoothReceiver()
         runCatching { NotificationManagerCompat.from(this).cancel(NotificationHelper.MONITOR_NOTIFICATION_ID) }

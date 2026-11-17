@@ -42,6 +42,9 @@ interface ParkingSpotDao {
     @Query("DELETE FROM parking_spots")
     suspend fun deleteAll()
 
+    @Query("SELECT MAX(cycleId) FROM parking_spots")
+    suspend fun maxCycleId(): Long?
+
     @Query("SELECT COUNT(*) FROM parking_spots")
     suspend fun count(): Int
 }

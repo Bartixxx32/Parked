@@ -26,6 +26,8 @@ class ParkingRepository(
 
     suspend fun latestSpot(): ParkingSpot? = dao.latest()
 
+    suspend fun maxCycleId(): Long = dao.maxCycleId() ?: 0L
+
     suspend fun spotById(id: Long): ParkingSpot? = dao.byId(id)
 
     suspend fun addManualSpot(

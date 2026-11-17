@@ -324,4 +324,48 @@ class ParkingTriggerStateMachineTest {
         assertTrue(transition.actions.contains(TriggerAction.CancelScheduledSave))
         assertTrue(transition.actions.contains(TriggerAction.CancelCapture))
     }
+
+    @Test
+    fun `stopping monitoring keeps the cycle counter so the next save is not a duplicate`() {
+        val pending = disconnect(connect().state)
+        val capturing = timer(pending.state, now = pending.state.pendingAtEpochMs)
+        val saved = machine.onCaptureFinished(
+            state = capturing.state,
+            saved = true,
+            nowEpochMs = pending.state.pendingAtEpochMs + 5_000L,
+        )
+        assertEquals(TriggerPhase.SAVED, saved.state.phase)
+        assertEquals(1L, saved.state.cycleId)
+        val savedAt = saved.state.lastAutoSaveAtEpochMs
+
+        val stopped = machine.onMonitoringStopped(saved.state)
+        assertEquals(TriggerPhase.UNARMED, stopped.state.phase)
+        assertEquals(1L, stopped.state.cycleId)
+        assertEquals(savedAt, stopped.state.lastAutoSaveAtEpochMs)
+
+        val restarted = machine.onServiceStarted(
+            state = stopped.state,
+            connected = true,
+            deviceAddress = device,
+            nowEpochMs = savedAt + 120_000L,
+            saveDelayMs = delay,
+        )
+        assertEquals(TriggerPhase.CONNECTED, restarted.state.phase)
+        assertEquals(2L, restarted.state.cycleId)
+    }
+
+    @Test
+    fun `changing the selected device keeps the cycle counter`() {
+        val first = connect()
+        val transition = machine.onConnectionObserved(
+            state = first.state,
+            connected = false,
+            deviceAddress = "11:22:33:44:55:66",
+            nowEpochMs = start + 2_000L,
+            saveDelayMs = delay,
+        )
+
+        assertEquals(1L, transition.state.cycleId)
+        assertEquals("11:22:33:44:55:66", transition.state.deviceAddress)
+    }
 }

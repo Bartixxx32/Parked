@@ -134,7 +134,11 @@ class ParkingTriggerStateMachine(
         val actions = mutableListOf<TriggerAction>()
 
         if (!current.deviceAddress.isNullOrBlank() && current.deviceAddress != deviceAddress) {
-            current = TriggerState(deviceAddress = deviceAddress)
+            current = TriggerState(
+                deviceAddress = deviceAddress,
+                cycleId = current.cycleId,
+                lastAutoSaveAtEpochMs = current.lastAutoSaveAtEpochMs,
+            )
             actions += TriggerAction.CancelScheduledSave
             actions += TriggerAction.CancelCapture
         } else if (current.deviceAddress.isNullOrBlank()) {
@@ -273,7 +277,11 @@ class ParkingTriggerStateMachine(
     }
 
     fun onMonitoringStopped(state: TriggerState): TriggerTransition = TriggerTransition(
-        TriggerState(deviceAddress = state.deviceAddress),
+        TriggerState(
+            deviceAddress = state.deviceAddress,
+            cycleId = state.cycleId,
+            lastAutoSaveAtEpochMs = state.lastAutoSaveAtEpochMs,
+        ),
         listOf(
             TriggerAction.CancelScheduledSave,
             TriggerAction.CancelCapture,
