@@ -57,37 +57,31 @@ class BluetoothRepository(private val context: Context) {
     }
 
     /**
-     * True when the ACL link or any profile connection to [address] is active.
-     * BLUETOOTH_CONNECT is required for this check on Android 12+.
+     * True when any public Bluetooth profile reports an active connection to [address].
+     *
+     * Android has no public per-device ACL query, so HFP/A2DP/GATT/GATT_SERVER are
+     * checked. Car head units normally expose at least one of these while connected.
      */
     fun isConnected(address: String?): Boolean {
         if (address.isNullOrBlank()) return false
         if (!hasBluetoothPermission()) return false
-        val adapter = adapter ?: return false
         if (!isBluetoothEnabled()) return false
-
-        val target = runCatching { adapter.getRemoteDevice(address) }.getOrNull() ?: return false
-        val aclConnected = runCatching { target.isConnected }.getOrDefault(false)
-        if (aclConnected) return true
 
         return connectedAddresses().any { it.equals(address, ignoreCase = true) }
     }
 
     private fun connectedAddresses(): Set<String> {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return emptySet()
         val manager = manager ?: return emptySet()
         val addresses = mutableSetOf<String>()
         val profiles = intArrayOf(
+            BluetoothProfile.HEADSET,
+            BluetoothProfile.A2DP,
             BluetoothProfile.GATT,
             BluetoothProfile.GATT_SERVER,
-            BluetoothProfile.A2DP,
-            BluetoothProfile.A2DP_SINK,
-            BluetoothProfile.HEADSET,
-            BluetoothProfile.HEADSET_CLIENT,
         )
         profiles.forEach { profile ->
             runCatching {
-                manager.getConnectedDevices(profile).forEach { device ->
+                manager.getConnectedDevices(profile).orEmpty().forEach { device ->
                     addresses += device.address
                 }
             }
