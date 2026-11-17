@@ -260,14 +260,15 @@ class ParkingTriggerStateMachine(
         nowEpochMs: Long,
     ): TriggerTransition {
         if (state.phase != TriggerPhase.CAPTURING) return TriggerTransition(state)
+        val nextPhase = if (saved) TriggerPhase.SAVED else TriggerPhase.UNARMED
         val finished = state.copy(
-            phase = TriggerPhase.SAVED,
+            phase = nextPhase,
             pendingAtEpochMs = 0L,
             lastAutoSaveAtEpochMs = if (saved) nowEpochMs else state.lastAutoSaveAtEpochMs,
         )
         return TriggerTransition(
             finished,
-            listOf(TriggerAction.NotifyPhase(TriggerPhase.SAVED, state.cycleId)),
+            listOf(TriggerAction.NotifyPhase(nextPhase, state.cycleId)),
         )
     }
 

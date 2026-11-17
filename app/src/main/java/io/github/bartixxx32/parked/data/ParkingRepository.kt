@@ -70,12 +70,13 @@ class ParkingRepository(
         runCatching {
             val spot = dao.byId(spotId) ?: error("Nie znaleziono wpisu")
             val newFile = copyPhotoToInternalStorage(spotId, uri)
-            runCatching {
+            try {
                 spot.photoPath?.let { old -> deletePhotoFile(old) }
                 dao.updatePhotoPath(spotId, newFile.absolutePath)
-            }.onFailure {
+                Unit
+            } catch (error: Throwable) {
                 newFile.delete()
-                throw it
+                throw error
             }
         }
     }
