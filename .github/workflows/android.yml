@@ -1,0 +1,99 @@
+name: Android CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Test and build debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: |
+          yes | sdkmanager --licenses > /dev/null 2>&1 || true
+          sdkmanager --install "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
+
+      - name: Gradle and toolchain info
+        run: ./gradlew --version
+
+      - name: Run unit tests
+        run: ./gradlew --no-daemon testDebugUnitTest --stacktrace
+
+      - name: Build debug APK
+        run: ./gradlew --no-daemon assembleDebug --stacktrace
+
+      - name: Verify APK
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK" || { echo "::error::APK was not produced"; exit 1; }
+
+          BUILD_TOOLS="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n 1)"
+          echo "Using build-tools: $BUILD_TOOLS"
+          echo "APK size: $(du -h "$APK" | cut -f1)"
+
+          "$BUILD_TOOLS/aapt2" dump badging "$APK" | head -n 25
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK"
+
+          cp "$APK" Parked-debug.apk
+          sha256sum Parked-debug.apk | tee apk.sha256
+
+          {
+            echo "## Parked debug APK"
+            echo ""
+            echo "- Package: $(unzip -p "$APK" META-INF/com/android/build/gradle/app-metadata.properties 2>/dev/null | grep -i versionName || true)"
+            echo "- Size: $(du -h Parked-debug.apk | cut -f1)"
+            echo "- SHA-256: \`$(cut -d' ' -f1 apk.sha256)\`"
+            echo ""
+            echo "Download the APK from this workflow run's **Artifacts** section."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Parked-debug-apk
+          path: Parked-debug.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload test reports on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            app/build/reports/tests/
+            app/build/test-results/
+          if-no-files-found: ignore
+          retention-days: 14
