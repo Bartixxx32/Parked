@@ -22,8 +22,8 @@ Right now a spot photo can only be picked from the gallery
 
 ## Family mode follow-ups
 
-Status: v1 implemented on the `family-mode` branch (app + Worker + schema),
-waiting for on-device testing. See [backend/README.md](backend/README.md).
+Status: v1 released in 1.2.0 (app + Worker + schema); still needs broader
+on-device testing. See [backend/README.md](backend/README.md).
 
 Implemented in v1:
 
@@ -48,4 +48,5 @@ Follow-ups:
 - Decide whether the group owner can kick members in addition to rotating the
   code.
 - Evaluate end-to-end encryption of uploaded coordinates (postponed).
-- Test the release APK on two physical devices before publishing.
+- Test family mode on two physical devices and fix any issues found after the
+  1.2.0 release.

@@ -232,7 +232,9 @@ has no permission to access all storage.
 
 ## Security and privacy
 
-- No `INTERNET` use except map tiles; no location uploads.
+- No `INTERNET` use except OpenStreetMap tiles and the optional, opt-in family
+  sync. Notes and photos are never uploaded; family mode shares only the latest
+  coordinates, accuracy, display name and timestamps.
 - `android:usesCleartextTraffic="false"`.
 - Backup disabled, no system data export.
 - Photos and the database live in the app's private sandbox.

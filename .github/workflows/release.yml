@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Existing tag to build and publish (e.g. v1.1.1)'
+        description: 'Existing tag to build and publish (e.g. v1.2.0)'
         required: true
-        default: 'v1.1.1'
+        default: 'v1.2.0'
 
 permissions:
   contents: write

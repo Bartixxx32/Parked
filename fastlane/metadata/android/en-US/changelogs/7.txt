@@ -1,0 +1,4 @@
+• Optional family mode: create or join a group with an invite code and see each member's latest parking spot on the map.
+• Only the latest coordinates, accuracy, display name and timestamps are shared; notes and photos stay on the phone.
+• Sharing is off until you join a group and can be disabled at any time.
+• Same package and signing key — a normal update over 1.1.1.

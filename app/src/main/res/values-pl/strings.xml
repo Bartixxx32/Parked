@@ -147,7 +147,7 @@
     <string name="map_attribution">© OpenStreetMap contributors</string>
 
     <!-- Ustawienia -->
-    <string name="settings_subtitle">Wszystko działa lokalnie — bez konta i bez chmury.</string>
+    <string name="settings_subtitle">Działa lokalnie — bez konta.</string>
     <string name="no_device_selected">Nie wybrano urządzenia</string>
     <string name="device_fallback">Urządzenie</string>
     <string name="cd_refresh_list">Odśwież listę</string>
@@ -187,7 +187,7 @@
     <string name="about_title">O aplikacji</string>
     <string name="app_version">Parked %1$s (%2$d)</string>
     <string name="license_text">Licencja GPL-3.0. Kod źródłowy rozwijany jest w publicznym repozytorium.</string>
-    <string name="privacy_text">Prywatność: brak reklam, analityki, telemetrii i konta. Współrzędne, notatki i zdjęcia pozostają wyłącznie na tym urządzeniu. Aplikacja nie wysyła lokalizacji do żadnego serwera; kafelki mapy pobiera bezpośrednio z serwerów OpenStreetMap.</string>
+    <string name="privacy_text">Prywatność: brak reklam, analityki, telemetrii i konta. Współrzędne, notatki i zdjęcia pozostają na tym urządzeniu. Bez trybu rodzinnego aplikacja nie wysyła lokalizacji; kafelki mapy pobiera bezpośrednio z serwerów OpenStreetMap. Tryb rodzinny jest opcjonalny i udostępnia grupie tylko najnowsze miejsce.</string>
     <string name="map_legal">Mapa: © OpenStreetMap contributors, dane na licencji ODbL. Kafelki: OpenStreetMap Standard.</string>
 
     <!-- Diagnostyka -->
@@ -300,7 +300,7 @@
 
     <!-- Tryb rodzinny -->
     <string name="family_title">Rodzina</string>
-    <string name="family_intro">Udostępniaj najnowsze miejsce parkowania członkom rodziny. Funkcja opcjonalna i domyślnie wyłączona. Wysyłane są tylko współrzędne i nazwa; notatki i zdjęcia zostają na tym telefonie.</string>
+    <string name="family_intro">Udostępniaj najnowsze miejsce parkowania członkom rodziny. Funkcja opcjonalna i domyślnie wyłączona. Wysyłane są tylko współrzędne, dokładność, nazwa i znaczniki czasu; notatki i zdjęcia zostają na tym telefonie.</string>
     <string name="family_create">Utwórz grupę</string>
     <string name="family_join">Dołącz do grupy</string>
     <string name="family_joined_as">Dołączono jako %1$s</string>

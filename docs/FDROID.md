@@ -89,7 +89,8 @@ Checklist before opening the merge request:
 
 1. `gradle/wrapper/gradle-wrapper.properties` points to a released Gradle version.
 2. `AndroidManifest.xml` contains no proprietary components or tracking SDKs.
-3. No `INTERNET` traffic other than OpenStreetMap tiles.
+3. No `INTERNET` traffic other than OpenStreetMap tiles and the optional,
+   self-hostable family backend.
 4. `fastlane` metadata exists in English and Polish; changelog for the new
    `versionCode` is present.
 5. The GitHub release contains `Parked-<version>.apk` and its `.sha256` file.

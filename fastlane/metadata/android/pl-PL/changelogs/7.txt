@@ -1,0 +1,4 @@
+• Opcjonalny tryb rodzinny: utwórz grupę lub dołącz kodem zaproszenia i zobacz najnowsze miejsce parkowania każdego członka na mapie.
+• Udostępniane są tylko najnowsze współrzędne, dokładność, nazwa i znaczniki czasu; notatki i zdjęcia zostają na telefonie.
+• Udostępnianie jest wyłączone do momentu dołączenia do grupy i można je w każdej chwili wyłączyć.
+• Ten sam pakiet i klucz podpisywania — zwykła aktualizacja z 1.1.1.

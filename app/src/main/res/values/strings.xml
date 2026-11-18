@@ -145,7 +145,7 @@
     <string name="map_attribution">© OpenStreetMap contributors</string>
 
     <!-- Settings -->
-    <string name="settings_subtitle">Everything works locally — no account, no cloud.</string>
+    <string name="settings_subtitle">Local-first — no account required.</string>
     <string name="no_device_selected">No device selected</string>
     <string name="device_fallback">Device</string>
     <string name="cd_refresh_list">Refresh list</string>
@@ -185,7 +185,7 @@
     <string name="about_title">About</string>
     <string name="app_version">Parked %1$s (%2$d)</string>
     <string name="license_text">GPL-3.0 license. The source code is developed in a public repository.</string>
-    <string name="privacy_text">Privacy: no ads, analytics, telemetry or account. Coordinates, notes and photos stay exclusively on this device. The app does not send the location to any server; map tiles are downloaded directly from OpenStreetMap servers.</string>
+    <string name="privacy_text">Privacy: no ads, analytics, telemetry or account. Coordinates, notes and photos stay on this device. Without family mode the app sends no location; map tiles come directly from OpenStreetMap servers. Family mode is opt-in and shares only your latest spot with your group.</string>
     <string name="map_legal">Map: © OpenStreetMap contributors, data under the ODbL license. Tiles: OpenStreetMap Standard.</string>
 
     <!-- Diagnostics -->
@@ -298,7 +298,7 @@
 
     <!-- Family mode -->
     <string name="family_title">Family</string>
-    <string name="family_intro">Share your latest parking spot with family members. Optional and off by default. Only coordinates and a display name are sent; notes and photos stay on this phone.</string>
+    <string name="family_intro">Share your latest parking spot with family members. Optional and off by default. Only coordinates, accuracy, display name and timestamps are sent; notes and photos stay on this phone.</string>
     <string name="family_create">Create group</string>
     <string name="family_join">Join group</string>
     <string name="family_joined_as">Joined as %1$s</string>

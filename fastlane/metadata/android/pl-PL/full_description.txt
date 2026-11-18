@@ -1,4 +1,4 @@
-Parked automatycznie zapisuje miejsce postoju, gdy telefon rozłączy się z radiem samochodowym przez Bluetooth. Bez konta, bez chmury i bez reklam — wszystko zostaje na telefonie.
+Parked automatycznie zapisuje miejsce postoju, gdy telefon rozłączy się z radiem samochodowym przez Bluetooth. Bez konta i bez reklam — dane zostają na telefonie, chyba że włączysz opcjonalny tryb rodzinny.
 
 JAK TO DZIAŁA
 1. Sparuj telefon z radiem w systemowych ustawieniach Bluetooth.
@@ -11,6 +11,7 @@ NAJWAŻNIEJSZE FUNKCJE
 • Ręczny zapis bieżącej lokalizacji i ręczne wprowadzanie współrzędnych
 • Historia z datą, współrzędnymi, dokładnością, źródłem pomiaru, notatką i opcjonalnym zdjęciem
 • Mapa OpenStreetMap ze wszystkimi miejscami i okręgiem dokładności
+• Opcjonalny tryb rodzinny, domyślnie wyłączony: udostępnianie tylko najnowszego miejsca grupie przez kod zaproszenia
 • Wbudowany kompas pokazujący kierunek i odległość do wybranego miejsca
 • Eksport historii do JSON, CSV lub GPX
 • Ekran diagnostyki ze stanem usługi, uprawnieniami, testem GPS i lokalnymi logami
@@ -20,7 +21,7 @@ NIEZAWODNOŚĆ
 Parked korzysta z usługi pierwszoplanowej, dzięki czemu Android może monitorować połączenie w tle. Dla najlepszych efektów wyłącz optymalizację baterii dla aplikacji i włącz autostart na telefonach z agresywnym zarządzaniem energią (np. ColorOS). Restart po ponownym uruchomieniu telefonu i po aktualizacji aplikacji jest obsługiwany automatycznie, o ile system na to pozwala.
 
 PRYWATNOŚĆ
-Współrzędne, notatki i zdjęcia są przechowywane wyłącznie na Twoim urządzeniu. Aplikacja nie ma kont, analityki ani telemetrii i nigdy nie wysyła lokalizacji. Jedyny ruch sieciowy to pobieranie kafelków mapy OpenStreetMap, gdy ekran mapy jest otwarty.
+Współrzędne, notatki i zdjęcia są przechowywane wyłącznie na Twoim urządzeniu. Aplikacja nie ma kont, analityki ani telemetrii. Bez trybu rodzinnego nie wysyła lokalizacji; jedyny ruch sieciowy to pobieranie kafelków OpenStreetMap, gdy ekran mapy jest otwarty. Tryb rodzinny jest opcjonalny: po utworzeniu lub dołączeniu do grupy aplikacja wysyła tylko najnowsze współrzędne, dokładność, nazwę i znaczniki czasu na skonfigurowany serwer rodziny. Notatki, zdjęcia i historia zostają na telefonie. Backend jest otwarty i można go hostować samodzielnie.
 
 WYMAGANIA
 Android 10 lub nowszy. Do automatycznego zapisu potrzebne są uprawnienia do Bluetooth, lokalizacji i lokalizacji w tle.

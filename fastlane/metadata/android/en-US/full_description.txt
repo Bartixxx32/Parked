@@ -1,4 +1,4 @@
-Parked automatically saves your parking spot when your phone disconnects from the car radio over Bluetooth. No account, no cloud, no ads — everything stays on your phone.
+Parked automatically saves your parking spot when your phone disconnects from the car radio over Bluetooth. No account, no ads — local-first and open source, with an optional family mode.
 
 HOW IT WORKS
 1. Pair your phone with the car radio in the system Bluetooth settings.
@@ -11,6 +11,7 @@ KEY FEATURES
 • Manual save of the current location and manual coordinate entry
 • History with date, coordinates, accuracy, fix source, note and optional photo
 • OpenStreetMap map with pins for all spots and an accuracy circle
+• Optional family mode, off by default: share only your latest spot with a group via an invite code
 • Built-in compass showing bearing and distance to the selected spot
 • Export history to JSON, CSV or GPX
 • Diagnostics screen with service state, permissions, GPS test and local logs
@@ -20,7 +21,7 @@ RELIABILITY
 Parked runs a foreground service so Android keeps monitoring in the background. For best results disable battery optimization for the app and enable autostart on phones with aggressive power management (for example ColorOS). Reboot and app-update restart are handled automatically where the system allows it.
 
 PRIVACY
-Coordinates, notes and photos are stored only on your device. The app has no accounts, analytics or telemetry and never uploads your location. The only network traffic is downloading OpenStreetMap map tiles while the map screen is open.
+Coordinates, notes and photos are stored only on your device. The app has no accounts, analytics or telemetry. Without family mode it never uploads your location; the only network traffic is downloading OpenStreetMap map tiles while the map screen is open. Family mode is opt-in: when you create or join a group, the app sends only your latest coordinates, accuracy, display name and timestamps to the configured family server. Notes, photos and history stay on the phone. The backend is open source and self-hostable.
 
 REQUIREMENTS
 Android 10 or newer. Bluetooth, location and background location permissions are required for automatic saving.
