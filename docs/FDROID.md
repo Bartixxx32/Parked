@@ -81,9 +81,9 @@ commit the PNGs under `phoneScreenshots/` for both locales before tagging a rele
 
 The complete recipe is kept in
 [`docs/fdroiddata/com.bartixxx.parked.yml`](fdroiddata/com.bartixxx.parked.yml).
-It already points at the `v1.1.1` tag commit; for later releases, update the
-`Builds` entry with the full SHA of the new tag before submitting. F-Droid builds
-from that commit, never from a moving branch.
+The newest `Builds` entry points at the `v1.2.0` tag commit; for later releases,
+add a new entry with the full SHA of the new tag before submitting. F-Droid
+builds from that commit, never from a moving branch.
 
 Checklist before opening the merge request:
 
