@@ -15,7 +15,8 @@ class InviteCodeTest {
 
     @Test
     fun `maps ambiguous characters to Crockford digits`() {
-        assertEquals("0123456789", InviteCode.normalize("OIZ3456789"))
+        assertEquals("0113456789", InviteCode.normalize("OIL3456789"))
+        assertEquals("01Z3456789", InviteCode.normalize("OIZ3456789"))
     }
 
     @Test
