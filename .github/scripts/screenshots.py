@@ -91,8 +91,15 @@ def type_text(value: str) -> None:
 
 
 def hide_keyboard() -> None:
-    shell("input keyevent 111")  # ESC closes the IME without dismissing the dialog
-    time.sleep(0.4)
+    """Hide the IME without dismissing the Compose dialog.
+
+    BACK only hides the IME while it is visible; if it is not visible it would
+    close the dialog, so check the IME state first.
+    """
+    state = shell("dumpsys input_method")
+    if "mInputShown=true" in state or "mIsInputViewShown=true" in state:
+        shell("input keyevent 4")
+        time.sleep(0.6)
 
 
 def screenshot(name: str) -> None:

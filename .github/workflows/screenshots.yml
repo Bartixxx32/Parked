@@ -64,6 +64,7 @@ jobs:
             python3 .github/scripts/screenshots.py
 
       - name: Upload screenshots
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: parked-screenshots
