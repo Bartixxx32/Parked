@@ -41,7 +41,11 @@ class AppContainer(context: Context) {
 
     val bluetoothRepository by lazy { BluetoothRepository(appContext) }
 
-    val locationSource: LocationSource by lazy { CompositeLocationSource(appContext) }
+    val locationSource: LocationSource by lazy {
+        CompositeLocationSource(appContext) { message ->
+            diagnosticsRepository.info("GPS", message)
+        }
+    }
 
     val captureEngine by lazy {
         ParkingCaptureEngine(locationSource, parkingRepository)

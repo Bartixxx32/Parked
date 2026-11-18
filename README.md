@@ -24,12 +24,14 @@ radiem samochodowym (Bluetooth). Aplikacja jest lokalna, otwarta i nie wymaga ko
 - Ponowne połączenie w trakcie odliczania anuluje zapis.
 - Ochrona przed duplikatami: jeden zapis na cykl połączenia, unikalny `cycleId`
   w bazie oraz minimalny odstęp między automatycznymi zapisami.
-- Lokalizacja: świeży pomiar GPS, walidacja współrzędnych, dokładności i wieku,
-  druga próba, opcjonalnie awaryjna ostatnia znana lokalizacja.
-- Historia: data, współrzędne, dokładność, źródło, notatka, opcjonalne zdjęcie.
+- Lokalizacja: równoległy pomiar z fused Androida/Play (GPS + Wi-Fi + sieć komórkowa)
+  i providerów systemowych, walidacja współrzędnych, dokładności i wieku, wybór
+  najlepszego pomiaru z uwzględnieniem czasu, opcjonalnie awaryjna ostatnia znana lokalizacja.
+- Historia: data, współrzędne, dokładność, źródło pomiaru (GPS/Fused/Sieć), notatka,
+  opcjonalne zdjęcie.
 - Ręczny zapis bieżącej lokalizacji i ręczne dodanie punktu ze współrzędnych.
 - Mapa OpenStreetMap: czytelne pinezki wszystkich miejsc, wybieranie punktu dotknięciem,
-  bieżąca pozycja i przycisk nawigacji zewnętrznej.
+  okrąg dokładności wokół wybranego punktu, bieżąca pozycja i przycisk nawigacji zewnętrznej.
 - Wbudowany kompas do celu: tarcza reagująca na obrót telefonu, kierunek geograficzny
   (np. `NE`), namiar w stopniach i odległość w metrach do wybranego lub ostatniego miejsca.
 - Eksport historii do **JSON**, **CSV** i **GPX** przez systemowy wybór pliku.
@@ -72,7 +74,7 @@ radio znów się połączy — zapis zostanie anulowany, a pobrany punkt odrzuco
 | Ustawienie | Domyślnie | Znaczenie |
 |---|---:|---|
 | Opóźnienie po rozłączeniu | 15 s | Czas na ponowne połączenie; wtedy zapis jest anulowany. Sam pomiar startuje natychmiast. |
-| Limit czasu GPS | 45 s | Po tym czasie podejmowana jest ostatnia próba / fallback. |
+| Limit czasu GPS | 45 s | Po tym czasie podejmowana jest ostatnia próba / fallback. Dotyczy także fused. |
 | Maks. dokładność | 100 m | Mniej dokładny pomiar jest odrzucany. |
 | Fallback ostatniej lokalizacji | włączony | Awaryjny punkt, wyraźnie oznaczony w historii. |
 | Maks. wiek fallbacku | 12 h | Starszy punkt nie jest używany. |
@@ -124,6 +126,13 @@ połączenie z radiem        rozłączenie: pomiar        po opóźnieniu: zapis
 - Pomiar lokalizacji startuje **natychmiast po rozłączeniu** (maks. 20 s) i jest
   trzymany w pamięci. Opóźnienie odkłada wyłącznie zapis, więc 15 s marszu od auta
   nie przesuwa współrzędnych.
+- Do pomiaru używane są równolegle: fused Play Services (jeśli jest) oraz systemowe
+  providery GPS, sieci/Wi-Fi i — od Androida 12 — systemowy `fused`. Dzięki temu
+  w zabudowie punkt może pochodzić z Wi-Fi/sieci, a nie tylko z surowego GPS.
+- Po broadcastcie Bluetooth stan jest sprawdzany od razu i ponownie po 1, 3, 6 i 10 s,
+  więc chwilowe opóźnienie proxy nie czeka na 20-sekundowy poll.
+- Aktualizacja nie przesuwa współrzędnych już zapisanych punktów — nowy algorytm
+  dotyczy wyłącznie kolejnych zapisów. Każdy punkt przechowuje też swoje źródło pomiaru.
 - Start usługi przy już rozłączonym radiu **nie zapisuje** punktu — nie wiadomo,
   kiedy auto zaparkowało.
 - Powtarzane broadcasty połączenia/rozłączenia są idempotentne.

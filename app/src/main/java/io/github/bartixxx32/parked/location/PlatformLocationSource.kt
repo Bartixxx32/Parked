@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -31,8 +32,19 @@ class PlatformLocationSource(private val context: Context) : LocationSource {
         if (!hasLocationPermission()) return null
         val manager = locationManager ?: return null
         val providers = buildList {
+            // Android 12+ exposes the system's own fused provider. It combines GPS,
+            // Wi-Fi and cell data and may be more accurate than raw GPS, especially in
+            // cities. It is not available on every device; registration failures are
+            // handled below like any other unavailable provider.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                isEnabled(manager, LocationManager.FUSED_PROVIDER)
+            ) {
+                add(LocationManager.FUSED_PROVIDER)
+            }
             if (isEnabled(manager, LocationManager.GPS_PROVIDER)) add(LocationManager.GPS_PROVIDER)
-            if (isEnabled(manager, LocationManager.NETWORK_PROVIDER)) add(LocationManager.NETWORK_PROVIDER)
+            if (isEnabled(manager, LocationManager.NETWORK_PROVIDER)) {
+                add(LocationManager.NETWORK_PROVIDER)
+            }
         }
         if (providers.isEmpty()) return null
 

@@ -153,17 +153,26 @@ usługa wykonuje zwykłe `capture` z pełnym limitem czasu.
 
 `LocationSource` zwraca pojedynczy fix lub `null`; brak uprawnienia nie rzuca wyjątku.
 
-`CompositeLocationSource`:
+`CompositeLocationSource` uruchamia równolegle dwa źródła:
 
-1. Jeśli Play Services jest dostępne, próbuje fused `getCurrentLocation`
-   z budżetem połowy timeoutu.
-2. Równolegle/następnie używa `LocationManager` z providerami GPS i network.
-3. Wybiera lepszy fix (mniejsza dokładność, potem świeżość).
+1. `FusedLocationSource` — Play Services `getCurrentLocation` z
+   `PRIORITY_HIGH_ACCURACY`, jeśli Play Services jest dostępne.
+2. `PlatformLocationSource` — `LocationManager` z providerami GPS, network oraz
+   (od API 31) systemowym `FUSED_PROVIDER`.
+
+Oba źródła działają przez cały budżet czasu. Fix o dokładności ≤ 10 m i świeżości
+w oknie −3…+10 s kończy oczekiwanie natychmiast. W przeciwnym razie wybierany jest
+kandydat o najniższym wyniku `dokładność + 1 m/s × |czas pomiaru − start|`: dzięki
+temu przyzwoity pomiar z chwili rozłączenia wygrywa z idealnym pomiarem zrobionym po
+20 s, gdy użytkownik już odszedł od auta, a stary cache nie wygrywa tylko dlatego, że
+ma niską deklarowaną dokładność. Fused i systemowy fused łączą GPS, Wi-Fi i sieć
+komórkową, więc w miastach często biją surowy GPS. Wybrane źródło (`provider`) jest
+zapisywane razem z punktem i widoczne w historii oraz na karcie mapy.
 
 `PlatformLocationSource` kończy oczekiwanie wcześniej, gdy fix jest rzeczywiście dobry:
-GPS ≤ 15 m albo dowolny provider ≤ 10 m. Fused wynik jest przyjmowany od razu tylko
-przy dokładności ≤ 20 m; inaczej źródło platformowe ma szansę dostarczyć lepszy punkt.
-Dzięki temu nie zapisujemy pierwszego, często sieciowego lub cache'owanego pomiaru.
+GPS ≤ 15 m albo dowolny provider ≤ 10 m. Dzięki temu nie zapisujemy pierwszego, często
+sieciowego lub cache'owanego pomiaru. Wynik fused nie jest przyjmowany bezwarunkowo —
+rywalizuje z platformą według powyższego wyniku.
 
 `ParkingCaptureEngine`:
 
@@ -188,10 +197,12 @@ mock location jest oznaczane, nie blokowane.
 
 Ekran mapy używa osmdroid z kafelkami OSM. Pinezki są rysowane własnym `Overlay`
 na canvasie (stały rozmiar, kolor zależny od fallbacku, halo dla wybranego punktu),
-więc nie zależą od domyślnych baloników osmdroid. Dotknięcie pinu wybiera miejsce,
-a dolna karta pokazuje datę, współrzędne, dokładność, źródło, notatkę i przycisk
-nawigacji. Pozycja i zoom mapy są zapisywane w `rememberSaveable`, więc przełączanie
-zakładek ich nie resetuje.
+więc nie zależą od domyślnych baloników osmdroid. Wybrany punkt dostaje dodatkowo
+delikatny okrąg dokładności: jego środek to dokładne współrzędne (czubek pinu),
+a promień wynika z `accuracyMeters` i jest korygowany o szerokość geograficzną.
+Dotknięcie pinu wybiera miejsce, a dolna karta pokazuje datę, współrzędne,
+dokładność, źródło pomiaru, notatkę i przycisk nawigacji. Pozycja i zoom mapy są
+zapisywane w `rememberSaveable`, więc przełączanie zakładek ich nie resetuje.
 
 Kompas (`TargetCompass`) rysuje tarczę obróconą o bieżący azymut urządzenia i igłę
 wskazującą namiar na cel. Azymut pochodzi z `TYPE_ROTATION_VECTOR`, a przy jego braku

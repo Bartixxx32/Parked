@@ -14,6 +14,7 @@ import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
+import android.os.SystemClock
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
@@ -77,6 +78,7 @@ class BluetoothMonitorService : Service() {
     private var timerJob: Job? = null
     private var captureJob: Job? = null
     private var prefetchJob: Job? = null
+    private var recheckJob: Job? = null
     private var prefetchDeferred: CompletableDeferred<PrefetchResult?>? = null
     private var prefetchCycleId: Long? = null
 
@@ -696,7 +698,7 @@ class BluetoothMonitorService : Service() {
                 ) {
                     return
                 }
-                serviceScope.launch { reconcile("broadcast: $action") }
+                scheduleBroadcastRechecks(action)
             }
         }
         try {
@@ -722,11 +724,34 @@ class BluetoothMonitorService : Service() {
         receiver = null
     }
 
+    /**
+     * Reconciles immediately and then a few more times over the next ten seconds. Profile
+     * proxies and ACL state updates arrive in an unspecified order, so a disconnect broadcast
+     * can be seen while a stale proxy still reports the device as connected. Early rechecks
+     * start the location prefetch seconds after the car actually disappears instead of
+     * waiting for the 20 s poll, while the user is still next to the car.
+     */
+    private fun scheduleBroadcastRechecks(action: String) {
+        recheckJob?.cancel()
+        recheckJob = serviceScope.launch {
+            val startedAt = SystemClock.elapsedRealtime()
+            reconcile("broadcast: $action")
+            for (targetMs in BROADCAST_RECHECK_DELAYS_MS) {
+                val elapsed = SystemClock.elapsedRealtime() - startedAt
+                if (targetMs > elapsed) delay(targetMs - elapsed)
+                if (!isActive) return@launch
+                if (initialized) reconcile("ponowne sprawdzenie po $action")
+            }
+        }
+    }
+
     private suspend fun stopMonitoringInternal() {
         timerJob?.cancel()
         timerJob = null
         captureJob?.cancel()
         captureJob = null
+        recheckJob?.cancel()
+        recheckJob = null
         cancelPrefetch()
         transitionMutex.withLock {
             currentState = stateMachine.onMonitoringStopped(currentState).state
@@ -769,6 +794,7 @@ class BluetoothMonitorService : Service() {
 
         private const val POLL_INTERVAL_MS = 20_000L
         private const val PROFILE_WARMUP_RECHECK_MS = 1_500L
+        private val BROADCAST_RECHECK_DELAYS_MS = longArrayOf(1_000L, 3_000L, 6_000L, 10_000L)
         private const val PREFETCH_MAX_SECONDS = 20
         private const val PREFETCH_GRACE_MS = 5_000L
         private const val MAX_CAPTURE_WAKE_LOCK_MS = 3 * 60_000L

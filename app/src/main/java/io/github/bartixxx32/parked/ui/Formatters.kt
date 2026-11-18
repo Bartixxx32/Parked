@@ -27,6 +27,24 @@ object Formatters {
         else -> spot.source
     }
 
+    fun provider(provider: String?): String = when (provider?.lowercase(Locale.ROOT)) {
+        null, "" -> "brak danych"
+        "gps" -> "GPS"
+        "fused" -> "Fused (Android)"
+        "network" -> "Sieć / Wi-Fi"
+        "passive" -> "Pasywny"
+        else -> provider ?: "brak danych"
+    }
+
+    fun providerShort(provider: String?): String? = when (provider?.lowercase(Locale.ROOT)) {
+        null, "" -> null
+        "gps" -> "GPS"
+        "fused" -> "Fused"
+        "network" -> "Sieć"
+        "passive" -> "Pasywny"
+        else -> provider
+    }
+
     fun age(epochMs: Long): String {
         val seconds = ((System.currentTimeMillis() - epochMs) / 1000L).coerceAtLeast(0L)
         return when {

@@ -325,6 +325,8 @@ private fun SpotCard(
             }
 
             InfoRow("Dokładność", Formatters.accuracy(spot))
+            InfoRow("Źródło pomiaru", Formatters.provider(spot.provider))
+            InfoRow("Pomiar", Formatters.dateTime(spot.fixTimeEpochMs))
             InfoRow("Współrzędne", Formatters.coordinates(spot.latitude, spot.longitude))
             spot.deviceName?.let { InfoRow("Radio", it) }
 

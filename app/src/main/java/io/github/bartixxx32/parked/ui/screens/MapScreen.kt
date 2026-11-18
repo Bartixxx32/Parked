@@ -62,6 +62,7 @@ import io.github.bartixxx32.parked.ui.components.TargetCompass
 import io.github.bartixxx32.parked.ui.components.cardinalDirection
 import io.github.bartixxx32.parked.ui.components.rememberDeviceAzimuth
 import java.io.File
+import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
@@ -531,7 +532,8 @@ private fun SpotCard(
                             fontWeight = FontWeight.SemiBold,
                         )
                         Text(
-                            text = Formatters.coordinates(spot.latitude, spot.longitude),
+                            text = Formatters.coordinates(spot.latitude, spot.longitude) +
+                                Formatters.providerShort(spot.provider)?.let { " • $it" }.orEmpty(),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -698,11 +700,23 @@ private class SpotPinOverlay(
     private val haloPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = 0x332563EB
     }
+    private val accuracyFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0x142563EB
+    }
+    private val accuracyRingPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 1.4f * density
+        color = 0x662563EB
+    }
 
     override fun draw(canvas: Canvas, mapView: MapView, shadow: Boolean) {
         if (shadow) return
         val selectedId = selectedIdProvider()
-        spotsProvider().forEach { spot ->
+        val spots = spotsProvider()
+        spots.firstOrNull { it.id == selectedId }?.let { spot ->
+            drawAccuracy(canvas, mapView, spot)
+        }
+        spots.forEach { spot ->
             mapView.projection.toPixels(GeoPoint(spot.latitude, spot.longitude), point)
             drawPin(
                 canvas = canvas,
@@ -712,6 +726,23 @@ private class SpotPinOverlay(
                 fallback = spot.source == SpotSource.FALLBACK || spot.isFallback,
             )
         }
+    }
+
+    /**
+     * Shows the reported horizontal accuracy around the exact saved coordinates. The pin tip
+     * sits in the centre of the circle, so a visible offset between the pin and the live dot
+     * can be judged against the measurement's own uncertainty.
+     */
+    private fun drawAccuracy(canvas: Canvas, mapView: MapView, spot: ParkingSpot) {
+        val accuracy = spot.accuracyMeters ?: return
+        if (accuracy <= 0f || accuracy > MAX_ACCURACY_CIRCLE_METERS) return
+        mapView.projection.toPixels(GeoPoint(spot.latitude, spot.longitude), point)
+        val latitudeScale = cos(Math.toRadians(spot.latitude)).toFloat()
+        if (latitudeScale <= 0f) return
+        val radius = (mapView.projection.metersToEquatorPixels(accuracy) / latitudeScale)
+            .coerceAtLeast(MIN_ACCURACY_RADIUS_DP * density)
+        canvas.drawCircle(point.x.toFloat(), point.y.toFloat(), radius, accuracyFillPaint)
+        canvas.drawCircle(point.x.toFloat(), point.y.toFloat(), radius, accuracyRingPaint)
     }
 
     private fun drawPin(
@@ -791,6 +822,8 @@ private class SpotPinOverlay(
         const val PIN_TOUCH_RADIUS_DP = 30f
         const val PIN_COLOR = 0xFF2563EB.toInt()
         const val FALLBACK_PIN_COLOR = 0xFFD97706.toInt()
+        const val MIN_ACCURACY_RADIUS_DP = 4f
+        const val MAX_ACCURACY_CIRCLE_METERS = 1_000f
     }
 }
 
