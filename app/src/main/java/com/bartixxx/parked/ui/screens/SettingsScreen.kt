@@ -24,9 +24,11 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.bartixxx.parked.BuildConfig
+import com.bartixxx.parked.R
 import com.bartixxx.parked.bluetooth.BondedDevice
 import com.bartixxx.parked.data.settings.AppSettings
 import com.bartixxx.parked.ui.PermissionSnapshot
@@ -63,12 +65,12 @@ fun SettingsScreen(
         item(key = "header") {
             Column {
                 Text(
-                    text = "Ustawienia",
+                    text = stringResource(R.string.tab_settings),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
-                    text = "Wszystko działa lokalnie — bez konta i bez chmury.",
+                    text = stringResource(R.string.settings_subtitle),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -76,7 +78,7 @@ fun SettingsScreen(
         }
 
         item(key = "device") {
-            SectionCard(title = "Radio samochodowe") {
+            SectionCard(title = stringResource(R.string.car_radio)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         Icons.Filled.Bluetooth,
@@ -87,31 +89,32 @@ fun SettingsScreen(
                     Spacer(Modifier.size(8.dp))
                     Text(
                         text = if (settings.deviceAddress == null) {
-                            "Nie wybrano urządzenia"
+                            stringResource(R.string.no_device_selected)
                         } else {
-                            "${settings.deviceName ?: "Urządzenie"} (${settings.deviceAddress})"
+                            val name = settings.deviceName
+                                ?: stringResource(R.string.device_fallback)
+                            "$name (${settings.deviceAddress})"
                         },
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.weight(1f),
                     )
                     IconButton(onClick = onRefreshDevices) {
-                        Icon(Icons.Filled.Refresh, contentDescription = "Odśwież listę")
+                        Icon(Icons.Filled.Refresh, contentDescription = stringResource(R.string.cd_refresh_list))
                     }
                 }
 
                 if (!permissions.bluetoothPermission) {
                     Text(
-                        text = "Brak uprawnienia do Bluetooth — lista urządzeń jest niedostępna.",
+                        text = stringResource(R.string.bluetooth_permission_missing),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                     )
                     Button(onClick = onRequestPermissions, modifier = Modifier.fillMaxWidth()) {
-                        Text("Przyznaj dostęp do Bluetooth")
+                        Text(stringResource(R.string.grant_bluetooth_access))
                     }
                 } else if (bondedDevices.isEmpty()) {
                     Text(
-                        text = "Brak sparowanych urządzeń. Sparuj radio w systemowych " +
-                            "ustawieniach Bluetooth, a potem wróć tutaj i odśwież listę.",
+                        text = stringResource(R.string.no_paired_devices),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -119,7 +122,7 @@ fun SettingsScreen(
                         onClick = onOpenBluetoothSettings,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text("Otwórz ustawienia Bluetooth")
+                        Text(stringResource(R.string.open_bluetooth_settings))
                     }
                 } else {
                     bondedDevices.forEach { device ->
@@ -149,14 +152,13 @@ fun SettingsScreen(
                             onClick = { onSelectDevice(null) },
                             modifier = Modifier.fillMaxWidth(),
                         ) {
-                            Text("Wyczyść wybór urządzenia")
+                            Text(stringResource(R.string.clear_device_selection))
                         }
                     }
                 }
 
                 Text(
-                    text = "Wybierz jedno radio. Inne urządzenia Bluetooth nie wpływają " +
-                        "na zapis. Zmiana urządzenia wymaga ponownego włączenia monitorowania.",
+                    text = stringResource(R.string.select_one_radio_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -164,43 +166,42 @@ fun SettingsScreen(
         }
 
         item(key = "automation") {
-            SectionCard(title = "Automatyczny zapis") {
+            SectionCard(title = stringResource(R.string.section_auto_save)) {
                 SettingSlider(
-                    title = "Opóźnienie po rozłączeniu",
+                    title = stringResource(R.string.save_delay_title),
                     value = settings.saveDelaySeconds,
                     range = AppSettings.SAVE_DELAY_RANGE,
                     step = 5,
                     unit = "s",
-                    description = "Lokalizacja jest pobierana od razu przy rozłączeniu. To opóźnienie " +
-                        "tylko odkłada zapis, żeby dać czas na ponowne połączenie (wtedy zapis jest anulowany).",
+                    description = stringResource(R.string.save_delay_desc),
                     onValueChange = onSaveDelayChange,
                 )
                 SettingSlider(
-                    title = "Maksymalny czas oczekiwania na GPS",
+                    title = stringResource(R.string.gps_timeout_title),
                     value = settings.gpsTimeoutSeconds,
                     range = AppSettings.GPS_TIMEOUT_RANGE,
                     step = 5,
                     unit = "s",
-                    description = "Po tym czasie aplikacja użyje ostatniej znanej lokalizacji (jeśli dozwolone).",
+                    description = stringResource(R.string.gps_timeout_desc),
                     onValueChange = onGpsTimeoutChange,
                 )
                 SettingSlider(
-                    title = "Maksymalna dopuszczalna dokładność",
+                    title = stringResource(R.string.max_accuracy_title),
                     value = settings.maxAccuracyMeters,
                     range = AppSettings.MAX_ACCURACY_RANGE,
                     step = 10,
                     unit = "m",
-                    description = "Mniej dokładne pomiary są odrzucane, aby nie zapisać przypadkowego punktu.",
+                    description = stringResource(R.string.max_accuracy_desc),
                     onValueChange = onMaxAccuracyChange,
                 )
                 SwitchRow(
-                    title = "Awaryjna ostatnia znana lokalizacja",
-                    subtitle = "Jeśli świeży GPS jest niedostępny, zapisz ostatni znany punkt i oznacz go ostrzeżeniem.",
+                    title = stringResource(R.string.fallback_enabled_title),
+                    subtitle = stringResource(R.string.fallback_enabled_desc),
                     checked = settings.allowFallbackLastKnown,
                     onCheckedChange = onFallbackEnabledChange,
                 )
                 SettingSlider(
-                    title = "Maksymalny wiek punktu awaryjnego",
+                    title = stringResource(R.string.fallback_age_title),
                     value = settings.fallbackMaxAgeHours,
                     range = AppSettings.FALLBACK_MAX_AGE_RANGE,
                     step = 1,
@@ -210,45 +211,42 @@ fun SettingsScreen(
                 )
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
-                        text = "Powiadomienia",
+                        text = stringResource(R.string.notifications_title),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold,
                     )
                     Text(
-                        text = "Parked nie wysyła powiadomień o zapisie ani błędach. " +
-                            "Jedyne powiadomienie to wymagane przez Androida powiadomienie " +
-                            "usługi monitorującej. Możesz je wyłączyć w ustawieniach " +
-                            "systemowych — monitorowanie nadal będzie działać.",
+                        text = stringResource(R.string.notifications_body),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     TextButton(onClick = onOpenNotificationSettings) {
-                        Text("Ustawienia powiadomień")
+                        Text(stringResource(R.string.notification_settings))
                     }
                 }
             }
         }
 
         item(key = "permissions") {
-            SectionCard(title = "Uprawnienia") {
+            SectionCard(title = stringResource(R.string.section_permissions)) {
                 PermissionStatusRow(
-                    title = "Bluetooth",
+                    title = stringResource(R.string.bluetooth_access),
                     granted = permissions.bluetoothPermission,
-                    actionLabel = if (!permissions.bluetoothPermission) "Przyznaj" else null,
+                    actionLabel = if (!permissions.bluetoothPermission) stringResource(R.string.action_grant) else null,
                     onAction = if (!permissions.bluetoothPermission) onRequestPermissions else null,
                 )
                 PermissionStatusRow(
-                    title = "Lokalizacja (dokładna lub przybliżona)",
+                    title = stringResource(R.string.permission_location),
                     granted = permissions.locationOk,
-                    actionLabel = if (!permissions.locationOk) "Przyznaj" else null,
+                    actionLabel = if (!permissions.locationOk) stringResource(R.string.action_grant) else null,
                     onAction = if (!permissions.locationOk) onRequestPermissions else null,
                 )
                 PermissionStatusRow(
-                    title = "Lokalizacja w tle (\"Zawsze pozwalaj\")",
+                    title = stringResource(R.string.permission_background_location),
                     granted = permissions.backgroundLocation,
-                    detail = "Wymagana, gdy telefon jest zablokowany lub aplikacja jest w tle.",
+                    detail = stringResource(R.string.permission_background_detail),
                     actionLabel = if (permissions.locationOk && !permissions.backgroundLocation) {
-                        "Włącz"
+                        stringResource(R.string.action_enable)
                     } else {
                         null
                     },
@@ -259,73 +257,68 @@ fun SettingsScreen(
                     },
                 )
                 PermissionStatusRow(
-                    title = "Bluetooth włączony w systemie",
+                    title = stringResource(R.string.permission_bluetooth_on),
                     granted = permissions.bluetoothEnabled,
-                    actionLabel = if (!permissions.bluetoothEnabled) "Włącz" else null,
+                    actionLabel = if (!permissions.bluetoothEnabled) stringResource(R.string.action_enable) else null,
                     onAction = if (!permissions.bluetoothEnabled) onOpenBluetoothSettings else null,
                 )
                 PermissionStatusRow(
-                    title = "Optymalizacja baterii wyłączona",
+                    title = stringResource(R.string.permission_battery_off),
                     granted = permissions.batteryOptimizationIgnored,
-                    actionLabel = if (!permissions.batteryOptimizationIgnored) "Zmień" else null,
+                    actionLabel = if (!permissions.batteryOptimizationIgnored) stringResource(R.string.action_change) else null,
                     onAction = if (!permissions.batteryOptimizationIgnored) onBatterySettings else null,
                 )
                 Button(onClick = onRequestPermissions, modifier = Modifier.fillMaxWidth()) {
-                    Text("Poproś o wszystkie podstawowe uprawnienia")
+                    Text(stringResource(R.string.request_all_permissions))
                 }
             }
         }
 
         item(key = "reliability") {
-            SectionCard(title = "Niezawodność (ColorOS i inne nakładki)") {
+            SectionCard(title = stringResource(R.string.section_reliability_oem)) {
                 Text(
-                    text = "Android może zabić usługę działającą w tle, a OnePlus/ColorOS " +
-                        "stosuje własne oszczędzanie energii. Wykonaj poniższe kroki:",
+                    text = stringResource(R.string.reliability_oem_intro),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
-                    text = "1. Ustawienia aplikacji → Bateria → Bez ograniczeń\n" +
-                        "2. Ustawienia aplikacji → Autostart → włącz dla Parked\n" +
-                        "3. Zablokuj aplikację w ostatnich zadaniach (kłódka)\n" +
-                        "4. Nie ograniczaj aktywności w tle w panelu ColorOS",
+                    text = stringResource(R.string.reliability_steps),
                     style = MaterialTheme.typography.bodySmall,
                 )
                 FilledTonalButton(
                     onClick = onBatterySettings,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("Otwórz ustawienia baterii")
+                    Text(stringResource(R.string.open_battery_settings))
                 }
                 FilledTonalButton(
                     onClick = onAutostartSettings,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("Otwórz ustawienia autostartu")
+                    Text(stringResource(R.string.open_autostart_settings))
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     TextButton(
                         onClick = onOpenLocationSettings,
                         modifier = Modifier.weight(1f),
                     ) {
-                        Text("Lokalizacja")
+                        Text(stringResource(R.string.action_location))
                     }
                     TextButton(
                         onClick = onOpenBluetoothSettings,
                         modifier = Modifier.weight(1f),
                     ) {
-                        Text("Bluetooth")
+                        Text(stringResource(R.string.bluetooth_access))
                     }
                     TextButton(
                         onClick = onOpenAppSettings,
                         modifier = Modifier.weight(1f),
                     ) {
-                        Text("Aplikacja")
+                        Text(stringResource(R.string.action_app))
                     }
                 }
                 Text(
-                    text = "Parked nie może zagwarantować zapisu, jeśli system zatrzyma " +
-                        "usługę. W krytycznej sytuacji użyj ręcznego zapisu.",
+                    text = stringResource(R.string.reliability_outro),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -333,26 +326,26 @@ fun SettingsScreen(
         }
 
         item(key = "about") {
-            SectionCard(title = "O aplikacji") {
+            SectionCard(title = stringResource(R.string.about_title)) {
                 Text(
-                    text = "Parked ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                    text = stringResource(
+                        R.string.app_version,
+                        BuildConfig.VERSION_NAME,
+                        BuildConfig.VERSION_CODE,
+                    ),
                     style = MaterialTheme.typography.bodyLarge,
                 )
                 Text(
-                    text = "Licencja GPL-3.0. Kod źródłowy rozwijany jest w prywatnym repozytorium.",
+                    text = stringResource(R.string.license_text),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
-                    text = "Prywatność: brak reklam, analityki, telemetrii i konta. " +
-                        "Współrzędne, notatki i zdjęcia pozostają wyłącznie na tym urządzeniu. " +
-                        "Aplikacja nie wysyła lokalizacji do żadnego serwera; kafelki mapy " +
-                        "pobiera bezpośrednio z serwerów OpenStreetMap.",
+                    text = stringResource(R.string.privacy_text),
                     style = MaterialTheme.typography.bodySmall,
                 )
                 Text(
-                    text = "Mapa: © OpenStreetMap contributors, dane na licencji ODbL. " +
-                        "Kafelki: OpenStreetMap Standard.",
+                    text = stringResource(R.string.map_legal),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

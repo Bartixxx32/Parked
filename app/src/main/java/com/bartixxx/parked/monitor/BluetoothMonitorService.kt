@@ -20,6 +20,7 @@ import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.IntentCompat
 import com.bartixxx.parked.AppContainer
+import com.bartixxx.parked.R
 import com.bartixxx.parked.ParkedApp
 import com.bartixxx.parked.capture.AcquiredFix
 import com.bartixxx.parked.capture.AcquisitionOutcome
@@ -27,7 +28,7 @@ import com.bartixxx.parked.capture.CaptureFailure
 import com.bartixxx.parked.capture.CaptureOutcome
 import com.bartixxx.parked.capture.CaptureRequest
 import com.bartixxx.parked.capture.CaptureTrigger
-import com.bartixxx.parked.capture.userMessage
+import com.bartixxx.parked.capture.diagnosticMessage
 import com.bartixxx.parked.data.settings.AppSettings
 import com.bartixxx.parked.data.trigger.ParkingTriggerStateMachine
 import com.bartixxx.parked.data.trigger.TriggerAction
@@ -87,7 +88,7 @@ class BluetoothMonitorService : Service() {
         container = (application as ParkedApp).container
         isRunning = true
         container.monitorState.update { it.copy(running = true) }
-        startInForeground("Uruchamianie monitorowania…")
+        startInForeground(getString(R.string.notification_starting))
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -106,7 +107,7 @@ class BluetoothMonitorService : Service() {
                     cancelPendingWork()
                     container.diagnosticsRepository.info(
                         "Trigger",
-                        "Użytkownik anulował oczekujący zapis",
+                        "User cancelled the pending save",
                     )
                 }
                 return if (foregroundStarted) START_STICKY else START_NOT_STICKY
@@ -125,7 +126,7 @@ class BluetoothMonitorService : Service() {
     override fun onTaskRemoved(rootIntent: Intent?) {
         container.diagnosticsRepository.info(
             "Service",
-            "Zadanie usunięte z ostatnich aplikacji; usługa pierwszoplanowa nadal działa (jeśli system jej nie zabił)",
+            "Task removed from recents; the foreground service keeps running unless the system killed it",
         )
         super.onTaskRemoved(rootIntent)
     }
@@ -147,7 +148,7 @@ class BluetoothMonitorService : Service() {
                 pendingAtEpochMs = 0L,
             )
         }
-        container.diagnosticsRepository.info("Service", "Monitorowanie zatrzymane")
+        container.diagnosticsRepository.info("Service", "Monitoring stopped")
         super.onDestroy()
     }
 
@@ -167,7 +168,7 @@ class BluetoothMonitorService : Service() {
         } catch (error: Exception) {
             container.diagnosticsRepository.warn(
                 "Service",
-                "Nie udało się uruchomić FGS z typem lokalizacji: ${error.message}",
+                "Failed to start FGS with the location type: ${error.message}",
             )
             try {
                 ServiceCompat.startForeground(
@@ -180,7 +181,7 @@ class BluetoothMonitorService : Service() {
             } catch (fatal: Exception) {
                 container.diagnosticsRepository.error(
                     "Service",
-                    "Nie można uruchomić usługi pierwszoplanowej: ${fatal.message}",
+                    "Cannot start the foreground service: ${fatal.message}",
                 )
                 stopSelf()
                 false
@@ -197,7 +198,7 @@ class BluetoothMonitorService : Service() {
         pollJob = serviceScope.launch {
             while (isActive) {
                 delay(POLL_INTERVAL_MS)
-                if (initialized) reconcile("cykliczne sprawdzenie")
+                if (initialized) reconcile("periodic check")
             }
         }
 
@@ -206,7 +207,7 @@ class BluetoothMonitorService : Service() {
         listOf(PROFILE_WARMUP_RECHECK_MS, PROFILE_WARMUP_RECHECK_MS * 3).forEach { delayMs ->
             serviceScope.launch {
                 delay(delayMs)
-                if (initialized) reconcile("rozgrzewka profili Bluetooth")
+                if (initialized) reconcile("Bluetooth profile warm-up")
             }
         }
 
@@ -238,7 +239,7 @@ class BluetoothMonitorService : Service() {
 
                 updateRuntime()
                 refreshNotification()
-                reconcile("ustawienia")
+                reconcile("settings")
             }
         }
     }
@@ -267,7 +268,7 @@ class BluetoothMonitorService : Service() {
         }
 
         if (address.isNullOrBlank()) {
-            updateRuntime(error = "Nie wybrano urządzenia Bluetooth")
+            updateRuntime(error = getString(R.string.error_no_bluetooth_device))
             return
         }
 
@@ -290,25 +291,25 @@ class BluetoothMonitorService : Service() {
 
         val bluetooth = container.bluetoothRepository
         if (!bluetooth.hasBluetoothPermission()) {
-            updateRuntime(error = "Brak uprawnienia Bluetooth. Otwórz aplikację i przyznaj dostęp.")
+            updateRuntime(error = getString(R.string.error_bluetooth_permission))
             return
         }
         if (!bluetooth.isBluetoothEnabled()) {
             if (currentState.phase != TriggerPhase.UNARMED || lastObservedConnected != null) {
                 container.diagnosticsRepository.warn(
                     "Bluetooth",
-                    "Bluetooth wyłączony — wstrzymano monitorowanie ($reason)",
+                    "Bluetooth disabled — monitoring paused ($reason)",
                 )
                 process { state -> stateMachine.onMonitoringStopped(state) }
                 lastObservedConnected = null
             }
-            updateRuntime(error = "Bluetooth jest wyłączony")
+            updateRuntime(error = getString(R.string.error_bluetooth_disabled))
             return
         }
 
         val address = currentSettings.deviceAddress
         if (address.isNullOrBlank()) {
-            updateRuntime(error = "Nie wybrano urządzenia Bluetooth")
+            updateRuntime(error = getString(R.string.error_no_bluetooth_device))
             return
         }
 
@@ -317,9 +318,9 @@ class BluetoothMonitorService : Service() {
             container.diagnosticsRepository.info(
                 "Bluetooth",
                 if (connected) {
-                    "Połączono z ${currentSettings.deviceName ?: address}"
+                    "Connected to ${currentSettings.deviceName ?: address}"
                 } else {
-                    "Rozłączono z ${currentSettings.deviceName ?: address}"
+                    "Disconnected from ${currentSettings.deviceName ?: address}"
                 },
             )
         }
@@ -354,7 +355,7 @@ class BluetoothMonitorService : Service() {
         }
         container.diagnosticsRepository.info(
             "Bluetooth",
-            "Zmieniono urządzenie na ${newSettings.deviceName ?: newSettings.deviceAddress}",
+            "Device changed to ${newSettings.deviceName ?: newSettings.deviceAddress}",
         )
         updateRuntime()
     }
@@ -416,7 +417,7 @@ class BluetoothMonitorService : Service() {
                 cancelPrefetch()
                 container.diagnosticsRepository.info(
                     "Trigger",
-                    "Pominięto zapis, aby uniknąć duplikatu (ostatni zapis ${action.lastAutoSaveAtEpochMs} ms temu)",
+                    "Skipped save to avoid a duplicate (last save ${action.lastAutoSaveAtEpochMs} ms ago)",
                 )
             }
         }
@@ -459,7 +460,7 @@ class BluetoothMonitorService : Service() {
             try {
                 container.diagnosticsRepository.info(
                     "GPS",
-                    "Pobieranie lokalizacji przy rozłączeniu (cykl $cycleId)",
+                    "Acquiring location at disconnect (cycle $cycleId)",
                 )
                 val prefetchSettings = currentSettings.copy(
                     gpsTimeoutSeconds = currentSettings.gpsTimeoutSeconds
@@ -474,9 +475,9 @@ class BluetoothMonitorService : Service() {
                     is AcquisitionOutcome.Acquired -> {
                         container.diagnosticsRepository.info(
                             "GPS",
-                            "Lokalizacja gotowa przy rozłączeniu: dokładność " +
+                            "Location ready at disconnect: accuracy " +
                                 "${acquisition.fix.accuracyMeters.toInt()} m" +
-                                (acquisition.fix.provider?.let { ", źródło $it" } ?: ""),
+                                (acquisition.fix.provider?.let { ", provider $it" } ?: ""),
                         )
                         PrefetchResult(acquisition.fix, null, null)
                     }
@@ -484,8 +485,9 @@ class BluetoothMonitorService : Service() {
                     is AcquisitionOutcome.Failed -> {
                         container.diagnosticsRepository.warn(
                             "GPS",
-                            "Nie udało się pobrać lokalizacji przy rozłączeniu: " +
-                                "${acquisition.reason.userMessage()} ${acquisition.detail ?: ""}".trim(),
+                            "Failed to acquire location at disconnect: " +
+                                "${acquisition.reason.diagnosticMessage()} " +
+                                (acquisition.detail ?: "").trim(),
                         )
                         PrefetchResult(null, acquisition.reason, acquisition.detail)
                     }
@@ -543,7 +545,7 @@ class BluetoothMonitorService : Service() {
         val currentSettings = settings ?: return
         if (!currentSettings.monitoringEnabled) return
 
-        container.diagnosticsRepository.info("GPS", "Zapis lokalizacji dla cyklu $cycleId")
+        container.diagnosticsRepository.info("GPS", "Saving location for cycle $cycleId")
         refreshNotification()
 
         val wakeLock = acquireWakeLock()
@@ -559,7 +561,7 @@ class BluetoothMonitorService : Service() {
                 prefetched?.fix != null -> {
                     container.diagnosticsRepository.info(
                         "GPS",
-                        "Zapisuję punkt pobrany w chwili rozłączenia",
+                        "Saving the fix acquired at disconnect",
                     )
                     container.captureEngine.save(request, prefetched.fix)
                 }
@@ -572,7 +574,7 @@ class BluetoothMonitorService : Service() {
                 else -> {
                     container.diagnosticsRepository.info(
                         "GPS",
-                        "Brak punktu z chwili rozłączenia — pobieram lokalizację teraz",
+                        "No fix captured at disconnect — acquiring location now",
                     )
                     container.captureEngine.capture(request, currentSettings)
                 }
@@ -583,9 +585,9 @@ class BluetoothMonitorService : Service() {
                         stateMachine.onCaptureFinished(state, saved = true, nowEpochMs = now())
                     }
                     container.diagnosticsRepository.info(
-                        "Zapis",
-                        "Zapisano miejsce (dokładność ${outcome.spot.accuracyMeters?.toInt() ?: "?"} m" +
-                            if (outcome.usedFallback) ", punkt awaryjny)" else ")",
+                        "Save",
+                        "Spot saved (accuracy ${outcome.spot.accuracyMeters?.toInt() ?: "?"} m" +
+                            if (outcome.usedFallback) ", emergency point)" else ")",
                     )
                 }
 
@@ -594,8 +596,8 @@ class BluetoothMonitorService : Service() {
                         stateMachine.onCaptureFinished(state, saved = true, nowEpochMs = now())
                     }
                     container.diagnosticsRepository.info(
-                        "Zapis",
-                        "Cykl $cycleId już zapisany — pominięto duplikat",
+                        "Save",
+                        "Cycle $cycleId already saved — duplicate skipped",
                     )
                 }
 
@@ -605,21 +607,22 @@ class BluetoothMonitorService : Service() {
                     }
                     container.diagnosticsRepository.error(
                         "GPS",
-                        "Nie zapisano lokalizacji: ${outcome.reason.userMessage()} ${outcome.detail ?: ""}".trim(),
+                        "Location not saved: ${outcome.reason.diagnosticMessage()} " +
+                            (outcome.detail ?: "").trim(),
                     )
                 }
             }
         } catch (cancelled: CancellationException) {
             container.diagnosticsRepository.info(
                 "GPS",
-                "Pobieranie lokalizacji anulowane (radio połączone ponownie lub monitorowanie zatrzymane)",
+                "Location acquisition cancelled (radio reconnected or monitoring stopped)",
             )
             throw cancelled
         } catch (error: Exception) {
             process { state ->
                 stateMachine.onCaptureFinished(state, saved = false, nowEpochMs = now())
             }
-            container.diagnosticsRepository.error("GPS", "Nieoczekiwany błąd: ${error.message}")
+            container.diagnosticsRepository.error("GPS", "Unexpected error: ${error.message}")
         } finally {
             clearPrefetch(cycleId)
             releaseWakeLock(wakeLock)
@@ -649,23 +652,25 @@ class BluetoothMonitorService : Service() {
 
     private fun refreshNotification() {
         val currentSettings = settings
-        val name = currentSettings?.deviceName ?: "radio samochodowe"
+        val name = currentSettings?.deviceName
+            ?: getString(R.string.notification_default_radio)
         val text = when (currentState.phase) {
             TriggerPhase.UNARMED -> if (currentSettings?.deviceAddress.isNullOrBlank()) {
-                "Wybierz radio samochodowe w ustawieniach aplikacji."
+                getString(R.string.notification_no_device)
             } else {
-                "Oczekuję na połączenie z $name."
+                getString(R.string.notification_waiting, name)
             }
 
-            TriggerPhase.CONNECTED -> "Połączono z $name. Wykrywanie rozłączenia aktywne."
+            TriggerPhase.CONNECTED ->
+                getString(R.string.notification_connected, name)
             TriggerPhase.PENDING -> {
                 val seconds = ((currentState.pendingAtEpochMs - now()) / 1000L)
                     .coerceAtLeast(1L)
-                "Rozłączono z $name. Zapis lokalizacji za ok. $seconds s."
+                getString(R.string.notification_pending, name, seconds)
             }
 
-            TriggerPhase.CAPTURING -> "Zapisywanie miejsca…"
-            TriggerPhase.SAVED -> "Miejsce zapisane. Oczekuję na ponowne połączenie z $name."
+            TriggerPhase.CAPTURING -> getString(R.string.notification_capturing)
+            TriggerPhase.SAVED -> getString(R.string.notification_saved, name)
         }
         runCatching { NotificationHelper.updateMonitorNotification(this, text) }
     }
@@ -712,7 +717,7 @@ class BluetoothMonitorService : Service() {
         } catch (error: Exception) {
             container.diagnosticsRepository.error(
                 "Service",
-                "Nie można zarejestrować odbiornika Bluetooth: ${error.message}",
+                "Cannot register the Bluetooth receiver: ${error.message}",
             )
         }
     }
@@ -740,7 +745,7 @@ class BluetoothMonitorService : Service() {
                 val elapsed = SystemClock.elapsedRealtime() - startedAt
                 if (targetMs > elapsed) delay(targetMs - elapsed)
                 if (!isActive) return@launch
-                if (initialized) reconcile("ponowne sprawdzenie po $action")
+                if (initialized) reconcile("recheck after $action")
             }
         }
     }

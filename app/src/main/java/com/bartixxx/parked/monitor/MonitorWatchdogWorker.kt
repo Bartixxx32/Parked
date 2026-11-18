@@ -37,19 +37,19 @@ class MonitorWatchdogWorker(
         ) {
             container.diagnosticsRepository.warn(
                 "Watchdog",
-                "Monitorowanie nie działa, ale brakuje uprawnień — otwórz aplikację",
+                "Monitoring is not running, but permissions are missing — open the app",
             )
             return Result.success()
         }
 
         return try {
             BluetoothMonitorService.start(applicationContext)
-            container.diagnosticsRepository.info("Watchdog", "Wznowiono usługę monitorowania")
+            container.diagnosticsRepository.info("Watchdog", "Monitoring service restarted")
             Result.success()
         } catch (error: Exception) {
             container.diagnosticsRepository.error(
                 "Watchdog",
-                "System zablokował wznowienie usługi: ${error.message}",
+                "The system blocked the service restart: ${error.message}",
             )
             Result.success()
         }

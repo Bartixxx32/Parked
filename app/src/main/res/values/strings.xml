@@ -1,4 +1,317 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Parked</string>
+
+    <!-- Navigation -->
+    <string name="tab_dashboard">Dashboard</string>
+    <string name="tab_history">History</string>
+    <string name="tab_map">Map</string>
+    <string name="tab_settings">Settings</string>
+    <string name="tab_diagnostics">Diagnostics</string>
+
+    <!-- Common actions and labels -->
+    <string name="action_cancel">Cancel</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_navigate">Navigate</string>
+    <string name="action_map">Map</string>
+    <string name="action_enable">Enable</string>
+    <string name="action_change">Change</string>
+    <string name="action_settings">Settings</string>
+    <string name="action_grant">Grant</string>
+    <string name="action_share">Share</string>
+    <string name="action_clear">Clear</string>
+    <string name="action_add">Add</string>
+    <string name="action_save">Save</string>
+    <string name="action_choose">Choose</string>
+    <string name="action_allow">Allow</string>
+    <string name="no_data">no data</string>
+    <string name="label_coordinates">Coordinates</string>
+    <string name="label_accuracy">Accuracy</string>
+    <string name="label_source">Source</string>
+    <string name="label_note">Note</string>
+
+    <!-- Dashboard -->
+    <string name="dashboard_subtitle">Your parking spot is saved when the phone disconnects from the car radio</string>
+    <string name="section_monitoring">Monitoring</string>
+    <string name="status_monitoring_off">Monitoring disabled</string>
+    <string name="status_no_radio">No car radio selected</string>
+    <string name="status_service_stopped">Service not running</string>
+    <string name="status_radio_connected">Radio connected</string>
+    <string name="status_disconnected_saving">Disconnected — preparing to save</string>
+    <string name="status_waiting_radio">Waiting for the radio</string>
+    <string name="status_detail_monitoring_off">Enable monitoring to save automatically after disconnecting.</string>
+    <string name="status_detail_no_radio">Select a paired car radio.</string>
+    <string name="status_detail_service_stopped">The monitoring service has stopped.</string>
+    <string name="status_detail_pending">Saving the location in about %1$d s. Reconnecting cancels the save.</string>
+    <string name="status_detail_connected">After disconnecting, the spot will be saved in %1$d s.</string>
+    <string name="status_detail_waiting">Connect to the radio. Disconnecting will start the save procedure.</string>
+    <string name="car_radio">Car radio</string>
+    <string name="not_selected">not selected</string>
+    <string name="pending_save_in">Saving location in about %1$d s</string>
+    <string name="service_not_running_hint">The monitoring service is not running. The system may have stopped it, or it could not be started.</string>
+    <string name="restart_monitoring">Restart monitoring</string>
+    <string name="setup_hint">To get started, pair the radio in the system Bluetooth settings, then select it in the app settings.</string>
+    <string name="section_permissions_reliability">Permissions and reliability</string>
+    <string name="bluetooth_access">Bluetooth access</string>
+    <string name="bluetooth_access_detail">Required to detect the connection to the radio.</string>
+    <string name="location">Location</string>
+    <string name="location_granted_detail">Precise or approximate — used to determine the spot.</string>
+    <string name="location_denied_detail">Without it, coordinates cannot be saved.</string>
+    <string name="background_location">Background location</string>
+    <string name="background_location_detail">\"Allow all the time\" — needed when the phone is locked.</string>
+    <string name="bluetooth_on">Bluetooth turned on</string>
+    <string name="bluetooth_on_detail">Turn on Bluetooth in the system.</string>
+    <string name="battery_optimization_off">Battery optimization disabled</string>
+    <string name="battery_optimization_detail">Reduces the risk of the system killing the service.</string>
+    <string name="grant_required_permissions">Grant the required permissions</string>
+    <string name="allow_background_location">Allow background location</string>
+    <string name="section_latest_spot">Latest spot</string>
+    <string name="no_spots">No saved spots</string>
+    <string name="no_spots_subtitle">The first automatic or manual spot will appear here.</string>
+    <string name="fallback_point_warning">Emergency point: the last known location was used.</string>
+    <string name="mock_point_warning">Warning: the location comes from a mock provider.</string>
+    <string name="saving">Saving…</string>
+    <string name="save_current_location">Save current location</string>
+    <string name="manual_save_requires_location">A manual save requires location permission.</string>
+    <string name="full_history">Full history</string>
+    <string name="section_reliability">Reliability on Android</string>
+    <string name="reliability_intro">Android and vendor overlays (for example ColorOS) may limit background work and kill services. To increase the chance of an automatic save:</string>
+    <string name="reliability_bullet_background">• allow the app to run in the background without restrictions,</string>
+    <string name="reliability_bullet_autostart">• enable autostart for Parked,</string>
+    <string name="reliability_bullet_battery">• disable battery optimization for Parked,</string>
+    <string name="reliability_bullet_recents">• do not swipe the app away from the recents list.</string>
+    <string name="reliability_outro">No app can guarantee a save if the system kills it. If needed, use the manual save button.</string>
+    <string name="action_battery">Battery</string>
+    <string name="action_autostart">Autostart</string>
+    <string name="phase_unarmed">Waiting for connection</string>
+    <string name="phase_connected">Radio connected</string>
+    <string name="phase_pending">Saving soon</string>
+    <string name="phase_capturing">Getting location…</string>
+    <string name="phase_saved">Spot saved</string>
+
+    <!-- History -->
+    <plurals name="history_count">
+        <item quantity="one">%1$d spot • data stays on this device</item>
+        <item quantity="other">%1$d spots • data stays on this device</item>
+    </plurals>
+    <string name="action_export">Export</string>
+    <string name="export_json">Export JSON</string>
+    <string name="export_csv">Export CSV</string>
+    <string name="export_gpx">Export GPX</string>
+    <string name="delete_history">Delete all history</string>
+    <string name="add_manual_spot">Add spot manually</string>
+    <string name="history_empty_subtitle">Connect to the radio and drive away, or add a spot manually.</string>
+    <string name="delete_spot_title">Delete entry?</string>
+    <string name="delete_spot_message">The spot from %1$s will be deleted together with its note and photo.</string>
+    <string name="delete_all_title">Delete all history?</string>
+    <string name="delete_all_message">This cannot be undone. Photos will also be deleted.</string>
+    <string name="delete_all_confirm">Delete all</string>
+    <string name="cd_delete_entry">Delete entry</string>
+    <string name="fallback_point_short">Emergency point — last known location.</string>
+    <string name="mock_point_short">Test location (mock).</string>
+    <string name="label_fix">Fix</string>
+    <string name="label_radio">Radio</string>
+    <string name="no_note">No note</string>
+    <string name="save_note">Save note</string>
+    <string name="action_note">Note</string>
+    <string name="action_photo">Photo</string>
+    <string name="action_change_photo">Change photo</string>
+    <string name="action_remove_photo">Remove photo</string>
+    <string name="add_manual_title">Add spot manually</string>
+    <string name="manual_coords_hint">Enter decimal coordinates, for example 52.2297 and 21.0122.</string>
+    <string name="label_latitude">Latitude</string>
+    <string name="label_longitude">Longitude</string>
+    <string name="label_note_optional">Note (optional)</string>
+
+    <!-- Map -->
+    <string name="map_title">Map</string>
+    <string name="no_location_access">No location access</string>
+    <string name="cd_zoom_in">Zoom in</string>
+    <string name="cd_zoom_out">Zoom out</string>
+    <string name="cd_my_location">My location</string>
+    <string name="map_empty_title">No saved spots</string>
+    <string name="map_empty_subtitle">After disconnecting from the radio, the parking spot will appear here.</string>
+    <string name="map_check_permissions">Check permissions in settings</string>
+    <string name="map_no_accuracy">no accuracy</string>
+    <string name="map_selected_spot">SELECTED SPOT</string>
+    <string name="map_latest_spot">LATEST SPOT</string>
+    <string name="map_fallback_chip">emergency</string>
+    <string name="map_locating">Determining your position to show the compass to the target…</string>
+    <string name="map_enable_location">Enable location to see the compass and distance to the target.</string>
+    <string name="map_no_compass">No compass sensor — the arrow points relative to north.</string>
+    <string name="cd_clear_selection">Clear selection</string>
+    <string name="compass_description">Compass to target: %1$s, %2$d degrees</string>
+    <string name="photo_content_description">Parking spot photo</string>
+    <string name="map_attribution">© OpenStreetMap contributors</string>
+
+    <!-- Settings -->
+    <string name="settings_subtitle">Everything works locally — no account, no cloud.</string>
+    <string name="no_device_selected">No device selected</string>
+    <string name="device_fallback">Device</string>
+    <string name="cd_refresh_list">Refresh list</string>
+    <string name="bluetooth_permission_missing">Bluetooth permission missing — the device list is unavailable.</string>
+    <string name="grant_bluetooth_access">Grant Bluetooth access</string>
+    <string name="no_paired_devices">No paired devices. Pair the radio in the system Bluetooth settings, then come back and refresh the list.</string>
+    <string name="open_bluetooth_settings">Open Bluetooth settings</string>
+    <string name="clear_device_selection">Clear device selection</string>
+    <string name="select_one_radio_hint">Select one radio. Other Bluetooth devices do not affect saving. Changing the device requires enabling monitoring again.</string>
+    <string name="section_auto_save">Automatic saving</string>
+    <string name="save_delay_title">Delay after disconnecting</string>
+    <string name="save_delay_desc">The location is acquired immediately at disconnect. This delay only postpones saving to allow time to reconnect (which cancels the save).</string>
+    <string name="gps_timeout_title">Maximum GPS wait time</string>
+    <string name="gps_timeout_desc">After this time the app will use the last known location (if allowed).</string>
+    <string name="max_accuracy_title">Maximum allowed accuracy</string>
+    <string name="max_accuracy_desc">Less accurate fixes are rejected so a random point is not saved.</string>
+    <string name="fallback_enabled_title">Emergency last known location</string>
+    <string name="fallback_enabled_desc">If a fresh GPS fix is unavailable, save the last known point and mark it with a warning.</string>
+    <string name="fallback_age_title">Maximum age of the emergency point</string>
+    <string name="notifications_title">Notifications</string>
+    <string name="notifications_body">Parked does not send notifications about saves or errors. The only notification is the Android-required notification of the monitoring service. You can disable it in the system settings — monitoring will still work.</string>
+    <string name="notification_settings">Notification settings</string>
+    <string name="section_permissions">Permissions</string>
+    <string name="permission_location">Location (precise or approximate)</string>
+    <string name="permission_background_location">Background location (\"Allow all the time\")</string>
+    <string name="permission_background_detail">Required when the phone is locked or the app is in the background.</string>
+    <string name="permission_bluetooth_on">Bluetooth turned on in the system</string>
+    <string name="permission_battery_off">Battery optimization disabled</string>
+    <string name="request_all_permissions">Request all basic permissions</string>
+    <string name="section_reliability_oem">Reliability (ColorOS and other overlays)</string>
+    <string name="reliability_oem_intro">Android may kill a background service, and OnePlus/ColorOS uses its own power saving. Follow these steps:</string>
+    <string name="reliability_steps">1. Settings → Battery → Unrestricted\n2. Settings → Autostart → enable for Parked\n3. Lock the app in the recents list (padlock)\n4. Do not restrict background activity in the ColorOS panel</string>
+    <string name="open_battery_settings">Open battery settings</string>
+    <string name="open_autostart_settings">Open autostart settings</string>
+    <string name="action_location">Location</string>
+    <string name="action_app">App</string>
+    <string name="about_title">About</string>
+    <string name="app_version">Parked %1$s (%2$d)</string>
+    <string name="license_text">GPL-3.0 license. The source code is developed in a public repository.</string>
+    <string name="privacy_text">Privacy: no ads, analytics, telemetry or account. Coordinates, notes and photos stay exclusively on this device. The app does not send the location to any server; map tiles are downloaded directly from OpenStreetMap servers.</string>
+    <string name="map_legal">Map: © OpenStreetMap contributors, data under the ODbL license. Tiles: OpenStreetMap Standard.</string>
+
+    <!-- Diagnostics -->
+    <string name="diag_subtitle">Service state, permissions and local event logs.</string>
+    <string name="section_monitor_state">Monitoring state</string>
+    <string name="service">Service</string>
+    <string name="running">running</string>
+    <string name="not_running">not running</string>
+    <string name="phase">Phase</string>
+    <string name="connected">Connected</string>
+    <string name="yes">yes</string>
+    <string name="no">no</string>
+    <string name="cycle">Cycle</string>
+    <string name="save_scheduled">Save scheduled</string>
+    <string name="last_error">Last error: %1$s</string>
+    <string name="battery_unrestricted">Battery unrestricted</string>
+    <string name="section_location_test">Location test</string>
+    <string name="location_test_desc">Requests a single GPS fix and shows the accuracy and age of the coordinates. It does not save the spot to history.</string>
+    <string name="fetching">Fetching…</string>
+    <string name="check_location">Check location</string>
+    <string name="grant_location_first">Grant location permission first.</string>
+    <string name="logs_title">Logs (%1$d)</string>
+    <string name="logs_desc">Events are stored locally and limited to 300 entries. They do not contain full coordinates except for the GPS test.</string>
+    <string name="no_events">No events</string>
+    <string name="no_events_subtitle">Logs will appear after monitoring starts.</string>
+    <string name="phase_state_unarmed">waiting</string>
+    <string name="phase_state_connected">connected</string>
+    <string name="phase_state_pending">save scheduled</string>
+    <string name="phase_state_capturing">getting location</string>
+    <string name="phase_state_saved">saved</string>
+
+    <!-- Foreground service notification -->
+    <string name="notification_channel_name">Background monitoring</string>
+    <string name="notification_channel_desc">Notification required by Android for the Bluetooth monitoring service</string>
+    <string name="notification_stop">Stop</string>
+    <string name="notification_starting">Starting monitoring…</string>
+    <string name="notification_default_radio">car radio</string>
+    <string name="notification_no_device">Select a car radio in the app settings.</string>
+    <string name="notification_waiting">Waiting for connection to %1$s.</string>
+    <string name="notification_connected">Connected to %1$s. Disconnect detection is active.</string>
+    <string name="notification_pending">Disconnected from %1$s. Saving location in about %2$d s.</string>
+    <string name="notification_capturing">Saving location…</string>
+    <string name="notification_saved">Spot saved. Waiting for %1$s to reconnect.</string>
+
+    <!-- Runtime errors shown in the UI -->
+    <string name="error_no_bluetooth_device">No Bluetooth device selected</string>
+    <string name="error_bluetooth_permission">Bluetooth permission missing. Open the app and grant access.</string>
+    <string name="error_bluetooth_disabled">Bluetooth is turned off</string>
+
+    <!-- Snackbar messages -->
+    <string name="msg_monitoring_off">Monitoring disabled</string>
+    <string name="msg_select_radio_first">Select a car radio in settings first</string>
+    <string name="msg_monitoring_on">Monitoring enabled</string>
+    <string name="msg_monitoring_start_failed">Could not start monitoring: %1$s</string>
+    <string name="msg_pending_cancelled">Pending save cancelled</string>
+    <string name="msg_device_selected">Device selected: %1$s</string>
+    <string name="msg_service_refresh_failed">Could not refresh the service: %1$s</string>
+    <string name="msg_device_selection_cleared">Device selection cleared</string>
+    <string name="msg_spot_saved_accuracy">Spot saved. Accuracy: %1$s</string>
+    <string name="msg_duplicate_spot">This spot has already been saved</string>
+    <string name="msg_invalid_coordinates">Enter valid coordinates</string>
+    <string name="msg_coordinates_out_of_range">Coordinates are out of range</string>
+    <string name="msg_manual_spot_added">Spot added manually</string>
+    <string name="msg_add_spot_failed">Could not add spot: %1$s</string>
+    <string name="msg_note_saved">Note saved</string>
+    <string name="msg_note_save_failed">Could not save note</string>
+    <string name="msg_photo_added">Photo added</string>
+    <string name="msg_photo_add_failed">Could not add photo: %1$s</string>
+    <string name="msg_photo_removed">Photo removed</string>
+    <string name="msg_photo_remove_failed">Could not remove photo</string>
+    <string name="msg_spot_deleted">Entry deleted</string>
+    <string name="msg_spot_delete_failed">Could not delete entry</string>
+    <string name="msg_history_deleted">History deleted</string>
+    <string name="msg_history_delete_failed">Could not delete history</string>
+    <string name="msg_exported">Exported %1$s</string>
+    <string name="msg_export_failed">Export failed: %1$s</string>
+    <string name="msg_open_output_failed">Cannot open the destination file</string>
+    <string name="msg_logs_cleared">Logs cleared</string>
+    <string name="msg_no_events">No diagnostic events.</string>
+    <string name="msg_share_subject">Parked — diagnostics</string>
+    <string name="msg_no_share_app">No app available to share</string>
+    <string name="msg_open_battery_settings_failed">Could not open battery settings</string>
+    <string name="msg_open_autostart_settings_failed">Could not open autostart settings</string>
+    <string name="msg_open_location_settings_failed">Could not open location settings</string>
+    <string name="msg_open_bluetooth_settings_failed">Could not open Bluetooth settings</string>
+    <string name="msg_open_notification_settings_failed">Could not open notification settings</string>
+    <string name="msg_open_app_settings_failed">Could not open app settings</string>
+    <string name="msg_no_navigation_app">No navigation app available</string>
+
+    <!-- Location test -->
+    <string name="test_getting_location">Getting location…</string>
+    <string name="test_fresh_fix">Fresh fix</string>
+    <string name="test_last_known">Last known</string>
+    <string name="test_no_location">No location. Check GPS and permissions.</string>
+    <string name="location_fix_line">%1$s: %2$.5f, %3$.5f • accuracy %4$d m • %5$d s ago • %6$s</string>
+    <string name="location_fix_none">%1$s: none</string>
+
+    <!-- Capture failure messages -->
+    <string name="failure_no_location">Could not determine the location. Check GPS and location permissions.</string>
+    <string name="failure_invalid_coordinates">Invalid coordinates were rejected. Try again outdoors.</string>
+    <string name="failure_low_accuracy">GPS accuracy was too low. Increase the accuracy limit or try again later.</string>
+    <string name="failure_stale_location">The location was too old. Enable precise GPS and try again.</string>
+    <string name="failure_storage">Could not save the spot in the database.</string>
+    <string name="failure_internal">An internal error occurred while saving.</string>
+
+    <!-- Repository error messages -->
+    <string name="error_open_photo">Cannot open the selected photo</string>
+    <string name="error_photo_too_large">The photo is too large (25 MB limit)</string>
+    <string name="error_empty_photo">The selected file is empty</string>
+
+    <!-- Formatting -->
+    <string name="source_auto">Automatic</string>
+    <string name="source_manual">Manual</string>
+    <string name="source_fallback">Emergency</string>
+    <string name="provider_network_short">Network</string>
+    <string name="provider_network">Network / Wi-Fi</string>
+    <string name="provider_passive">Passive</string>
+    <string name="age_seconds">%1$d s ago</string>
+    <string name="age_minutes">%1$d min ago</string>
+    <string name="age_hours">%1$d h ago</string>
+    <plurals name="age_days">
+        <item quantity="one">%1$d day ago</item>
+        <item quantity="other">%1$d days ago</item>
+    </plurals>
+
+    <!-- Intents -->
+    <string name="parked_car_default">Parked car</string>
+    <string name="open_navigation">Open navigation</string>
 </resources>

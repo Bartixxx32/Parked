@@ -46,7 +46,7 @@ class BootReceiver : BroadcastReceiver() {
                 if (!hasBluetooth || !hasLocation) {
                     app.container.diagnosticsRepository.warn(
                         "Boot",
-                        "Nie wznowiono monitorowania po restarcie — brak uprawnień",
+                        "Monitoring not restarted after boot — missing permissions",
                     )
                     return@launch
                 }
@@ -55,14 +55,14 @@ class BootReceiver : BroadcastReceiver() {
                     BluetoothMonitorService.start(context)
                     app.container.diagnosticsRepository.info(
                         "Boot",
-                        "Wznowiono monitorowanie po zdarzeniu $action",
+                        "Monitoring restarted after event $action",
                     )
                 }
             } catch (error: Exception) {
                 runCatching {
                     (context.applicationContext as ParkedApp).container.diagnosticsRepository.error(
                         "Boot",
-                        "Nie udało się wznowić monitorowania: ${error.message}",
+                        "Failed to restart monitoring: ${error.message}",
                     )
                 }
             } finally {

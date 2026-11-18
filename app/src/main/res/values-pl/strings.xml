@@ -1,0 +1,321 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Parked</string>
+
+    <!-- Nawigacja -->
+    <string name="tab_dashboard">Pulpit</string>
+    <string name="tab_history">Historia</string>
+    <string name="tab_map">Mapa</string>
+    <string name="tab_settings">Ustawienia</string>
+    <string name="tab_diagnostics">Diagnostyka</string>
+
+    <!-- Wspólne akcje i etykiety -->
+    <string name="action_cancel">Anuluj</string>
+    <string name="action_delete">Usuń</string>
+    <string name="action_navigate">Nawiguj</string>
+    <string name="action_map">Mapa</string>
+    <string name="action_enable">Włącz</string>
+    <string name="action_change">Zmień</string>
+    <string name="action_settings">Ustawienia</string>
+    <string name="action_grant">Przyznaj</string>
+    <string name="action_share">Udostępnij</string>
+    <string name="action_clear">Wyczyść</string>
+    <string name="action_add">Dodaj</string>
+    <string name="action_save">Zapisz</string>
+    <string name="action_choose">Wybierz</string>
+    <string name="action_allow">Zezwól</string>
+    <string name="no_data">brak danych</string>
+    <string name="label_coordinates">Współrzędne</string>
+    <string name="label_accuracy">Dokładność</string>
+    <string name="label_source">Źródło</string>
+    <string name="label_note">Notatka</string>
+
+    <!-- Pulpit -->
+    <string name="dashboard_subtitle">Miejsce parkingowe zapisze się po rozłączeniu z radiem</string>
+    <string name="section_monitoring">Monitorowanie</string>
+    <string name="status_monitoring_off">Monitorowanie wyłączone</string>
+    <string name="status_no_radio">Nie wybrano radia</string>
+    <string name="status_service_stopped">Usługa nie działa</string>
+    <string name="status_radio_connected">Radio połączone</string>
+    <string name="status_disconnected_saving">Rozłączono — szykuję zapis</string>
+    <string name="status_waiting_radio">Oczekiwanie na radio</string>
+    <string name="status_detail_monitoring_off">Włącz monitorowanie, aby zapis następował automatycznie po rozłączeniu.</string>
+    <string name="status_detail_no_radio">Wybierz sparowane radio samochodowe.</string>
+    <string name="status_detail_service_stopped">Usługa monitorowania została zatrzymana.</string>
+    <string name="status_detail_pending">Zapis lokalizacji za ok. %1$d s. Ponowne połączenie anuluje zapis.</string>
+    <string name="status_detail_connected">Po rozłączeniu zapis nastąpi po %1$d s.</string>
+    <string name="status_detail_waiting">Połącz się z radiem. Rozłączenie uruchomi procedurę zapisu.</string>
+    <string name="car_radio">Radio samochodowe</string>
+    <string name="not_selected">nie wybrano</string>
+    <string name="pending_save_in">Zapis lokalizacji za ok. %1$d s</string>
+    <string name="service_not_running_hint">Usługa monitorowania nie działa. System mógł ją zatrzymać, albo nie udało się jej uruchomić.</string>
+    <string name="restart_monitoring">Uruchom monitorowanie ponownie</string>
+    <string name="setup_hint">Aby zacząć, sparuj radio w systemowych ustawieniach Bluetooth, a potem wskaż je w ustawieniach aplikacji.</string>
+    <string name="section_permissions_reliability">Uprawnienia i niezawodność</string>
+    <string name="bluetooth_access">Dostęp do Bluetooth</string>
+    <string name="bluetooth_access_detail">Wymagany do wykrywania połączenia z radiem.</string>
+    <string name="location">Lokalizacja</string>
+    <string name="location_granted_detail">Dokładna lub przybliżona — do ustalenia miejsca.</string>
+    <string name="location_denied_detail">Bez niej nie da się zapisać współrzędnych.</string>
+    <string name="background_location">Lokalizacja w tle</string>
+    <string name="background_location_detail">\"Zawsze pozwalaj\" — potrzebne przy zablokowanym telefonie.</string>
+    <string name="bluetooth_on">Bluetooth włączony</string>
+    <string name="bluetooth_on_detail">Włącz Bluetooth w systemie.</string>
+    <string name="battery_optimization_off">Optymalizacja baterii wyłączona</string>
+    <string name="battery_optimization_detail">Zmniejsza ryzyko ubicia usługi przez system.</string>
+    <string name="grant_required_permissions">Przyznaj wymagane uprawnienia</string>
+    <string name="allow_background_location">Zezwól na lokalizację w tle</string>
+    <string name="section_latest_spot">Ostatnie miejsce</string>
+    <string name="no_spots">Brak zapisanych miejsc</string>
+    <string name="no_spots_subtitle">Tutaj pojawi się pierwsze automatyczne lub ręczne miejsce.</string>
+    <string name="fallback_point_warning">Punkt awaryjny: użyto ostatniej znanej lokalizacji.</string>
+    <string name="mock_point_warning">Uwaga: lokalizacja pochodzi z providera testowego (mock).</string>
+    <string name="saving">Zapisywanie…</string>
+    <string name="save_current_location">Zapisz bieżącą lokalizację</string>
+    <string name="manual_save_requires_location">Zapis ręczny wymaga uprawnienia do lokalizacji.</string>
+    <string name="full_history">Cała historia</string>
+    <string name="section_reliability">Niezawodność na Androidzie</string>
+    <string name="reliability_intro">Android i nakładki producentów (np. ColorOS) mogą ograniczać pracę w tle i zabijać usługi. Aby zwiększyć szansę na automatyczny zapis:</string>
+    <string name="reliability_bullet_background">• pozwól aplikacji działać w tle bez ograniczeń,</string>
+    <string name="reliability_bullet_autostart">• włącz autostart dla Parked,</string>
+    <string name="reliability_bullet_battery">• wyłącz optymalizację baterii dla Parked,</string>
+    <string name="reliability_bullet_recents">• nie usuwaj aplikacji z listy ostatnich zadań.</string>
+    <string name="reliability_outro">Żadna aplikacja nie może zagwarantować zapisu, jeśli system ją zabije. W razie potrzeby użyj przycisku ręcznego zapisu.</string>
+    <string name="action_battery">Bateria</string>
+    <string name="action_autostart">Autostart</string>
+    <string name="phase_unarmed">Oczekiwanie na połączenie</string>
+    <string name="phase_connected">Radio połączone</string>
+    <string name="phase_pending">Za chwilę zapis</string>
+    <string name="phase_capturing">Ustalanie lokalizacji…</string>
+    <string name="phase_saved">Miejsce zapisane</string>
+
+    <!-- Historia -->
+    <plurals name="history_count">
+        <item quantity="one">%1$d miejsce • dane pozostają na tym urządzeniu</item>
+        <item quantity="few">%1$d miejsca • dane pozostają na tym urządzeniu</item>
+        <item quantity="many">%1$d miejsc • dane pozostają na tym urządzeniu</item>
+        <item quantity="other">%1$d miejsca • dane pozostają na tym urządzeniu</item>
+    </plurals>
+    <string name="action_export">Eksportuj</string>
+    <string name="export_json">Eksport JSON</string>
+    <string name="export_csv">Eksport CSV</string>
+    <string name="export_gpx">Eksport GPX</string>
+    <string name="delete_history">Usuń całą historię</string>
+    <string name="add_manual_spot">Dodaj miejsce ręcznie</string>
+    <string name="history_empty_subtitle">Połącz się z radiem i odjedź, albo dodaj miejsce ręcznie.</string>
+    <string name="delete_spot_title">Usunąć wpis?</string>
+    <string name="delete_spot_message">Usunięte zostanie miejsce z %1$s wraz z notatką i zdjęciem.</string>
+    <string name="delete_all_title">Usunąć całą historię?</string>
+    <string name="delete_all_message">Tej operacji nie można cofnąć. Zdjęcia również zostaną usunięte.</string>
+    <string name="delete_all_confirm">Usuń wszystko</string>
+    <string name="cd_delete_entry">Usuń wpis</string>
+    <string name="fallback_point_short">Punkt awaryjny — ostatnia znana lokalizacja.</string>
+    <string name="mock_point_short">Lokalizacja testowa (mock).</string>
+    <string name="label_fix">Pomiar</string>
+    <string name="label_radio">Radio</string>
+    <string name="no_note">Brak notatki</string>
+    <string name="save_note">Zapisz notatkę</string>
+    <string name="action_note">Notatka</string>
+    <string name="action_photo">Zdjęcie</string>
+    <string name="action_change_photo">Zmień zdjęcie</string>
+    <string name="action_remove_photo">Usuń zdjęcie</string>
+    <string name="add_manual_title">Dodaj miejsce ręcznie</string>
+    <string name="manual_coords_hint">Podaj współrzędne dziesiętne, np. 52.2297 oraz 21.0122.</string>
+    <string name="label_latitude">Szerokość geograficzna</string>
+    <string name="label_longitude">Długość geograficzna</string>
+    <string name="label_note_optional">Notatka (opcjonalnie)</string>
+
+    <!-- Mapa -->
+    <string name="map_title">Mapa</string>
+    <string name="no_location_access">Brak dostępu do lokalizacji</string>
+    <string name="cd_zoom_in">Przybliż mapę</string>
+    <string name="cd_zoom_out">Oddal mapę</string>
+    <string name="cd_my_location">Moja pozycja</string>
+    <string name="map_empty_title">Brak zapisanych miejsc</string>
+    <string name="map_empty_subtitle">Po rozłączeniu z radiem zapiszę tutaj miejsce postoju.</string>
+    <string name="map_check_permissions">Sprawdź uprawnienia w ustawieniach</string>
+    <string name="map_no_accuracy">bez dokładności</string>
+    <string name="map_selected_spot">WYBRANE MIEJSCE</string>
+    <string name="map_latest_spot">OSTATNIE MIEJSCE</string>
+    <string name="map_fallback_chip">awaryjny</string>
+    <string name="map_locating">Ustalam Twoją pozycję, aby pokazać kompas do celu…</string>
+    <string name="map_enable_location">Włącz lokalizację, aby zobaczyć kompas i odległość do celu.</string>
+    <string name="map_no_compass">Brak czujnika kompasu — strzałka wskazuje kierunek względem północy.</string>
+    <string name="cd_clear_selection">Odznacz miejsce</string>
+    <string name="compass_description">Kompas do celu: %1$s, %2$d stopni</string>
+    <string name="photo_content_description">Zdjęcie miejsca parkingowego</string>
+    <string name="map_attribution">© OpenStreetMap contributors</string>
+
+    <!-- Ustawienia -->
+    <string name="settings_subtitle">Wszystko działa lokalnie — bez konta i bez chmury.</string>
+    <string name="no_device_selected">Nie wybrano urządzenia</string>
+    <string name="device_fallback">Urządzenie</string>
+    <string name="cd_refresh_list">Odśwież listę</string>
+    <string name="bluetooth_permission_missing">Brak uprawnienia do Bluetooth — lista urządzeń jest niedostępna.</string>
+    <string name="grant_bluetooth_access">Przyznaj dostęp do Bluetooth</string>
+    <string name="no_paired_devices">Brak sparowanych urządzeń. Sparuj radio w systemowych ustawieniach Bluetooth, a potem wróć tutaj i odśwież listę.</string>
+    <string name="open_bluetooth_settings">Otwórz ustawienia Bluetooth</string>
+    <string name="clear_device_selection">Wyczyść wybór urządzenia</string>
+    <string name="select_one_radio_hint">Wybierz jedno radio. Inne urządzenia Bluetooth nie wpływają na zapis. Zmiana urządzenia wymaga ponownego włączenia monitorowania.</string>
+    <string name="section_auto_save">Automatyczny zapis</string>
+    <string name="save_delay_title">Opóźnienie po rozłączeniu</string>
+    <string name="save_delay_desc">Lokalizacja jest pobierana od razu przy rozłączeniu. To opóźnienie tylko odkłada zapis, żeby dać czas na ponowne połączenie (wtedy zapis jest anulowany).</string>
+    <string name="gps_timeout_title">Maksymalny czas oczekiwania na GPS</string>
+    <string name="gps_timeout_desc">Po tym czasie aplikacja użyje ostatniej znanej lokalizacji (jeśli dozwolone).</string>
+    <string name="max_accuracy_title">Maksymalna dopuszczalna dokładność</string>
+    <string name="max_accuracy_desc">Mniej dokładne pomiary są odrzucane, aby nie zapisać przypadkowego punktu.</string>
+    <string name="fallback_enabled_title">Awaryjna ostatnia znana lokalizacja</string>
+    <string name="fallback_enabled_desc">Jeśli świeży GPS jest niedostępny, zapisz ostatni znany punkt i oznacz go ostrzeżeniem.</string>
+    <string name="fallback_age_title">Maksymalny wiek punktu awaryjnego</string>
+    <string name="notifications_title">Powiadomienia</string>
+    <string name="notifications_body">Parked nie wysyła powiadomień o zapisie ani błędach. Jedyne powiadomienie to wymagane przez Androida powiadomienie usługi monitorującej. Możesz je wyłączyć w ustawieniach systemowych — monitorowanie nadal będzie działać.</string>
+    <string name="notification_settings">Ustawienia powiadomień</string>
+    <string name="section_permissions">Uprawnienia</string>
+    <string name="permission_location">Lokalizacja (dokładna lub przybliżona)</string>
+    <string name="permission_background_location">Lokalizacja w tle (\"Zawsze pozwalaj\")</string>
+    <string name="permission_background_detail">Wymagana, gdy telefon jest zablokowany lub aplikacja jest w tle.</string>
+    <string name="permission_bluetooth_on">Bluetooth włączony w systemie</string>
+    <string name="permission_battery_off">Optymalizacja baterii wyłączona</string>
+    <string name="request_all_permissions">Poproś o wszystkie podstawowe uprawnienia</string>
+    <string name="section_reliability_oem">Niezawodność (ColorOS i inne nakładki)</string>
+    <string name="reliability_oem_intro">Android może zabić usługę działającą w tle, a OnePlus/ColorOS stosuje własne oszczędzanie energii. Wykonaj poniższe kroki:</string>
+    <string name="reliability_steps">1. Ustawienia aplikacji → Bateria → Bez ograniczeń\n2. Ustawienia aplikacji → Autostart → włącz dla Parked\n3. Zablokuj aplikację w ostatnich zadaniach (kłódka)\n4. Nie ograniczaj aktywności w tle w panelu ColorOS</string>
+    <string name="open_battery_settings">Otwórz ustawienia baterii</string>
+    <string name="open_autostart_settings">Otwórz ustawienia autostartu</string>
+    <string name="action_location">Lokalizacja</string>
+    <string name="action_app">Aplikacja</string>
+    <string name="about_title">O aplikacji</string>
+    <string name="app_version">Parked %1$s (%2$d)</string>
+    <string name="license_text">Licencja GPL-3.0. Kod źródłowy rozwijany jest w publicznym repozytorium.</string>
+    <string name="privacy_text">Prywatność: brak reklam, analityki, telemetrii i konta. Współrzędne, notatki i zdjęcia pozostają wyłącznie na tym urządzeniu. Aplikacja nie wysyła lokalizacji do żadnego serwera; kafelki mapy pobiera bezpośrednio z serwerów OpenStreetMap.</string>
+    <string name="map_legal">Mapa: © OpenStreetMap contributors, dane na licencji ODbL. Kafelki: OpenStreetMap Standard.</string>
+
+    <!-- Diagnostyka -->
+    <string name="diag_subtitle">Stan usługi, uprawnienia i lokalne logi zdarzeń.</string>
+    <string name="section_monitor_state">Stan monitorowania</string>
+    <string name="service">Usługa</string>
+    <string name="running">działa</string>
+    <string name="not_running">nie działa</string>
+    <string name="phase">Faza</string>
+    <string name="connected">Połączone</string>
+    <string name="yes">tak</string>
+    <string name="no">nie</string>
+    <string name="cycle">Cykl</string>
+    <string name="save_scheduled">Zapis zaplanowany</string>
+    <string name="last_error">Ostatni błąd: %1$s</string>
+    <string name="battery_unrestricted">Bateria bez ograniczeń</string>
+    <string name="section_location_test">Test lokalizacji</string>
+    <string name="location_test_desc">Pobiera pojedynczy pomiar GPS i pokazuje dokładność oraz wiek współrzędnych. Nie zapisuje miejsca w historii.</string>
+    <string name="fetching">Pobieranie…</string>
+    <string name="check_location">Sprawdź lokalizację</string>
+    <string name="grant_location_first">Najpierw przyznaj uprawnienie do lokalizacji.</string>
+    <string name="logs_title">Logi (%1$d)</string>
+    <string name="logs_desc">Zdarzenia są przechowywane lokalnie i ograniczone do 300 wpisów. Nie zawierają pełnych współrzędnych poza testem GPS.</string>
+    <string name="no_events">Brak zdarzeń</string>
+    <string name="no_events_subtitle">Logi pojawią się po uruchomieniu monitorowania.</string>
+    <string name="phase_state_unarmed">oczekiwanie</string>
+    <string name="phase_state_connected">połączono</string>
+    <string name="phase_state_pending">zaplanowany zapis</string>
+    <string name="phase_state_capturing">pobieranie lokalizacji</string>
+    <string name="phase_state_saved">zapisano</string>
+
+    <!-- Powiadomienie usługi pierwszoplanowej -->
+    <string name="notification_channel_name">Monitorowanie w tle</string>
+    <string name="notification_channel_desc">Wymagane przez Android powiadomienie usługi monitorującej Bluetooth</string>
+    <string name="notification_stop">Zatrzymaj</string>
+    <string name="notification_starting">Uruchamianie monitorowania…</string>
+    <string name="notification_default_radio">radio samochodowe</string>
+    <string name="notification_no_device">Wybierz radio samochodowe w ustawieniach aplikacji.</string>
+    <string name="notification_waiting">Oczekuję na połączenie z %1$s.</string>
+    <string name="notification_connected">Połączono z %1$s. Wykrywanie rozłączenia aktywne.</string>
+    <string name="notification_pending">Rozłączono z %1$s. Zapis lokalizacji za ok. %2$d s.</string>
+    <string name="notification_capturing">Zapisywanie miejsca…</string>
+    <string name="notification_saved">Miejsce zapisane. Oczekuję na ponowne połączenie z %1$s.</string>
+
+    <!-- Błędy czasu działania widoczne w UI -->
+    <string name="error_no_bluetooth_device">Nie wybrano urządzenia Bluetooth</string>
+    <string name="error_bluetooth_permission">Brak uprawnienia Bluetooth. Otwórz aplikację i przyznaj dostęp.</string>
+    <string name="error_bluetooth_disabled">Bluetooth jest wyłączony</string>
+
+    <!-- Komunikaty -->
+    <string name="msg_monitoring_off">Monitorowanie wyłączone</string>
+    <string name="msg_select_radio_first">Najpierw wybierz radio samochodowe w ustawieniach</string>
+    <string name="msg_monitoring_on">Monitorowanie włączone</string>
+    <string name="msg_monitoring_start_failed">Nie udało się uruchomić monitorowania: %1$s</string>
+    <string name="msg_pending_cancelled">Anulowano oczekujący zapis</string>
+    <string name="msg_device_selected">Wybrano urządzenie: %1$s</string>
+    <string name="msg_service_refresh_failed">Nie udało się odświeżyć usługi: %1$s</string>
+    <string name="msg_device_selection_cleared">Usunięto wybór urządzenia</string>
+    <string name="msg_spot_saved_accuracy">Zapisano miejsce. Dokładność: %1$s</string>
+    <string name="msg_duplicate_spot">To miejsce zostało już zapisane</string>
+    <string name="msg_invalid_coordinates">Podaj poprawne współrzędne</string>
+    <string name="msg_coordinates_out_of_range">Współrzędne są poza dozwolonym zakresem</string>
+    <string name="msg_manual_spot_added">Dodano miejsce ręcznie</string>
+    <string name="msg_add_spot_failed">Nie udało się dodać miejsca: %1$s</string>
+    <string name="msg_note_saved">Notatka zapisana</string>
+    <string name="msg_note_save_failed">Nie udało się zapisać notatki</string>
+    <string name="msg_photo_added">Zdjęcie dodane</string>
+    <string name="msg_photo_add_failed">Nie udało się dodać zdjęcia: %1$s</string>
+    <string name="msg_photo_removed">Zdjęcie usunięte</string>
+    <string name="msg_photo_remove_failed">Nie udało się usunąć zdjęcia</string>
+    <string name="msg_spot_deleted">Wpis usunięty</string>
+    <string name="msg_spot_delete_failed">Nie udało się usunąć wpisu</string>
+    <string name="msg_history_deleted">Usunięto całą historię</string>
+    <string name="msg_history_delete_failed">Nie udało się usunąć historii</string>
+    <string name="msg_exported">Wyeksportowano %1$s</string>
+    <string name="msg_export_failed">Eksport nie powiódł się: %1$s</string>
+    <string name="msg_open_output_failed">Nie można otworzyć pliku docelowego</string>
+    <string name="msg_logs_cleared">Logi wyczyszczone</string>
+    <string name="msg_no_events">Brak zdarzeń diagnostycznych.</string>
+    <string name="msg_share_subject">Parked — diagnostyka</string>
+    <string name="msg_no_share_app">Brak aplikacji do udostępniania</string>
+    <string name="msg_open_battery_settings_failed">Nie udało się otworzyć ustawień baterii</string>
+    <string name="msg_open_autostart_settings_failed">Nie udało się otworzyć ustawień autostartu</string>
+    <string name="msg_open_location_settings_failed">Nie udało się otworzyć ustawień lokalizacji</string>
+    <string name="msg_open_bluetooth_settings_failed">Nie udało się otworzyć ustawień Bluetooth</string>
+    <string name="msg_open_notification_settings_failed">Nie udało się otworzyć ustawień powiadomień</string>
+    <string name="msg_open_app_settings_failed">Nie udało się otworzyć ustawień aplikacji</string>
+    <string name="msg_no_navigation_app">Brak aplikacji do nawigacji</string>
+
+    <!-- Test lokalizacji -->
+    <string name="test_getting_location">Pobieranie lokalizacji…</string>
+    <string name="test_fresh_fix">Świeży pomiar</string>
+    <string name="test_last_known">Ostatnia znana</string>
+    <string name="test_no_location">Brak lokalizacji. Sprawdź GPS i uprawnienia.</string>
+    <string name="location_fix_line">%1$s: %2$.5f, %3$.5f • dokładność %4$d m • %5$d s temu • %6$s</string>
+    <string name="location_fix_none">%1$s: brak</string>
+
+    <!-- Komunikaty błędów zapisu -->
+    <string name="failure_no_location">Nie udało się ustalić lokalizacji. Sprawdź GPS i uprawnienia do lokalizacji.</string>
+    <string name="failure_invalid_coordinates">Odrzucono nieprawidłowe współrzędne. Spróbuj ponownie na zewnątrz.</string>
+    <string name="failure_low_accuracy">Dokładność GPS była zbyt niska. Zwiększ limit dokładności lub spróbuj później.</string>
+    <string name="failure_stale_location">Lokalizacja była zbyt stara. Włącz dokładne GPS i spróbuj ponownie.</string>
+    <string name="failure_storage">Nie udało się zapisać miejsca w bazie danych.</string>
+    <string name="failure_internal">Wystąpił błąd wewnętrzny podczas zapisu.</string>
+
+    <!-- Komunikaty błędów repozytorium -->
+    <string name="error_open_photo">Nie można otworzyć wybranego zdjęcia</string>
+    <string name="error_photo_too_large">Zdjęcie jest za duże (limit 25 MB)</string>
+    <string name="error_empty_photo">Wybrany plik jest pusty</string>
+
+    <!-- Formatowanie -->
+    <string name="source_auto">Automatyczny</string>
+    <string name="source_manual">Ręczny</string>
+    <string name="source_fallback">Awaryjny</string>
+    <string name="provider_network_short">Sieć</string>
+    <string name="provider_network">Sieć / Wi-Fi</string>
+    <string name="provider_passive">Pasywny</string>
+    <string name="age_seconds">%1$d s temu</string>
+    <string name="age_minutes">%1$d min temu</string>
+    <string name="age_hours">%1$d h temu</string>
+    <plurals name="age_days">
+        <item quantity="one">%1$d dzień temu</item>
+        <item quantity="few">%1$d dni temu</item>
+        <item quantity="many">%1$d dni temu</item>
+        <item quantity="other">%1$d dnia temu</item>
+    </plurals>
+
+    <!-- Intencje -->
+    <string name="parked_car_default">Zaparkowane auto</string>
+    <string name="open_navigation">Otwórz nawigację</string>
+</resources>

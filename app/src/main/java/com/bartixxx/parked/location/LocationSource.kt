@@ -1,7 +1,7 @@
 package com.bartixxx.parked.location
 
 /**
- * Abstraction over Android's LocationManager and the optional fused provider.
+ * Abstraction over Android's LocationManager.
  * Implementations must never throw for a missing permission; they return null instead.
  */
 interface LocationSource {

@@ -33,8 +33,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.bartixxx.parked.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -104,7 +106,7 @@ fun SpotPhoto(path: String, modifier: Modifier = Modifier) {
     if (image != null) {
         Image(
             bitmap = image,
-            contentDescription = "Zdjęcie miejsca parkingowego",
+            contentDescription = stringResource(R.string.photo_content_description),
             modifier = modifier,
             contentScale = ContentScale.Crop,
         )

@@ -28,10 +28,10 @@ object NotificationHelper {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         val monitor = NotificationChannel(
             CHANNEL_MONITOR,
-            "Monitorowanie w tle",
+            context.getString(R.string.notification_channel_name),
             NotificationManager.IMPORTANCE_LOW,
         ).apply {
-            description = "Wymagane przez Android powiadomienie usługi monitorującej Bluetooth"
+            description = context.getString(R.string.notification_channel_desc)
             setShowBadge(false)
             setSound(null, null)
             enableVibration(false)
@@ -60,7 +60,7 @@ object NotificationHelper {
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .setContentIntent(openAppIntent(context))
-            .addAction(0, "Zatrzymaj", stopMonitoringIntent(context))
+            .addAction(0, context.getString(R.string.notification_stop), stopMonitoringIntent(context))
             .build()
 
     fun updateMonitorNotification(context: Context, text: String) {

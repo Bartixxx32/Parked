@@ -95,7 +95,7 @@ class ParkingCaptureEngine(
         settings: AppSettings,
     ): CaptureOutcome {
         if (request.trigger == CaptureTrigger.AUTO && request.cycleId == null) {
-            return CaptureOutcome.Failed(CaptureFailure.INTERNAL_ERROR, "Brak identyfikatora cyklu")
+            return CaptureOutcome.Failed(CaptureFailure.INTERNAL_ERROR, "Missing cycle id")
         }
         return when (val acquisition = acquire(settings)) {
             is AcquisitionOutcome.Acquired -> save(request, acquisition.fix)
@@ -197,7 +197,7 @@ class ParkingCaptureEngine(
         fix: AcquiredFix,
     ): CaptureOutcome {
         if (request.trigger == CaptureTrigger.AUTO && request.cycleId == null) {
-            return CaptureOutcome.Failed(CaptureFailure.INTERNAL_ERROR, "Brak identyfikatora cyklu")
+            return CaptureOutcome.Failed(CaptureFailure.INTERNAL_ERROR, "Missing cycle id")
         }
 
         val now = clock()
@@ -233,10 +233,10 @@ class ParkingCaptureEngine(
     }
 
     private fun describe(validity: LocationValidity?): String? = when (validity) {
-        LocationValidity.INVALID_COORDINATES -> "Nieprawidłowe współrzędne"
-        LocationValidity.UNKNOWN_ACCURACY -> "Brak informacji o dokładności"
-        LocationValidity.LOW_ACCURACY -> "Zbyt niska dokładność GPS"
-        LocationValidity.STALE -> "Lokalizacja jest zbyt stara"
+        LocationValidity.INVALID_COORDINATES -> "Invalid coordinates"
+        LocationValidity.UNKNOWN_ACCURACY -> "Missing accuracy information"
+        LocationValidity.LOW_ACCURACY -> "GPS accuracy too low"
+        LocationValidity.STALE -> "Location is too old"
         LocationValidity.VALID, null -> null
     }
 

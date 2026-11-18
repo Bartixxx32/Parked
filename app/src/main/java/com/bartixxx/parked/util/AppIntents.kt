@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import com.bartixxx.parked.R
 
 object AppIntents {
 
@@ -90,10 +91,10 @@ object AppIntents {
     }
 
     fun navigateTo(context: Context, latitude: Double, longitude: Double, label: String): Boolean {
-        val encodedLabel = Uri.encode(label.ifBlank { "Zaparkowane auto" })
+        val encodedLabel = Uri.encode(label.ifBlank { context.getString(R.string.parked_car_default) })
         val uri = Uri.parse("geo:$latitude,$longitude?q=$latitude,$longitude($encodedLabel)")
         val intent = Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        val chooser = Intent.createChooser(intent, "Otwórz nawigację").apply {
+        val chooser = Intent.createChooser(intent, context.getString(R.string.open_navigation)).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         return start(context, chooser)

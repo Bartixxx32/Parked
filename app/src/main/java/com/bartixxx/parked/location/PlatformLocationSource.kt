@@ -17,8 +17,8 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 
 /**
- * LocationManager-based source. Works on every supported device, with or without
- * Google Play Services. GPS and network providers are queried together.
+ * LocationManager-based source. Uses the platform's fused provider on Android 12+ and
+ * queries GPS and network providers together. No proprietary dependencies.
  */
 class PlatformLocationSource(private val context: Context) : LocationSource {
 

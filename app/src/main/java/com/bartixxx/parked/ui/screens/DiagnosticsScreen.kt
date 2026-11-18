@@ -26,9 +26,11 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.bartixxx.parked.R
 import com.bartixxx.parked.data.db.DiagnosticLevel
 import com.bartixxx.parked.data.db.DiagnosticsEvent
 import com.bartixxx.parked.data.trigger.TriggerPhase
@@ -59,12 +61,12 @@ fun DiagnosticsScreen(
         item(key = "header") {
             Column {
                 Text(
-                    text = "Diagnostyka",
+                    text = stringResource(R.string.tab_diagnostics),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
-                    text = "Stan usługi, uprawnienia i lokalne logi zdarzeń.",
+                    text = stringResource(R.string.diag_subtitle),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -72,18 +74,31 @@ fun DiagnosticsScreen(
         }
 
         item(key = "status") {
-            SectionCard(title = "Stan monitorowania") {
-                InfoRow("Usługa", if (monitor.running) "działa" else "nie działa")
-                InfoRow("Faza", phaseLabel(monitor.phase))
-                InfoRow("Radio", monitor.targetName ?: monitor.targetAddress ?: "brak")
-                InfoRow("Połączone", if (monitor.connected) "tak" else "nie")
-                InfoRow("Cykl", monitor.cycleId.toString())
+            SectionCard(title = stringResource(R.string.section_monitor_state)) {
+                InfoRow(
+                    stringResource(R.string.service),
+                    stringResource(if (monitor.running) R.string.running else R.string.not_running),
+                )
+                InfoRow(stringResource(R.string.phase), phaseLabel(monitor.phase))
+                InfoRow(
+                    stringResource(R.string.label_radio),
+                    monitor.targetName ?: monitor.targetAddress
+                        ?: stringResource(R.string.no_data),
+                )
+                InfoRow(
+                    stringResource(R.string.connected),
+                    stringResource(if (monitor.connected) R.string.yes else R.string.no),
+                )
+                InfoRow(stringResource(R.string.cycle), monitor.cycleId.toString())
                 if (monitor.pendingAtEpochMs > 0L) {
-                    InfoRow("Zapis zaplanowany", Formatters.dateTime(monitor.pendingAtEpochMs))
+                    InfoRow(
+                        stringResource(R.string.save_scheduled),
+                        Formatters.dateTime(monitor.pendingAtEpochMs),
+                    )
                 }
                 if (monitor.lastError != null) {
                     Text(
-                        text = "Ostatni błąd: ${monitor.lastError}",
+                        text = stringResource(R.string.last_error, monitor.lastError),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                     )
@@ -92,20 +107,28 @@ fun DiagnosticsScreen(
         }
 
         item(key = "permissions") {
-            SectionCard(title = "Uprawnienia") {
-                PermissionStatusRow("Bluetooth", permissions.bluetoothPermission)
-                PermissionStatusRow("Lokalizacja", permissions.locationOk)
-                PermissionStatusRow("Lokalizacja w tle", permissions.backgroundLocation)
-                PermissionStatusRow("Bateria bez ograniczeń", permissions.batteryOptimizationIgnored)
-                PermissionStatusRow("Bluetooth włączony", permissions.bluetoothEnabled)
+            SectionCard(title = stringResource(R.string.section_permissions)) {
+                PermissionStatusRow(stringResource(R.string.bluetooth_access), permissions.bluetoothPermission)
+                PermissionStatusRow(stringResource(R.string.location), permissions.locationOk)
+                PermissionStatusRow(
+                    stringResource(R.string.background_location),
+                    permissions.backgroundLocation,
+                )
+                PermissionStatusRow(
+                    stringResource(R.string.battery_unrestricted),
+                    permissions.batteryOptimizationIgnored,
+                )
+                PermissionStatusRow(
+                    stringResource(R.string.bluetooth_on),
+                    permissions.bluetoothEnabled,
+                )
             }
         }
 
         item(key = "test") {
-            SectionCard(title = "Test lokalizacji") {
+            SectionCard(title = stringResource(R.string.section_location_test)) {
                 Text(
-                    text = "Pobiera pojedynczy pomiar GPS i pokazuje dokładność oraz wiek " +
-                        "współrzędnych. Nie zapisuje miejsca w historii.",
+                    text = stringResource(R.string.location_test_desc),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -129,7 +152,13 @@ fun DiagnosticsScreen(
                         )
                         Spacer(Modifier.size(8.dp))
                     }
-                    Text(if (uiState.testingLocation) "Pobieranie…" else "Sprawdź lokalizację")
+                    Text(
+                        if (uiState.testingLocation) {
+                            stringResource(R.string.fetching)
+                        } else {
+                            stringResource(R.string.check_location)
+                        },
+                    )
                 }
                 uiState.locationTestResult?.let { result ->
                     Text(
@@ -141,7 +170,7 @@ fun DiagnosticsScreen(
                 }
                 if (!permissions.locationOk) {
                     Text(
-                        text = "Najpierw przyznaj uprawnienie do lokalizacji.",
+                        text = stringResource(R.string.grant_location_first),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                     )
@@ -150,10 +179,9 @@ fun DiagnosticsScreen(
         }
 
         item(key = "logs_header") {
-            SectionCard(title = "Logi (${events.size})") {
+            SectionCard(title = stringResource(R.string.logs_title, events.size)) {
                 Text(
-                    text = "Zdarzenia są przechowywane lokalnie i ograniczone do 300 wpisów. " +
-                        "Nie zawierają pełnych współrzędnych poza testem GPS.",
+                    text = stringResource(R.string.logs_desc),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -168,7 +196,7 @@ fun DiagnosticsScreen(
                             modifier = Modifier.size(18.dp),
                         )
                         Spacer(Modifier.size(6.dp))
-                        Text("Udostępnij")
+                        Text(stringResource(R.string.action_share))
                     }
                     TextButton(
                         onClick = onClearLogs,
@@ -180,7 +208,7 @@ fun DiagnosticsScreen(
                             modifier = Modifier.size(18.dp),
                         )
                         Spacer(Modifier.size(6.dp))
-                        Text("Wyczyść")
+                        Text(stringResource(R.string.action_clear))
                     }
                 }
             }
@@ -189,8 +217,8 @@ fun DiagnosticsScreen(
         if (events.isEmpty()) {
             item(key = "empty") {
                 EmptyState(
-                    title = "Brak zdarzeń",
-                    subtitle = "Logi pojawią się po uruchomieniu monitorowania.",
+                    title = stringResource(R.string.no_events),
+                    subtitle = stringResource(R.string.no_events_subtitle),
                 ) {
                     Icon(
                         Icons.Filled.BugReport,
@@ -252,10 +280,11 @@ private fun EventRow(event: DiagnosticsEvent) {
     }
 }
 
+@Composable
 private fun phaseLabel(phase: TriggerPhase): String = when (phase) {
-    TriggerPhase.UNARMED -> "oczekiwanie"
-    TriggerPhase.CONNECTED -> "połączono"
-    TriggerPhase.PENDING -> "zaplanowany zapis"
-    TriggerPhase.CAPTURING -> "pobieranie lokalizacji"
-    TriggerPhase.SAVED -> "zapisano"
+    TriggerPhase.UNARMED -> stringResource(R.string.phase_state_unarmed)
+    TriggerPhase.CONNECTED -> stringResource(R.string.phase_state_connected)
+    TriggerPhase.PENDING -> stringResource(R.string.phase_state_pending)
+    TriggerPhase.CAPTURING -> stringResource(R.string.phase_state_capturing)
+    TriggerPhase.SAVED -> stringResource(R.string.phase_state_saved)
 }

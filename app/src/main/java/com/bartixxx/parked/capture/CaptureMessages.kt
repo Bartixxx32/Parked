@@ -1,21 +1,25 @@
 package com.bartixxx.parked.capture
 
-import com.bartixxx.parked.data.db.ParkingSpot
+import androidx.annotation.StringRes
+import com.bartixxx.parked.R
 
-fun CaptureFailure.userMessage(): String = when (this) {
-    CaptureFailure.NO_LOCATION ->
-        "Nie udało się ustalić lokalizacji. Sprawdź GPS i uprawnienia do lokalizacji."
-    CaptureFailure.INVALID_COORDINATES ->
-        "Odrzucono nieprawidłowe współrzędne. Spróbuj ponownie na zewnątrz."
-    CaptureFailure.LOW_ACCURACY ->
-        "Dokładność GPS była zbyt niska. Zwiększ limit dokładności lub spróbuj później."
-    CaptureFailure.STALE_LOCATION ->
-        "Lokalizacja była zbyt stara. Włącz dokładne GPS i spróbuj ponownie."
-    CaptureFailure.STORAGE_ERROR ->
-        "Nie udało się zapisać miejsca w bazie danych."
-    CaptureFailure.INTERNAL_ERROR ->
-        "Wystąpił błąd wewnętrzny podczas zapisu."
+/** Localized message shown to the user in the UI. */
+@StringRes
+fun CaptureFailure.userMessageRes(): Int = when (this) {
+    CaptureFailure.NO_LOCATION -> R.string.failure_no_location
+    CaptureFailure.INVALID_COORDINATES -> R.string.failure_invalid_coordinates
+    CaptureFailure.LOW_ACCURACY -> R.string.failure_low_accuracy
+    CaptureFailure.STALE_LOCATION -> R.string.failure_stale_location
+    CaptureFailure.STORAGE_ERROR -> R.string.failure_storage
+    CaptureFailure.INTERNAL_ERROR -> R.string.failure_internal
 }
 
-fun ParkingSpot.accuracyLabel(): String =
-    accuracyMeters?.let { "${it.toInt()} m" } ?: "brak danych"
+/** Technical description stored in the diagnostics log, always in English. */
+fun CaptureFailure.diagnosticMessage(): String = when (this) {
+    CaptureFailure.NO_LOCATION -> "No location fix"
+    CaptureFailure.INVALID_COORDINATES -> "Invalid coordinates"
+    CaptureFailure.LOW_ACCURACY -> "GPS accuracy too low"
+    CaptureFailure.STALE_LOCATION -> "Location fix too old"
+    CaptureFailure.STORAGE_ERROR -> "Storage error"
+    CaptureFailure.INTERNAL_ERROR -> "Internal error"
+}

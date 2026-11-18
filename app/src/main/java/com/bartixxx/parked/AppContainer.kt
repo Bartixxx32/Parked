@@ -9,8 +9,8 @@ import com.bartixxx.parked.data.ParkingRepository
 import com.bartixxx.parked.data.db.AppDatabase
 import com.bartixxx.parked.data.settings.SettingsRepository
 import com.bartixxx.parked.data.trigger.TriggerStateRepository
-import com.bartixxx.parked.location.CompositeLocationSource
 import com.bartixxx.parked.location.LocationSource
+import com.bartixxx.parked.location.PlatformLocationSource
 import com.bartixxx.parked.monitor.MonitorStateHolder
 import com.bartixxx.parked.notifications.NotificationHelper
 import kotlinx.coroutines.CoroutineScope
@@ -42,9 +42,7 @@ class AppContainer(context: Context) {
     val bluetoothRepository by lazy { BluetoothRepository(appContext) }
 
     val locationSource: LocationSource by lazy {
-        CompositeLocationSource(appContext) { message ->
-            diagnosticsRepository.info("GPS", message)
-        }
+        PlatformLocationSource(appContext)
     }
 
     val captureEngine by lazy {

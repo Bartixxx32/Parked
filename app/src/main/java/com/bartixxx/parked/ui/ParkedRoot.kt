@@ -1,6 +1,7 @@
 package com.bartixxx.parked.ui
 
 import android.Manifest
+import androidx.annotation.StringRes
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
@@ -30,10 +31,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.bartixxx.parked.R
 import com.bartixxx.parked.data.db.ParkingSpot
 import com.bartixxx.parked.ui.screens.DashboardScreen
 import com.bartixxx.parked.ui.screens.DiagnosticsScreen
@@ -46,12 +49,12 @@ import com.bartixxx.parked.util.AppIntents
 import com.bartixxx.parked.util.PermissionUtils
 import kotlinx.coroutines.flow.collectLatest
 
-private enum class ParkedTab(val label: String, val icon: ImageVector) {
-    DASHBOARD("Pulpit", Icons.Filled.Home),
-    HISTORY("Historia", Icons.Filled.History),
-    MAP("Mapa", Icons.Filled.Map),
-    SETTINGS("Ustawienia", Icons.Filled.Settings),
-    DIAGNOSTICS("Diagnostyka", Icons.Filled.BugReport),
+private enum class ParkedTab(@StringRes val labelRes: Int, val icon: ImageVector) {
+    DASHBOARD(R.string.tab_dashboard, Icons.Filled.Home),
+    HISTORY(R.string.tab_history, Icons.Filled.History),
+    MAP(R.string.tab_map, Icons.Filled.Map),
+    SETTINGS(R.string.tab_settings, Icons.Filled.Settings),
+    DIAGNOSTICS(R.string.tab_diagnostics, Icons.Filled.BugReport),
 }
 
 @Composable
@@ -122,37 +125,37 @@ fun ParkedRoot(viewModel: MainViewModel) {
 
     val openBatterySettings: () -> Unit = {
         if (!AppIntents.requestIgnoreBatteryOptimizations(context)) {
-            notifyFailure("Nie udało się otworzyć ustawień baterii")
+            notifyFailure(context.getString(R.string.msg_open_battery_settings_failed))
         }
     }
     val openAutostartSettings: () -> Unit = {
         if (!AppIntents.openAutostartSettings(context)) {
-            notifyFailure("Nie udało się otworzyć ustawień autostartu")
+            notifyFailure(context.getString(R.string.msg_open_autostart_settings_failed))
         }
     }
     val openLocationSettings: () -> Unit = {
         if (!AppIntents.openLocationSettings(context)) {
-            notifyFailure("Nie udało się otworzyć ustawień lokalizacji")
+            notifyFailure(context.getString(R.string.msg_open_location_settings_failed))
         }
     }
     val openBluetoothSettings: () -> Unit = {
         if (!AppIntents.openBluetoothSettings(context)) {
-            notifyFailure("Nie udało się otworzyć ustawień Bluetooth")
+            notifyFailure(context.getString(R.string.msg_open_bluetooth_settings_failed))
         }
     }
     val openNotificationSettings: () -> Unit = {
         if (!AppIntents.openNotificationSettings(context)) {
-            notifyFailure("Nie udało się otworzyć ustawień powiadomień")
+            notifyFailure(context.getString(R.string.msg_open_notification_settings_failed))
         }
     }
     val openAppSettings: () -> Unit = {
         if (!AppIntents.openAppDetails(context)) {
-            notifyFailure("Nie udało się otworzyć ustawień aplikacji")
+            notifyFailure(context.getString(R.string.msg_open_app_settings_failed))
         }
     }
     val navigateTo: (ParkingSpot) -> Unit = { spot ->
         if (!AppIntents.navigateTo(context, spot.latitude, spot.longitude, spot.note)) {
-            notifyFailure("Brak aplikacji do nawigacji")
+            notifyFailure(context.getString(R.string.msg_no_navigation_app))
         }
     }
     val openMap: (ParkingSpot) -> Unit = { spot ->
@@ -164,6 +167,7 @@ fun ParkedRoot(viewModel: MainViewModel) {
         bottomBar = {
             NavigationBar {
                 ParkedTab.entries.forEach { item ->
+                    val label = stringResource(item.labelRes)
                     NavigationBarItem(
                         selected = tab == item,
                         onClick = {
@@ -171,9 +175,9 @@ fun ParkedRoot(viewModel: MainViewModel) {
                             tabName = item.name
                         },
                         icon = {
-                            Icon(item.icon, contentDescription = item.label)
+                            Icon(item.icon, contentDescription = label)
                         },
-                        label = { Text(item.label) },
+                        label = { Text(label) },
                     )
                 }
             }

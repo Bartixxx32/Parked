@@ -24,9 +24,11 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.bartixxx.parked.R
 import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
@@ -125,10 +127,11 @@ fun TargetCompass(
     val heading = azimuthDegrees ?: 0f
     val direction = cardinalDirection(bearingDegrees)
     val roundedBearing = bearingDegrees.roundToInt()
+    val description = stringResource(R.string.compass_description, direction, roundedBearing)
 
     Canvas(
         modifier = modifier.semantics {
-            contentDescription = "Kompas do celu: $direction, $roundedBearing stopni"
+            contentDescription = description
         },
     ) {
         val radius = size.minDimension / 2f

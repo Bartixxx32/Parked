@@ -2,6 +2,7 @@ package com.bartixxx.parked.data
 
 import android.content.Context
 import android.net.Uri
+import com.bartixxx.parked.R
 import com.bartixxx.parked.data.db.ParkingSpot
 import com.bartixxx.parked.data.db.ParkingSpotDao
 import com.bartixxx.parked.data.db.SpotSource
@@ -36,7 +37,7 @@ class ParkingRepository(
         note: String,
     ): Long {
         require(LocationValidator.coordinatesValid(latitude, longitude)) {
-            "Nieprawidłowe współrzędne"
+            context.getString(R.string.msg_invalid_coordinates)
         }
         val now = System.currentTimeMillis()
         return dao.insert(
@@ -70,7 +71,7 @@ class ParkingRepository(
 
     suspend fun attachPhoto(spotId: Long, uri: Uri): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
-            val spot = dao.byId(spotId) ?: error("Nie znaleziono wpisu")
+            val spot = dao.byId(spotId) ?: error("Spot not found")
             val newFile = copyPhotoToInternalStorage(spotId, uri)
             try {
                 spot.photoPath?.let { old -> deletePhotoFile(old) }
@@ -95,7 +96,7 @@ class ParkingRepository(
         val target = File(photosDir(), "spot_${spotId}_${System.currentTimeMillis()}.jpg")
         try {
             val input = context.contentResolver.openInputStream(uri)
-                ?: throw IOException("Nie można otworzyć wybranego zdjęcia")
+                ?: throw IOException(context.getString(R.string.error_open_photo))
             input.use { source ->
                 target.outputStream().use { output ->
                     val buffer = ByteArray(16 * 1024)
@@ -105,13 +106,13 @@ class ParkingRepository(
                         if (read < 0) break
                         total += read
                         if (total > MAX_PHOTO_BYTES) {
-                            throw IOException("Zdjęcie jest za duże (limit 25 MB)")
+                            throw IOException(context.getString(R.string.error_photo_too_large))
                         }
                         output.write(buffer, 0, read)
                     }
                 }
             }
-            if (target.length() <= 0L) throw IOException("Wybrany plik jest pusty")
+            if (target.length() <= 0L) throw IOException(context.getString(R.string.error_empty_photo))
             return target
         } catch (error: Exception) {
             target.delete()

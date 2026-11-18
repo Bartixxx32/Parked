@@ -49,11 +49,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.bartixxx.parked.R
 import com.bartixxx.parked.data.db.ParkingSpot
 import com.bartixxx.parked.data.db.SpotSource
 import com.bartixxx.parked.ui.Formatters
@@ -327,7 +329,7 @@ fun MapScreen(
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = "Mapa",
+                        text = stringResource(R.string.map_title),
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.SemiBold,
                     )
@@ -353,12 +355,12 @@ fun MapScreen(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
-                            text = "Brak dostępu do lokalizacji",
+                            text = stringResource(R.string.no_location_access),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onErrorContainer,
                         )
                         TextButton(onClick = onRequestPermissions) {
-                            Text("Przyznaj")
+                            Text(stringResource(R.string.action_grant))
                         }
                     }
                 }
@@ -379,17 +381,17 @@ fun MapScreen(
             ) {
                 MapControlButton(
                     icon = Icons.Filled.Add,
-                    contentDescription = "Przybliż mapę",
+                    contentDescription = stringResource(R.string.cd_zoom_in),
                     onClick = { mapView.controller.zoomIn() },
                 )
                 MapControlButton(
                     icon = Icons.Filled.Remove,
-                    contentDescription = "Oddal mapę",
+                    contentDescription = stringResource(R.string.cd_zoom_out),
                     onClick = { mapView.controller.zoomOut() },
                 )
                 MapControlButton(
                     icon = Icons.Filled.MyLocation,
-                    contentDescription = "Moja pozycja",
+                    contentDescription = stringResource(R.string.cd_my_location),
                     highlighted = permissions.locationOk && userLocation != null,
                     onClick = centerOnMyLocation,
                 )
@@ -494,12 +496,12 @@ private fun SpotCard(
                     }
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(
-                            text = "Brak zapisanych miejsc",
+                            text = stringResource(R.string.map_empty_title),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
                         )
                         Text(
-                            text = "Po rozłączeniu z radiem zapiszę tutaj miejsce postoju.",
+                            text = stringResource(R.string.map_empty_subtitle),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -507,7 +509,7 @@ private fun SpotCard(
                 }
                 if (!hasLocationAccess) {
                     TextButton(onClick = onOpenSettings) {
-                        Text("Sprawdź uprawnienia w ustawieniach")
+                        Text(stringResource(R.string.map_check_permissions))
                     }
                 }
             } else {
@@ -521,7 +523,13 @@ private fun SpotCard(
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
                         Text(
-                            text = if (isSelected) "WYBRANE MIEJSCE" else "OSTATNIE MIEJSCE",
+                            text = stringResource(
+                                if (isSelected) {
+                                    R.string.map_selected_spot
+                                } else {
+                                    R.string.map_latest_spot
+                                },
+                            ),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold,
@@ -540,7 +548,7 @@ private fun SpotCard(
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             InfoChip(
                                 text = spot.accuracyMeters?.let { "±${it.roundToInt()} m" }
-                                    ?: "bez dokładności",
+                                    ?: stringResource(R.string.map_no_accuracy),
                                 emphasized = false,
                             )
                             InfoChip(
@@ -548,7 +556,7 @@ private fun SpotCard(
                                 emphasized = false,
                             )
                             if (spot.isFallback) {
-                                InfoChip(text = "awaryjny", emphasized = true)
+                                InfoChip(text = stringResource(R.string.map_fallback_chip), emphasized = true)
                             }
                         }
                     }
@@ -581,16 +589,16 @@ private fun SpotCard(
                 if (distanceBearing == null) {
                     Text(
                         text = if (hasLocationAccess) {
-                            "Ustalam Twoją pozycję, aby pokazać kompas do celu…"
+                            stringResource(R.string.map_locating)
                         } else {
-                            "Włącz lokalizację, aby zobaczyć kompas i odległość do celu."
+                            stringResource(R.string.map_enable_location)
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 } else if (azimuthDegrees == null) {
                     Text(
-                        text = "Brak czujnika kompasu — strzałka wskazuje kierunek względem północy.",
+                        text = stringResource(R.string.map_no_compass),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -621,7 +629,7 @@ private fun SpotCard(
                             modifier = Modifier.size(18.dp),
                         )
                         Spacer(Modifier.width(8.dp))
-                        Text("Nawiguj")
+                        Text(stringResource(R.string.action_navigate))
                     }
                     if (isSelected) {
                         IconButton(
@@ -630,7 +638,7 @@ private fun SpotCard(
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.Close,
-                                contentDescription = "Odznacz miejsce",
+                                contentDescription = stringResource(R.string.cd_clear_selection),
                             )
                         }
                     }
@@ -638,7 +646,7 @@ private fun SpotCard(
             }
 
             Text(
-                text = "© OpenStreetMap contributors",
+                text = stringResource(R.string.map_attribution),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.align(Alignment.CenterHorizontally),

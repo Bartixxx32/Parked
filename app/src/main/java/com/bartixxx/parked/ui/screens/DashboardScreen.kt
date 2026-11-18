@@ -38,8 +38,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.bartixxx.parked.R
 import com.bartixxx.parked.data.db.ParkingSpot
 import com.bartixxx.parked.data.settings.AppSettings
 import com.bartixxx.parked.data.trigger.TriggerPhase
@@ -109,14 +111,14 @@ fun DashboardScreen(
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
-                    text = "Miejsce parkingowe zapisze się po rozłączeniu z radiem",
+                    text = stringResource(R.string.dashboard_subtitle),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
 
-        SectionCard(title = "Monitorowanie") {
+        SectionCard(title = stringResource(R.string.section_monitoring)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -161,17 +163,24 @@ fun DashboardScreen(
                 Spacer(Modifier.size(8.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Radio samochodowe",
+                        text = stringResource(R.string.car_radio),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
-                        text = settings.deviceName ?: settings.deviceAddress ?: "nie wybrano",
+                        text = settings.deviceName ?: settings.deviceAddress
+                            ?: stringResource(R.string.not_selected),
                         style = MaterialTheme.typography.bodyLarge,
                     )
                 }
                 TextButton(onClick = onOpenSettings) {
-                    Text(if (settings.deviceAddress == null) "Wybierz" else "Zmień")
+                    Text(
+                        if (settings.deviceAddress == null) {
+                            stringResource(R.string.action_choose)
+                        } else {
+                            stringResource(R.string.action_change)
+                        },
+                    )
                 }
             }
 
@@ -186,20 +195,19 @@ fun DashboardScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = "Zapis lokalizacji za ok. $remainingSeconds s",
+                        text = stringResource(R.string.pending_save_in, remainingSeconds),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.tertiary,
                     )
                     TextButton(onClick = onCancelPending) {
-                        Text("Anuluj")
+                        Text(stringResource(R.string.action_cancel))
                     }
                 }
             }
 
             if (settings.monitoringEnabled && !monitor.running) {
                 Text(
-                    text = "Usługa monitorowania nie działa. System mógł ją zatrzymać, " +
-                        "albo nie udało się jej uruchomić.",
+                    text = stringResource(R.string.service_not_running_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )
@@ -207,14 +215,13 @@ fun DashboardScreen(
                     onClick = { onToggleMonitoring(true) },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("Uruchom monitorowanie ponownie")
+                    Text(stringResource(R.string.restart_monitoring))
                 }
             }
 
             if (settings.deviceAddress == null) {
                 Text(
-                    text = "Aby zacząć, sparuj radio w systemowych ustawieniach Bluetooth, " +
-                        "a potem wskaż je w ustawieniach aplikacji.",
+                    text = stringResource(R.string.setup_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -241,27 +248,27 @@ fun DashboardScreen(
         }
 
         if (reliabilityProblems) {
-            SectionCard(title = "Uprawnienia i niezawodność") {
+            SectionCard(title = stringResource(R.string.section_permissions_reliability)) {
                 PermissionStatusRow(
-                    title = "Dostęp do Bluetooth",
+                    title = stringResource(R.string.bluetooth_access),
                     granted = permissions.bluetoothPermission,
-                    detail = "Wymagany do wykrywania połączenia z radiem.",
+                    detail = stringResource(R.string.bluetooth_access_detail),
                 )
                 PermissionStatusRow(
-                    title = "Lokalizacja",
+                    title = stringResource(R.string.location),
                     granted = permissions.locationOk,
                     detail = if (permissions.locationOk) {
-                        "Dokładna lub przybliżona — do ustalenia miejsca."
+                        stringResource(R.string.location_granted_detail)
                     } else {
-                        "Bez niej nie da się zapisać współrzędnych."
+                        stringResource(R.string.location_denied_detail)
                     },
                 )
                 PermissionStatusRow(
-                    title = "Lokalizacja w tle",
+                    title = stringResource(R.string.background_location),
                     granted = permissions.backgroundLocation,
-                    detail = "\"Zawsze pozwalaj\" — potrzebne przy zablokowanym telefonie.",
+                    detail = stringResource(R.string.background_location_detail),
                     actionLabel = if (permissions.locationOk && !permissions.backgroundLocation) {
-                        "Włącz"
+                        stringResource(R.string.action_enable)
                     } else {
                         null
                     },
@@ -272,17 +279,17 @@ fun DashboardScreen(
                     },
                 )
                 PermissionStatusRow(
-                    title = "Bluetooth włączony",
+                    title = stringResource(R.string.bluetooth_on),
                     granted = permissions.bluetoothEnabled,
-                    detail = "Włącz Bluetooth w systemie.",
-                    actionLabel = if (!permissions.bluetoothEnabled) "Ustawienia" else null,
+                    detail = stringResource(R.string.bluetooth_on_detail),
+                    actionLabel = if (!permissions.bluetoothEnabled) stringResource(R.string.action_settings) else null,
                     onAction = if (!permissions.bluetoothEnabled) onOpenBluetoothSettings else null,
                 )
                 PermissionStatusRow(
-                    title = "Optymalizacja baterii wyłączona",
+                    title = stringResource(R.string.battery_optimization_off),
                     granted = permissions.batteryOptimizationIgnored,
-                    detail = "Zmniejsza ryzyko ubicia usługi przez system.",
-                    actionLabel = if (!permissions.batteryOptimizationIgnored) "Zmień" else null,
+                    detail = stringResource(R.string.battery_optimization_detail),
+                    actionLabel = if (!permissions.batteryOptimizationIgnored) stringResource(R.string.action_change) else null,
                     onAction = if (!permissions.batteryOptimizationIgnored) onBatterySettings else null,
                 )
 
@@ -291,7 +298,7 @@ fun DashboardScreen(
                         onClick = onRequestPermissions,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text("Przyznaj wymagane uprawnienia")
+                        Text(stringResource(R.string.grant_required_permissions))
                     }
                 }
                 if (missingBackground) {
@@ -299,18 +306,18 @@ fun DashboardScreen(
                         onClick = onRequestBackgroundLocation,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text("Zezwól na lokalizację w tle")
+                        Text(stringResource(R.string.allow_background_location))
                     }
                 }
             }
         }
 
-        SectionCard(title = "Ostatnie miejsce") {
+        SectionCard(title = stringResource(R.string.section_latest_spot)) {
             val spot = latestSpot
             if (spot == null) {
                 EmptyState(
-                    title = "Brak zapisanych miejsc",
-                    subtitle = "Tutaj pojawi się pierwsze automatyczne lub ręczne miejsce.",
+                    title = stringResource(R.string.no_spots),
+                    subtitle = stringResource(R.string.no_spots_subtitle),
                 ) {
                     Icon(
                         imageVector = Icons.Filled.LocationOn,
@@ -329,22 +336,25 @@ fun DashboardScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                InfoRow("Współrzędne", Formatters.coordinates(spot.latitude, spot.longitude))
-                InfoRow("Dokładność", Formatters.accuracy(spot))
-                InfoRow("Źródło", Formatters.source(spot))
+                InfoRow(
+                    stringResource(R.string.label_coordinates),
+                    Formatters.coordinates(spot.latitude, spot.longitude),
+                )
+                InfoRow(stringResource(R.string.label_accuracy), Formatters.accuracy(spot))
+                InfoRow(stringResource(R.string.label_source), Formatters.source(spot))
                 if (spot.note.isNotBlank()) {
-                    InfoRow("Notatka", spot.note)
+                    InfoRow(stringResource(R.string.label_note), spot.note)
                 }
                 if (spot.isFallback) {
                     Text(
-                        text = "Punkt awaryjny: użyto ostatniej znanej lokalizacji.",
+                        text = stringResource(R.string.fallback_point_warning),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.tertiary,
                     )
                 }
                 if (spot.isMock) {
                     Text(
-                        text = "Uwaga: lokalizacja pochodzi z providera testowego (mock).",
+                        text = stringResource(R.string.mock_point_warning),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                     )
@@ -365,11 +375,17 @@ fun DashboardScreen(
                         Icon(Icons.Filled.Save, contentDescription = null, modifier = Modifier.size(18.dp))
                     }
                     Spacer(Modifier.size(8.dp))
-                    Text(if (saving) "Zapisywanie…" else "Zapisz bieżącą lokalizację")
+                    Text(
+                        if (saving) {
+                            stringResource(R.string.saving)
+                        } else {
+                            stringResource(R.string.save_current_location)
+                        },
+                    )
                 }
                 if (!permissions.locationOk) {
                     Text(
-                        text = "Zapis ręczny wymaga uprawnienia do lokalizacji.",
+                        text = stringResource(R.string.manual_save_requires_location),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                     )
@@ -382,7 +398,7 @@ fun DashboardScreen(
                     ) {
                         Icon(Icons.Filled.Map, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.size(6.dp))
-                        Text("Mapa")
+                        Text(stringResource(R.string.action_map))
                     }
                     FilledTonalButton(
                         onClick = { onNavigate(spot) },
@@ -394,21 +410,20 @@ fun DashboardScreen(
                             modifier = Modifier.size(18.dp),
                         )
                         Spacer(Modifier.size(6.dp))
-                        Text("Nawiguj")
+                        Text(stringResource(R.string.action_navigate))
                     }
                 }
                 TextButton(onClick = onOpenHistory, modifier = Modifier.fillMaxWidth()) {
                     Icon(Icons.Filled.History, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.size(6.dp))
-                    Text("Cała historia")
+                    Text(stringResource(R.string.full_history))
                 }
             }
         }
 
-        SectionCard(title = "Niezawodność na Androidzie") {
+        SectionCard(title = stringResource(R.string.section_reliability)) {
             Text(
-                text = "Android i nakładki producentów (np. ColorOS) mogą ograniczać pracę " +
-                    "w tle i zabijać usługi. Aby zwiększyć szansę na automatyczny zapis:",
+                text = stringResource(R.string.reliability_intro),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -421,15 +436,14 @@ fun DashboardScreen(
                     modifier = Modifier.padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    Text("• pozwól aplikacji działać w tle bez ograniczeń,", style = MaterialTheme.typography.bodySmall)
-                    Text("• włącz autostart dla Parked,", style = MaterialTheme.typography.bodySmall)
-                    Text("• wyłącz optymalizację baterii dla Parked,", style = MaterialTheme.typography.bodySmall)
-                    Text("• nie usuwaj aplikacji z listy ostatnich zadań.", style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(R.string.reliability_bullet_background), style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(R.string.reliability_bullet_autostart), style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(R.string.reliability_bullet_battery), style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(R.string.reliability_bullet_recents), style = MaterialTheme.typography.bodySmall)
                 }
             }
             Text(
-                text = "Żadna aplikacja nie może zagwarantować zapisu, jeśli system ją zabije. " +
-                    "W razie potrzeby użyj przycisku ręcznego zapisu.",
+                text = stringResource(R.string.reliability_outro),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -438,13 +452,13 @@ fun DashboardScreen(
                     onClick = onBatterySettings,
                     modifier = Modifier.weight(1f),
                 ) {
-                    Text("Bateria")
+                    Text(stringResource(R.string.action_battery))
                 }
                 FilledTonalButton(
                     onClick = onAutostartSettings,
                     modifier = Modifier.weight(1f),
                 ) {
-                    Text("Autostart")
+                    Text(stringResource(R.string.action_autostart))
                 }
             }
         }
@@ -457,27 +471,27 @@ private fun PhaseBadge(phase: TriggerPhase) {
     val color: Color
     when (phase) {
         TriggerPhase.UNARMED -> {
-            label = "Oczekiwanie na połączenie"
+            label = stringResource(R.string.phase_unarmed)
             color = MaterialTheme.colorScheme.outline
         }
 
         TriggerPhase.CONNECTED -> {
-            label = "Radio połączone"
+            label = stringResource(R.string.phase_connected)
             color = MaterialTheme.colorScheme.primary
         }
 
         TriggerPhase.PENDING -> {
-            label = "Za chwilę zapis"
+            label = stringResource(R.string.phase_pending)
             color = MaterialTheme.colorScheme.tertiary
         }
 
         TriggerPhase.CAPTURING -> {
-            label = "Ustalanie lokalizacji…"
+            label = stringResource(R.string.phase_capturing)
             color = MaterialTheme.colorScheme.tertiary
         }
 
         TriggerPhase.SAVED -> {
-            label = "Miejsce zapisane"
+            label = stringResource(R.string.phase_saved)
             color = MaterialTheme.colorScheme.primary
         }
     }
@@ -494,15 +508,17 @@ private fun PhaseBadge(phase: TriggerPhase) {
     }
 }
 
+@Composable
 private fun statusTitle(settings: AppSettings, monitor: MonitorRuntimeState): String = when {
-    !settings.monitoringEnabled -> "Monitorowanie wyłączone"
-    settings.deviceAddress.isNullOrBlank() -> "Nie wybrano radia"
-    !monitor.running -> "Usługa nie działa"
-    monitor.connected -> "Radio połączone"
-    monitor.phase == TriggerPhase.PENDING -> "Rozłączono — szykuję zapis"
-    else -> "Oczekiwanie na radio"
+    !settings.monitoringEnabled -> stringResource(R.string.status_monitoring_off)
+    settings.deviceAddress.isNullOrBlank() -> stringResource(R.string.status_no_radio)
+    !monitor.running -> stringResource(R.string.status_service_stopped)
+    monitor.connected -> stringResource(R.string.status_radio_connected)
+    monitor.phase == TriggerPhase.PENDING -> stringResource(R.string.status_disconnected_saving)
+    else -> stringResource(R.string.status_waiting_radio)
 }
 
+@Composable
 private fun statusDetail(
     settings: AppSettings,
     monitor: MonitorRuntimeState,
@@ -510,20 +526,20 @@ private fun statusDetail(
     remainingSeconds: Long,
 ): String = when {
     !settings.monitoringEnabled ->
-        "Włącz monitorowanie, aby zapis następował automatycznie po rozłączeniu."
+        stringResource(R.string.status_detail_monitoring_off)
 
     settings.deviceAddress.isNullOrBlank() ->
-        "Wybierz sparowane radio samochodowe."
+        stringResource(R.string.status_detail_no_radio)
 
     !monitor.running ->
-        "Usługa monitorowania została zatrzymana."
+        stringResource(R.string.status_detail_service_stopped)
 
     pending ->
-        "Zapis lokalizacji za ok. $remainingSeconds s. Ponowne połączenie anuluje zapis."
+        stringResource(R.string.status_detail_pending, remainingSeconds)
 
     monitor.connected ->
-        "Po rozłączeniu zapis nastąpi po ${settings.saveDelaySeconds} s."
+        stringResource(R.string.status_detail_connected, settings.saveDelaySeconds)
 
     else ->
-        "Połącz się z radiem. Rozłączenie uruchomi procedurę zapisu."
+        stringResource(R.string.status_detail_waiting)
 }

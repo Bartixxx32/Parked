@@ -109,7 +109,7 @@ object ParkingExporter {
                 "http://www.topografix.com/GPX/1/1/gpx.xsd\">\n",
         )
         append("  <metadata>\n")
-        append("    <name>Parked — miejsca parkingowe</name>\n")
+        append("    <name>Parked — parking spots</name>\n")
         append("    <time>").append(now.toString()).append("</time>\n")
         append("  </metadata>\n")
         spots.forEach { spot ->
@@ -127,9 +127,9 @@ object ParkingExporter {
                 .append(
                     xml(
                         buildString {
-                            append("Źródło: ").append(spot.source)
-                            spot.accuracyMeters?.let { append("; dokładność: ").append(it).append(" m") }
-                            if (spot.isFallback) append("; punkt awaryjny (ostatnia znana lokalizacja)")
+                            append("Source: ").append(spot.source)
+                            spot.accuracyMeters?.let { append("; accuracy: ").append(it).append(" m") }
+                            if (spot.isFallback) append("; emergency point (last known location)")
                         },
                     ),
                 )

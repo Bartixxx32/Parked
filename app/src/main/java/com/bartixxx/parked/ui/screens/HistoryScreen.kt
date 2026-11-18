@@ -48,10 +48,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.KeyboardOptions
+import com.bartixxx.parked.R
 import com.bartixxx.parked.data.db.ParkingSpot
 import com.bartixxx.parked.export.ExportFormat
 import com.bartixxx.parked.ui.Formatters
@@ -107,12 +110,16 @@ fun HistoryScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Historia",
+                            text = stringResource(R.string.tab_history),
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
                         )
                         Text(
-                            text = "${spots.size} miejsc • dane pozostają na tym urządzeniu",
+                            text = pluralStringResource(
+                                R.plurals.history_count,
+                                spots.size,
+                                spots.size,
+                            ),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -122,28 +129,28 @@ fun HistoryScreen(
                             onClick = { exportMenuOpen = true },
                             enabled = spots.isNotEmpty(),
                         ) {
-                            Icon(Icons.Filled.FileDownload, contentDescription = "Eksportuj")
+                            Icon(Icons.Filled.FileDownload, contentDescription = stringResource(R.string.action_export))
                         }
                         DropdownMenu(
                             expanded = exportMenuOpen,
                             onDismissRequest = { exportMenuOpen = false },
                         ) {
                             DropdownMenuItem(
-                                text = { Text("Eksport JSON") },
+                                text = { Text(stringResource(R.string.export_json)) },
                                 onClick = {
                                     exportMenuOpen = false
                                     jsonExport.launch(onSuggestedExportName(ExportFormat.JSON))
                                 },
                             )
                             DropdownMenuItem(
-                                text = { Text("Eksport CSV") },
+                                text = { Text(stringResource(R.string.export_csv)) },
                                 onClick = {
                                     exportMenuOpen = false
                                     csvExport.launch(onSuggestedExportName(ExportFormat.CSV))
                                 },
                             )
                             DropdownMenuItem(
-                                text = { Text("Eksport GPX") },
+                                text = { Text(stringResource(R.string.export_gpx)) },
                                 onClick = {
                                     exportMenuOpen = false
                                     gpxExport.launch(onSuggestedExportName(ExportFormat.GPX))
@@ -155,7 +162,7 @@ fun HistoryScreen(
                         onClick = { showDeleteAllDialog = true },
                         enabled = spots.isNotEmpty(),
                     ) {
-                        Icon(Icons.Filled.DeleteSweep, contentDescription = "Usuń całą historię")
+                        Icon(Icons.Filled.DeleteSweep, contentDescription = stringResource(R.string.delete_history))
                     }
                 }
                 FilledTonalButton(
@@ -164,7 +171,7 @@ fun HistoryScreen(
                 ) {
                     Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.size(8.dp))
-                    Text("Dodaj miejsce ręcznie")
+                    Text(stringResource(R.string.add_manual_spot))
                 }
             }
         }
@@ -172,8 +179,8 @@ fun HistoryScreen(
         if (spots.isEmpty()) {
             item(key = "empty") {
                 EmptyState(
-                    title = "Brak zapisanych miejsc",
-                    subtitle = "Połącz się z radiem i odjedź, albo dodaj miejsce ręcznie.",
+                    title = stringResource(R.string.no_spots),
+                    subtitle = stringResource(R.string.history_empty_subtitle),
                 ) {
                     Icon(
                         imageVector = Icons.Filled.LocationOn,
@@ -217,11 +224,13 @@ fun HistoryScreen(
     deleteTarget?.let { spot ->
         AlertDialog(
             onDismissRequest = { deleteTarget = null },
-            title = { Text("Usunąć wpis?") },
+            title = { Text(stringResource(R.string.delete_spot_title)) },
             text = {
                 Text(
-                    "Usunięte zostanie miejsce z ${Formatters.dateTime(spot.savedAtEpochMs)} " +
-                        "wraz z notatką i zdjęciem.",
+                    stringResource(
+                        R.string.delete_spot_message,
+                        Formatters.dateTime(spot.savedAtEpochMs),
+                    ),
                 )
             },
             confirmButton = {
@@ -231,12 +240,12 @@ fun HistoryScreen(
                         deleteTarget = null
                     },
                 ) {
-                    Text("Usuń")
+                    Text(stringResource(R.string.action_delete))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { deleteTarget = null }) {
-                    Text("Anuluj")
+                    Text(stringResource(R.string.action_cancel))
                 }
             },
         )
@@ -245,8 +254,8 @@ fun HistoryScreen(
     if (showDeleteAllDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteAllDialog = false },
-            title = { Text("Usunąć całą historię?") },
-            text = { Text("Tej operacji nie można cofnąć. Zdjęcia również zostaną usunięte.") },
+            title = { Text(stringResource(R.string.delete_all_title)) },
+            text = { Text(stringResource(R.string.delete_all_message)) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -254,12 +263,12 @@ fun HistoryScreen(
                         showDeleteAllDialog = false
                     },
                 ) {
-                    Text("Usuń wszystko")
+                    Text(stringResource(R.string.delete_all_confirm))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteAllDialog = false }) {
-                    Text("Anuluj")
+                    Text(stringResource(R.string.action_cancel))
                 }
             },
         )
@@ -303,7 +312,7 @@ private fun SpotCard(
                 IconButton(onClick = onDelete) {
                     Icon(
                         Icons.Filled.Delete,
-                        contentDescription = "Usuń wpis",
+                        contentDescription = stringResource(R.string.cd_delete_entry),
                         tint = MaterialTheme.colorScheme.error,
                     )
                 }
@@ -311,24 +320,27 @@ private fun SpotCard(
 
             if (spot.isFallback) {
                 Text(
-                    text = "Punkt awaryjny — ostatnia znana lokalizacja.",
+                    text = stringResource(R.string.fallback_point_short),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.tertiary,
                 )
             }
             if (spot.isMock) {
                 Text(
-                    text = "Lokalizacja testowa (mock).",
+                    text = stringResource(R.string.mock_point_short),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )
             }
 
-            InfoRow("Dokładność", Formatters.accuracy(spot))
-            InfoRow("Źródło pomiaru", Formatters.provider(spot.provider))
-            InfoRow("Pomiar", Formatters.dateTime(spot.fixTimeEpochMs))
-            InfoRow("Współrzędne", Formatters.coordinates(spot.latitude, spot.longitude))
-            spot.deviceName?.let { InfoRow("Radio", it) }
+            InfoRow(stringResource(R.string.label_accuracy), Formatters.accuracy(spot))
+            InfoRow(stringResource(R.string.label_source), Formatters.provider(spot.provider))
+            InfoRow(stringResource(R.string.label_fix), Formatters.dateTime(spot.fixTimeEpochMs))
+            InfoRow(
+                stringResource(R.string.label_coordinates),
+                Formatters.coordinates(spot.latitude, spot.longitude),
+            )
+            spot.deviceName?.let { InfoRow(stringResource(R.string.label_radio), it) }
 
             if (spot.photoPath != null) {
                 SpotPhoto(
@@ -344,7 +356,7 @@ private fun SpotCard(
                 OutlinedTextField(
                     value = draft,
                     onValueChange = { draft = it },
-                    label = { Text("Notatka") },
+                    label = { Text(stringResource(R.string.label_note)) },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 2,
                 )
@@ -355,7 +367,7 @@ private fun SpotCard(
                             editing = false
                         },
                     ) {
-                        Text("Anuluj")
+                        Text(stringResource(R.string.action_cancel))
                     }
                     Button(
                         onClick = {
@@ -363,7 +375,7 @@ private fun SpotCard(
                             editing = false
                         },
                     ) {
-                        Text("Zapisz notatkę")
+                        Text(stringResource(R.string.save_note))
                     }
                 }
             } else {
@@ -374,7 +386,7 @@ private fun SpotCard(
                     )
                 } else {
                     Text(
-                        text = "Brak notatki",
+                        text = stringResource(R.string.no_note),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -387,12 +399,12 @@ private fun SpotCard(
                 TextButton(onClick = onNavigate, modifier = Modifier.weight(1f)) {
                     Icon(Icons.Filled.Navigation, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.size(4.dp))
-                    Text("Nawiguj")
+                    Text(stringResource(R.string.action_navigate))
                 }
                 TextButton(onClick = onOpenMap, modifier = Modifier.weight(1f)) {
                     Icon(Icons.Filled.Map, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.size(4.dp))
-                    Text("Mapa")
+                    Text(stringResource(R.string.action_map))
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -405,17 +417,23 @@ private fun SpotCard(
                 ) {
                     Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.size(4.dp))
-                    Text("Notatka")
+                    Text(stringResource(R.string.action_note))
                 }
                 TextButton(onClick = onPickPhoto, modifier = Modifier.weight(1f)) {
                     Icon(Icons.Filled.PhotoCamera, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.size(4.dp))
-                    Text(if (spot.photoPath == null) "Zdjęcie" else "Zmień zdjęcie")
+                    Text(
+                        if (spot.photoPath == null) {
+                            stringResource(R.string.action_photo)
+                        } else {
+                            stringResource(R.string.action_change_photo)
+                        },
+                    )
                 }
             }
             if (spot.photoPath != null) {
                 TextButton(onClick = onRemovePhoto, modifier = Modifier.fillMaxWidth()) {
-                    Text("Usuń zdjęcie")
+                    Text(stringResource(R.string.action_remove_photo))
                 }
             }
         }
@@ -433,32 +451,32 @@ private fun ManualAddDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Dodaj miejsce ręcznie") },
+        title = { Text(stringResource(R.string.add_manual_spot)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    text = "Podaj współrzędne dziesiętne, np. 52.2297 oraz 21.0122.",
+                    text = stringResource(R.string.manual_coords_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 OutlinedTextField(
                     value = latitude,
                     onValueChange = { latitude = it },
-                    label = { Text("Szerokość geograficzna") },
+                    label = { Text(stringResource(R.string.label_latitude)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 )
                 OutlinedTextField(
                     value = longitude,
                     onValueChange = { longitude = it },
-                    label = { Text("Długość geograficzna") },
+                    label = { Text(stringResource(R.string.label_longitude)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 )
                 OutlinedTextField(
                     value = note,
                     onValueChange = { note = it },
-                    label = { Text("Notatka (opcjonalnie)") },
+                    label = { Text(stringResource(R.string.label_note_optional)) },
                     minLines = 2,
                 )
             }
@@ -470,12 +488,12 @@ private fun ManualAddDialog(
                     onDismiss()
                 },
             ) {
-                Text("Dodaj")
+                Text(stringResource(R.string.action_add))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Anuluj")
+                Text(stringResource(R.string.action_cancel))
             }
         },
     )

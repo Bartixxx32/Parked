@@ -12,6 +12,6 @@ class ParkedApp : Application() {
         super.onCreate()
         container = AppContainer(this)
         runCatching { MonitorWatchdogWorker.schedule(this) }
-        container.diagnosticsRepository.info("App", "Aplikacja uruchomiona")
+        container.diagnosticsRepository.info("App", "App started")
     }
 }
