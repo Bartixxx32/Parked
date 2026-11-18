@@ -52,12 +52,12 @@ jobs:
         run: |
           set -euo pipefail
           keytool -genkeypair -keystore /tmp/smoke.p12 -storetype PKCS12 \
-            -storepass smoke -keypass smoke -alias smoke -keyalg RSA -keysize 2048 \
+            -storepass smoke123 -keypass smoke123 -alias smoke -keyalg RSA -keysize 2048 \
             -validity 1 -dname "CN=Smoke"
           BT="$ANDROID_HOME/build-tools/36.0.0"
           "$BT/apksigner" sign \
             --ks /tmp/smoke.p12 --ks-type PKCS12 \
-            --ks-pass pass:smoke --ks-key-alias smoke --key-pass pass:smoke \
+            --ks-pass pass:smoke123 --ks-key-alias smoke --key-pass pass:smoke123 \
             --out Parked-smoke.apk \
             app/build/outputs/apk/release/app-release-unsigned.apk
           "$BT/apksigner" verify Parked-smoke.apk
