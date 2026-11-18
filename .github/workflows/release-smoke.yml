@@ -87,11 +87,13 @@ jobs:
           script: |
             bash .github/scripts/smoke.sh
 
-      - name: Upload logcat
+      - name: Upload diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: smoke-logcat
-          path: logcat.txt
+          name: smoke-diagnostics
+          path: |
+            logcat.txt
+            screenshots-release/
           if-no-files-found: ignore
           retention-days: 14

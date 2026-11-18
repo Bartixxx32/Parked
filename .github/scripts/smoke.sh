@@ -5,6 +5,15 @@ set -euo pipefail
 
 PKG=com.bartixxx.parked
 
+on_exit() {
+  status=$?
+  if [ "$status" -ne 0 ]; then
+    adb logcat -d -v threadtime > logcat.txt || true
+  fi
+  exit "$status"
+}
+trap on_exit EXIT
+
 adb install -r "$RUNNER_TEMP/Parked-smoke.apk"
 adb logcat -c
 python3 .github/scripts/screenshots.py
