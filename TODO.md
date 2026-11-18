@@ -22,7 +22,8 @@ Right now a spot photo can only be picked from the gallery
 
 ## Family mode (shared parking spots)
 
-Status: backlog, design only.
+Status: backend schema created in the Datalog Supabase project; Worker and app
+integration not started.
 
 Goal: an opt-in group where members see each other's most recently parked car
 on the map. A group is identified by a high-entropy invite code; anyone who
