@@ -13,11 +13,11 @@ val releaseKeyAlias: String? = System.getenv("PARKED_KEY_ALIAS")
 val releaseKeyPassword: String? = System.getenv("PARKED_KEY_PASSWORD")
 
 android {
-    namespace = "io.github.bartixxx32.parked"
+    namespace = "com.bartixxx.parked"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "io.github.bartixxx32.parked"
+        applicationId = "com.bartixxx.parked"
         minSdk = 29
         targetSdk = 36
         versionCode = 4

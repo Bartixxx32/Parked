@@ -49,7 +49,7 @@ radiem samochodowym (Bluetooth). Aplikacja jest lokalna, otwarta i nie wymaga ko
 2. Otwórz plik na telefonie. Android może poprosić o zgodę na instalację z tego źródła.
 3. Zainstaluj i uruchom aplikację.
 
-Build debug ma identyfikator `io.github.bartixxx32.parked.debug`, więc może współistnieć
+Build debug ma identyfikator `com.bartixxx.parked.debug`, więc może współistnieć
 z wersją release. Aktualizacje release instalują się na poprzednią wersję tylko wtedy,
 gdy są podpisane tym samym kluczem — oficjalne wydania są.
 
@@ -233,7 +233,7 @@ jako checklistę manualną — nie da się ich wiarygodnie zasymulować w testac
 ## Struktura projektu
 
 ```
-app/src/main/java/io/github/bartixxx32/parked/
+app/src/main/java/com/bartixxx/parked/
 ├── bluetooth/       # bonded devices, wykrywanie połączenia
 ├── capture/         # silnik pobrania i walidacji lokalizacji
 ├── data/            # Room, DataStore, repozytoria, stan wyzwalacza
@@ -254,4 +254,4 @@ licencja ODbL. Kafelki: OpenStreetMap Standard. Aplikacja nie jest powiązana
 z OpenStreetMap Foundation.
 
 Nazwa „Parked” jest robocza; identyfikator aplikacji to
-`io.github.bartixxx32.parked`.
+`com.bartixxx.parked`.
