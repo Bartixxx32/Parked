@@ -70,7 +70,10 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Install and launch
+      - name: Install and exercise the release APK
+        env:
+          PARKED_PKG: com.bartixxx.parked
+          SCREENSHOT_OUT: screenshots-release
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -85,16 +88,14 @@ jobs:
             set -euo pipefail
             adb install -r "$RUNNER_TEMP/Parked-smoke.apk"
             adb logcat -c
-            adb shell am start -W -n com.bartixxx.parked/.MainActivity
-            sleep 10
+            python3 .github/scripts/screenshots.py
             adb shell pidof com.bartixxx.parked
-            adb shell dumpsys activity activities | grep -E "mResumedActivity|topResumedActivity"
             if adb logcat -d | grep -q "FATAL EXCEPTION"; then
-              echo "::error::App crashed after launch"
+              echo "::error::App crashed while exercising the screens"
               adb logcat -d -v threadtime | tee logcat.txt
               exit 1
             fi
-            echo "Release APK launched without crashing"
+            echo "Release APK exercised every main screen without crashing"
             adb logcat -d -v threadtime | tee logcat.txt | tail -n 200
 
       - name: Upload logcat

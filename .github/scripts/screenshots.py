@@ -15,7 +15,7 @@ import time
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-PKG = "com.bartixxx.parked.debug"
+PKG = os.environ.get("PARKED_PKG", "com.bartixxx.parked.debug")
 ACTIVITY = f"{PKG}/com.bartixxx.parked.MainActivity"
 OUTDIR = Path(os.environ.get("SCREENSHOT_OUT", "screenshots"))
 
