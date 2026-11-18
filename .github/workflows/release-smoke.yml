@@ -85,18 +85,7 @@ jobs:
             -no-snapshot -no-window -gpu swiftshader_indirect
             -noaudio -no-boot-anim -camera-back none
           script: |
-            set -euo pipefail
-            adb install -r "$RUNNER_TEMP/Parked-smoke.apk"
-            adb logcat -c
-            python3 .github/scripts/screenshots.py
-            adb shell pidof com.bartixxx.parked
-            if adb logcat -d | grep -q "FATAL EXCEPTION"; then
-              echo "::error::App crashed while exercising the screens"
-              adb logcat -d -v threadtime | tee logcat.txt
-              exit 1
-            fi
-            echo "Release APK exercised every main screen without crashing"
-            adb logcat -d -v threadtime | tee logcat.txt | tail -n 200
+            bash .github/scripts/smoke.sh
 
       - name: Upload logcat
         if: always()
