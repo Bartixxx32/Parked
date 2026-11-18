@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   build:
-    name: Test and build debug APK
+    name: Test and build debug and release APKs
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -46,42 +46,52 @@ jobs:
       - name: Gradle and toolchain info
         run: ./gradlew --version
 
-      - name: Run unit tests and build debug APK
-        # One Gradle invocation: the test task compiles the app, and assembleDebug
-        # reuses those outputs instead of paying a second daemon start and configuration.
-        run: ./gradlew --no-daemon testDebugUnitTest assembleDebug --stacktrace
+      - name: Run unit tests and build debug and release APKs
+        # One Gradle invocation: the test task compiles the app, and the assemble
+        # tasks reuse those outputs. assembleRelease also exercises R8, so a broken
+        # keep rule fails here instead of during the release.
+        run: ./gradlew --no-daemon testDebugUnitTest assembleDebug assembleRelease --stacktrace
 
-      - name: Verify APK
+      - name: Verify APKs
         run: |
           set -euo pipefail
           APK="app/build/outputs/apk/debug/app-debug.apk"
-          test -s "$APK" || { echo "::error::APK was not produced"; exit 1; }
+          RELEASE_APK="app/build/outputs/apk/release/app-release-unsigned.apk"
+          test -s "$APK" || { echo "::error::Debug APK was not produced"; exit 1; }
+          test -s "$RELEASE_APK" || { echo "::error::Release APK was not produced"; exit 1; }
 
           BUILD_TOOLS="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n 1)"
           echo "Using build-tools: $BUILD_TOOLS"
-          echo "APK size: $(du -h "$APK" | cut -f1)"
+          echo "Debug APK size: $(du -h "$APK" | cut -f1)"
+          echo "Release APK size: $(du -h "$RELEASE_APK" | cut -f1)"
 
           "$BUILD_TOOLS/aapt2" dump badging "$APK" | head -n 25
+          "$BUILD_TOOLS/aapt2" dump badging "$RELEASE_APK" | head -n 25
           "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK"
 
           cp "$APK" Parked-debug.apk
-          sha256sum Parked-debug.apk | tee apk.sha256
+          cp "$RELEASE_APK" Parked-release-unsigned.apk
+          sha256sum Parked-debug.apk Parked-release-unsigned.apk | tee apk.sha256
 
           {
-            echo "## Parked debug APK"
+            echo "## Parked APKs"
             echo ""
             echo "- Package: $(unzip -p "$APK" META-INF/com/android/build/gradle/app-metadata.properties 2>/dev/null | grep -i versionName || true)"
-            echo "- Size: $(du -h Parked-debug.apk | cut -f1)"
-            echo "- SHA-256: \`$(cut -d' ' -f1 apk.sha256)\`"
+            echo "- Debug size: $(du -h Parked-debug.apk | cut -f1)"
+            echo "- Release (R8, unsigned) size: $(du -h Parked-release-unsigned.apk | cut -f1)"
+            echo "- SHA-256 (debug): \`$(sha256sum Parked-debug.apk | cut -d' ' -f1)\`"
+            echo "- SHA-256 (release): \`$(sha256sum Parked-release-unsigned.apk | cut -d' ' -f1)\`"
             echo ""
-            echo "Download the APK from this workflow run's **Artifacts** section."
+            echo "Download the APKs from this workflow run's **Artifacts** section."
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Upload debug APK
+      - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
-          name: Parked-debug-apk
-          path: Parked-debug.apk
+          name: Parked-apks
+          path: |
+            Parked-debug.apk
+            Parked-release-unsigned.apk
           if-no-files-found: error
           retention-days: 30
 

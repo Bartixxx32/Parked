@@ -1,0 +1,3 @@
+• Włączono R8: kod i zasoby są zmniejszane, APK jest dużo mniejszy.
+• Nazwa pakietu bez zmian; to zwykła aktualizacja 1.1.0.
+• Brak zmian w funkcjach.
