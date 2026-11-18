@@ -58,7 +58,7 @@ class ParkingExporterTest {
 
         assertEquals(1, waypoints.length)
         assertTrue(gpx.contains("lat=\"52.2297\""))
-        assertTrue(gpx.contains("dokładność: 12.5 m"))
+        assertTrue(gpx.contains("accuracy: 12.5 m"))
         assertTrue(gpx.contains("&quot;przy windzie&quot;"))
     }
 

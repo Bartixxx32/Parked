@@ -1,0 +1,28 @@
+Parked automatically saves your parking spot when your phone disconnects from the car radio over Bluetooth. No account, no cloud, no ads — everything stays on your phone.
+
+HOW IT WORKS
+1. Pair your phone with the car radio in the system Bluetooth settings.
+2. Select the radio in Parked and enable monitoring.
+3. When you disconnect from the radio, the app immediately takes a location fix and saves it after a configurable delay. Reconnecting during the countdown cancels the save.
+
+KEY FEATURES
+• Automatic parking spot saving triggered by Bluetooth disconnect
+• The location is acquired at the moment of disconnection, so walking away from the car does not move the pin
+• Manual save of the current location and manual coordinate entry
+• History with date, coordinates, accuracy, fix source, note and optional photo
+• OpenStreetMap map with pins for all spots and an accuracy circle
+• Built-in compass showing bearing and distance to the selected spot
+• Export history to JSON, CSV or GPX
+• Diagnostics screen with service state, permissions, GPS test and local logs
+• English and Polish interface
+
+RELIABILITY
+Parked runs a foreground service so Android keeps monitoring in the background. For best results disable battery optimization for the app and enable autostart on phones with aggressive power management (for example ColorOS). Reboot and app-update restart are handled automatically where the system allows it.
+
+PRIVACY
+Coordinates, notes and photos are stored only on your device. The app has no accounts, analytics or telemetry and never uploads your location. The only network traffic is downloading OpenStreetMap map tiles while the map screen is open.
+
+REQUIREMENTS
+Android 10 or newer. Bluetooth, location and background location permissions are required for automatic saving.
+
+Parked is free and open source software, licensed under the GNU GPL v3.0.

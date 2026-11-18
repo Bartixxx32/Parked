@@ -1,257 +1,269 @@
 # Parked
 
-**Parked** automatycznie zapisuje miejsce parkingowe, gdy telefon rozłączy się z wybranym
-radiem samochodowym (Bluetooth). Aplikacja jest lokalna, otwarta i nie wymaga konta.
+**Parked** automatically saves your parking spot when the phone disconnects from a
+selected car radio (Bluetooth). The app is local-first, open source and requires no
+account.
 
 - Kotlin + Jetpack Compose + Material 3
-- Room (historia i logi), DataStore (ustawienia i stan wyzwalacza)
-- OpenStreetMap przez osmdroid — bez kluczy API i bez płatnych usług
-- Android 10 (API 29) lub nowszy, kompilacja pod API 36
+- Room (history and logs), DataStore (settings and trigger state)
+- OpenStreetMap via osmdroid — no API keys and no paid services
+- Android 10 (API 29) or newer, built against API 36
 
-> Repozytorium jest prywatne. Gotowy APK pobierzesz z sekcji **Releases**
-> (po zalogowaniu na konto z dostępem). Artefakt debug jest dostępny w każdym
-> udanym uruchomieniu GitHub Actions.
+The app is available in **English and Polish**; the language follows the phone settings.
+It is prepared for [F-Droid](https://f-droid.org/) and uses only free and open source
+dependencies — no Google Play Services.
+
+> Download the ready APK from the **Releases** section. Debug artifacts are available in
+> every successful GitHub Actions run. F-Droid publishing is in progress.
 
 ---
 
-## Funkcje
+## Features
 
-- Wybór jednego sparowanego urządzenia Bluetooth; inne urządzenia są ignorowane.
-- Automatyczny zapis po rozłączeniu, z konfigurowalnym opóźnieniem (domyślnie 15 s).
-  Lokalizacja jest pobierana **od razu w chwili rozłączenia**, a dopiero zapis czeka na
-  koniec opóźnienia — dzięki temu punkt odpowiada miejscu, gdzie stało auto, a nie temu,
-  gdzie doszedłeś przez te 15 sekund.
-- Ponowne połączenie w trakcie odliczania anuluje zapis.
-- Ochrona przed duplikatami: jeden zapis na cykl połączenia, unikalny `cycleId`
-  w bazie oraz minimalny odstęp między automatycznymi zapisami.
-- Lokalizacja: równoległy pomiar z fused Androida/Play (GPS + Wi-Fi + sieć komórkowa)
-  i providerów systemowych, walidacja współrzędnych, dokładności i wieku, wybór
-  najlepszego pomiaru z uwzględnieniem czasu, opcjonalnie awaryjna ostatnia znana lokalizacja.
-- Historia: data, współrzędne, dokładność, źródło pomiaru (GPS/Fused/Sieć), notatka,
-  opcjonalne zdjęcie.
-- Ręczny zapis bieżącej lokalizacji i ręczne dodanie punktu ze współrzędnych.
-- Mapa OpenStreetMap: czytelne pinezki wszystkich miejsc, wybieranie punktu dotknięciem,
-  okrąg dokładności wokół wybranego punktu, bieżąca pozycja i przycisk nawigacji zewnętrznej.
-- Wbudowany kompas do celu: tarcza reagująca na obrót telefonu, kierunek geograficzny
-  (np. `NE`), namiar w stopniach i odległość w metrach do wybranego lub ostatniego miejsca.
-- Eksport historii do **JSON**, **CSV** i **GPX** przez systemowy wybór pliku.
-- Ekran diagnostyki: stan usługi, uprawnienia, test GPS, lokalne logi (max 300 wpisów).
-- Brak powiadomień o zapisie i błędach. Jedyne powiadomienie to wymagane przez Androida
-  ciche, niskiego priorytetu powiadomienie usługi monitorującej (można je ukryć
-  w ustawieniach systemowych — monitoring nadal działa).
-- Wznawianie monitorowania po restarcie telefonu i po aktualizacji aplikacji (best effort).
-- Brak reklam, analityki, telemetrii, konta i wysyłania lokalizacji na serwer.
+- Select one paired Bluetooth device; other devices are ignored.
+- Automatic save after disconnecting, with a configurable delay (15 s by default).
+  The location is acquired **immediately at disconnect**, while the save waits for the
+  delay to expire — so the point reflects where the car was parked, not where you walked
+  during those 15 seconds.
+- Reconnecting during the countdown cancels the save.
+- Duplicate protection: one save per connection cycle, a unique `cycleId` in the
+  database and a minimum interval between automatic saves.
+- Location: the platform fused provider on Android 12+ plus system GPS and network
+  providers, coordinate/accuracy/age validation, best-fix selection, and an optional
+  last-known fallback.
+- History: date, coordinates, accuracy, fix source (GPS/Fused/Network), note and an
+  optional photo.
+- Manual save of the current location and manual entry of coordinates.
+- OpenStreetMap: pins for all spots, tap to select, accuracy circle around the selected
+  point, current position and an external navigation button.
+- Built-in target compass: a dial that reacts to phone rotation, cardinal direction
+  (for example `NE`), bearing in degrees and distance in metres to the selected or latest
+  spot.
+- History export to **JSON**, **CSV** and **GPX** via the system file picker.
+- Diagnostics screen: service state, permissions, GPS test and local logs (max 300
+  entries).
+- No save or error notifications. The only notification is the Android-required silent,
+  low-priority notification of the monitoring foreground service (it can be hidden in
+  the system settings — monitoring keeps working).
+- Monitoring is restored after a phone reboot and after an app update (best effort).
+- No ads, analytics, telemetry, account or location uploads.
 
-## Instalacja
+## Installation
 
-1. Wejdź w [Releases](https://github.com/Bartixxx32/Parked/releases/latest) i pobierz
-   `Parked-<wersja>.apk`.
-2. Otwórz plik na telefonie. Android może poprosić o zgodę na instalację z tego źródła.
-3. Zainstaluj i uruchom aplikację.
+1. Open [Releases](https://github.com/Bartixxx32/Parked/releases/latest) and download
+   `Parked-<version>.apk`.
+2. Open the file on the phone. Android may ask for permission to install from this
+   source.
+3. Install and launch the app.
 
-Build debug ma identyfikator `com.bartixxx.parked.debug`, więc może współistnieć
-z wersją release. Aktualizacje release instalują się na poprzednią wersję tylko wtedy,
-gdy są podpisane tym samym kluczem — oficjalne wydania są.
+The debug build uses the `com.bartixxx.parked.debug` application ID, so it can coexist
+with the release build. Release updates install over the previous version only when they
+are signed with the same key — official releases are.
 
-## Pierwsze uruchomienie
+> Upgrading from the old `io.github.bartixxx32.parked` package is not possible. That
+> package used a different application ID, so the new release must be installed
+> separately; uninstalling the old version removes its local data.
 
-1. **Połącz telefon z radiem samochodowym** w systemowych ustawieniach Bluetooth.
-2. W aplikacji: **Ustawienia → Radio samochodowe → odśwież** i wybierz swoje radio.
-3. Przyznaj uprawnienia:
-   - Bluetooth (`BLUETOOTH_CONNECT` na Androidzie 12+),
-   - lokalizacja dokładna lub przybliżona,
-   - **lokalizacja w tle → „Zawsze pozwalaj”**.
-   Aplikacja nie prosi o zgodę na powiadomienia.
-4. Wyłącz optymalizację baterii i włącz autostart (patrz niżej).
-5. Na pulpicie włącz **Monitorowanie**.
+## First launch
 
-Od tej chwili po rozłączeniu z radiem aplikacja od razu rozpoczyna pomiar lokalizacji
-(max. 20 s), a następnie po ustawionym czasie zapisuje ten punkt. Jeśli w międzyczasie
-radio znów się połączy — zapis zostanie anulowany, a pobrany punkt odrzucony.
+1. **Pair the phone with the car radio** in the system Bluetooth settings.
+2. In the app: **Settings → Car radio → refresh** and select your radio.
+3. Grant permissions:
+   - Bluetooth (`BLUETOOTH_CONNECT` on Android 12+),
+   - precise or approximate location,
+   - **background location → "Allow all the time"**.
+   The app does not ask for notification permission.
+4. Disable battery optimization and enable autostart (see below).
+5. Turn on **Monitoring** on the Dashboard.
 
-## Ważne ustawienia
+From then on, disconnecting from the radio immediately starts a location fix
+(max. 20 s), and the point is saved after the configured delay. If the radio reconnects
+in the meantime, the save is cancelled and the acquired point is discarded.
 
-| Ustawienie | Domyślnie | Znaczenie |
+## Important settings
+
+| Setting | Default | Meaning |
 |---|---:|---|
-| Opóźnienie po rozłączeniu | 15 s | Czas na ponowne połączenie; wtedy zapis jest anulowany. Sam pomiar startuje natychmiast. |
-| Limit czasu GPS | 45 s | Po tym czasie podejmowana jest ostatnia próba / fallback. Dotyczy także fused. |
-| Maks. dokładność | 100 m | Mniej dokładny pomiar jest odrzucany. |
-| Fallback ostatniej lokalizacji | włączony | Awaryjny punkt, wyraźnie oznaczony w historii. |
-| Maks. wiek fallbacku | 12 h | Starszy punkt nie jest używany. |
+| Delay after disconnecting | 15 s | Time to reconnect; reconnecting cancels the save. The fix itself starts immediately. |
+| GPS timeout | 45 s | After this time the last attempt / fallback is used. Also applies to the fused provider. |
+| Max accuracy | 100 m | Less accurate fixes are rejected. |
+| Last known fallback | enabled | Emergency point, clearly marked in history. |
+| Max fallback age | 12 h | Older points are not used. |
 
-Parked nie ma ustawienia powiadomień o zapisie — takich powiadomień po prostu nie wysyła.
+Parked has no save-notification setting — it simply does not send such notifications.
 
-Zakresy są walidowane w DataStore; wartości spoza zakresu są przycinane.
+Ranges are validated in DataStore; out-of-range values are clamped.
 
-## OnePlus / ColorOS / Android 16 — niezawodność
+## OnePlus / ColorOS / Android 16 — reliability
 
-Android coraz agresywniej ogranicza pracę w tle. Parked używa usługi pierwszoplanowej
-typu `connectedDevice|location`, dynamicznych broadcastów Bluetooth, cyklicznego
-sprawdzania stanu, budzika WorkManagera i restartu po boocie — ale **żadna aplikacja
-nie może zagwarantować**, że system jej nie zabije.
+Android increasingly restricts background work. Parked uses a foreground service of type
+`connectedDevice|location`, dynamic Bluetooth broadcasts, periodic state checks, a
+WorkManager watchdog and boot restart — but **no app can guarantee** that the system will
+not kill it.
 
-Na OnePlus z ColorOS wykonaj dodatkowo:
+On OnePlus with ColorOS additionally:
 
-1. **Ustawienia → Aplikacje → Parked → Bateria → Bez ograniczeń**
-   (lub „Nie optymalizuj”).
-2. **Autostart**: Ustawienia → Aplikacje → Autostart → włącz Parked.
-   Przycisk „Autostart” w aplikacji otwiera właściwy ekran, jeśli producent go udostępnia.
-3. W panelu ostatnich aplikacji **zablokuj Parked** (kłódka), żeby nie znikała po
-   „wyczyść wszystko”.
-4. Zezwól na **aktywność w tle** w szczegółach aplikacji, jeśli ColorOS pokazuje
-   taką opcję.
-5. Ustaw lokalizację na **„Zawsze pozwalaj”**.
-6. Nie wyłączaj Bluetooth ani nie włączaj trybu samolotu na dłużej.
+1. **Settings → Apps → Parked → Battery → Unrestricted** (or "Don't optimize").
+2. **Autostart**: Settings → Apps → Autostart → enable Parked. The "Autostart" button in
+   the app opens the right screen when the vendor provides one.
+3. In the recents panel, **lock Parked** (padlock) so it is not removed by "clear all".
+4. Allow **background activity** in the app details if ColorOS offers that option.
+5. Set location to **"Allow all the time"**.
+6. Do not turn off Bluetooth or enable airplane mode for extended periods.
 
-Jeśli system i tak zatrzyma usługę, przy następnym otwarciu aplikacji Parked spróbuje
-ją wznowić, a watchdog WorkManagera podejmie próbę co ok. 15 minut. Parked nie wysyła
-powiadomień o takich zdarzeniach — szczegóły znajdziesz w Diagnostyce.
+If the system still stops the service, Parked tries to restart it the next time the app
+is opened, and the WorkManager watchdog retries about every 15 minutes. Parked sends no
+notifications about such events — details are in Diagnostics.
 
-**Gwarancja zapisu nie istnieje.** W razie wątpliwości użyj przycisku
-„Zapisz bieżącą lokalizację” na pulpicie.
+**There is no guarantee of a save.** When in doubt, use the "Save current location"
+button on the Dashboard.
 
-## Jak to działa
+## How it works
 
 ```
-połączenie z radiem        rozłączenie: pomiar        po opóźnieniu: zapis
+radio connects          disconnect: fix           after delay: save
         │                         │                            │
         ▼                         ▼                            ▼
    CONNECTED ───────────────► PENDING ───────────────────► CAPTURING
         ▲                         │                            │
-        │   ponowne połączenie    │ anuluje zapis i pomiar     │ zapis gotowego fixu
+        │   reconnect             │ cancels save and fix       │ saves the ready fix
         └─────────────────────────┘                            ▼
-                                                          SAVED / błąd
+                                                          SAVED / error
 ```
 
-- Pomiar lokalizacji startuje **natychmiast po rozłączeniu** (maks. 20 s) i jest
-  trzymany w pamięci. Opóźnienie odkłada wyłącznie zapis, więc 15 s marszu od auta
-  nie przesuwa współrzędnych.
-- Do pomiaru używane są równolegle: fused Play Services (jeśli jest) oraz systemowe
-  providery GPS, sieci/Wi-Fi i — od Androida 12 — systemowy `fused`. Dzięki temu
-  w zabudowie punkt może pochodzić z Wi-Fi/sieci, a nie tylko z surowego GPS.
-- Po broadcastcie Bluetooth stan jest sprawdzany od razu i ponownie po 1, 3, 6 i 10 s,
-  więc chwilowe opóźnienie proxy nie czeka na 20-sekundowy poll.
-- Aktualizacja nie przesuwa współrzędnych już zapisanych punktów — nowy algorytm
-  dotyczy wyłącznie kolejnych zapisów. Każdy punkt przechowuje też swoje źródło pomiaru.
-- Start usługi przy już rozłączonym radiu **nie zapisuje** punktu — nie wiadomo,
-  kiedy auto zaparkowało.
-- Powtarzane broadcasty połączenia/rozłączenia są idempotentne.
-- Stan (`TriggerState`) jest zapisywany w DataStore po każdej zmianie; po restarcie
-  procesu oczekujący zapis jest wznawiany tylko w oknie 10 minut.
-- Cykl ma unikalny `cycleId` z indeksem unique w Room — nawet równoległy zapis nie
-  utworzy duplikatu.
-- Dwa automatyczne zapisy dzieli co najmniej 2 minuty (ochrona przed „trzepotaniem”
-  radia).
+- The location fix starts **immediately after disconnecting** (max. 20 s) and is kept in
+  memory. The delay only postpones the save, so walking away from the car does not move
+  the coordinates.
+- On Android 12+ the platform fused provider is queried together with system GPS and
+  network/Wi-Fi providers. In dense areas the point can therefore come from Wi-Fi/cell
+  data instead of raw GPS.
+- After a Bluetooth broadcast the state is checked immediately and again after 1, 3, 6
+  and 10 s, so a temporarily stale profile proxy does not wait for the 20-second poll.
+- Updates never move already saved points — the new algorithm only affects future saves.
+  Every point also stores its fix source.
+- Starting the service while the radio is already disconnected **does not save** a point
+  — there is no way to know when the car was parked.
+- Repeated connect/disconnect broadcasts are idempotent.
+- The state (`TriggerState`) is persisted in DataStore after every change; after a process
+  restart a pending save is resumed only within a 10-minute window.
+- Each cycle has a unique `cycleId` with a unique index in Room — even a concurrent save
+  cannot create a duplicate.
+- Two automatic saves are at least 2 minutes apart (protection against radio flapping).
 
-Szczegóły: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-## Prywatność
+## Privacy
 
-- Wszystkie dane (historia, notatki, zdjęcia, logi, ustawienia) są przechowywane
-  wyłącznie w prywatnym magazynie aplikacji.
-- Brak reklam, analityki, crashlytics, telemetrii i kont użytkownika.
-- Aplikacja nie wysyła współrzędnych do żadnego serwera.
-- Jedyny ruch sieciowy to pobieranie kafelków mapy z serwerów OpenStreetMap, gdy
-  otwarty jest ekran mapy (serwer widzi adres IP i obszar kafelków, jak każda strona).
-- Eksport tworzy plik wyłącznie tam, gdzie wskażesz w systemowym selektorze.
-- Backup Androida jest wyłączony; dane nie trafiają do chmury przez systemowy backup.
+- All data (history, notes, photos, logs, settings) is stored exclusively in the app's
+  private storage.
+- No ads, analytics, Crashlytics, telemetry or user accounts.
+- The app does not send coordinates to any server.
+- The only network traffic is downloading map tiles from OpenStreetMap servers while the
+  map screen is open (the server sees the IP address and tile area, like any website).
+- Export creates a file only where you point the system file picker.
+- Android backup is disabled; data does not reach the cloud through system backup.
 
-## Eksport
+## Export
 
-W historii wybierz ikonę pobierania i format:
+In History, select the download icon and a format:
 
-- **JSON** — pełne dane, schemat wersjonowany (`schemaVersion: 1`).
-- **CSV** — wygodny dla arkuszy; notatki są poprawnie cytowane.
-- **GPX** — waypointy do nawigacji, zdjęć terenowych i innych aplikacji mapowych.
+- **JSON** — full data, versioned schema (`schemaVersion: 1`).
+- **CSV** — convenient for spreadsheets; notes are quoted correctly.
+- **GPX** — waypoints for navigation, field photos and other map apps.
 
-Pliki nie są zapisywane w repozytorium ani wysyłane automatycznie.
+Files are not stored in the repository or sent automatically.
 
-## Budowanie i testy
+## Building and tests
 
-Projekt buduje się w GitHub Actions (Ubuntu x86_64), nie na Raspberry Pi.
+The project builds in GitHub Actions (Ubuntu x86_64), not on a Raspberry Pi.
 
 - CI: `.github/workflows/android.yml`
-  - `testDebugUnitTest`, `assembleDebug`, weryfikacja APK przez `aapt2` i `apksigner`,
-    artefakt `Parked-debug-apk` + raporty testów.
+  - `testDebugUnitTest`, `assembleDebug`, APK verification with `aapt2` and
+    `apksigner`, artifact `Parked-debug-apk` plus test reports.
 - Release: `.github/workflows/release.yml`
-  - uruchamiany tagiem `v*` lub ręcznie, podpisuje APK kluczem z sekretów GitHub,
-    publikuje plik w GitHub Releases.
+  - triggered by a `v*` tag or manually, signs the APK with the key from GitHub secrets
+    and publishes the file to GitHub Releases. Release APKs are signed with Android
+    build-tools 34.0.0 so F-Droid can verify reproducibility.
 
-Wymagania lokalne (opcjonalnie): JDK 17+, Android SDK 36, Gradle wrapper 8.14.3.
+Local requirements (optional): JDK 17+, Android SDK 36, Gradle wrapper 8.14.3.
 
 ```bash
 ./gradlew testDebugUnitTest
 ./gradlew assembleDebug
 ```
 
-### Sekrety podpisywania
+### Signing secrets
 
-W ustawieniach repozytorium (Actions → Secrets) ustawiane są:
+Repository settings (Actions → Secrets) contain:
 
-| Sekret | Znaczenie |
+| Secret | Meaning |
 |---|---|
-| `PARKED_KEYSTORE_BASE64` | keystore PKCS12 zakodowany base64 (bez znaków nowej linii) |
-| `PARKED_KEYSTORE_PASSWORD` | hasło keystore |
-| `PARKED_KEY_ALIAS` | alias klucza |
-| `PARKED_KEY_PASSWORD` | hasło klucza (może być takie samo) |
+| `PARKED_KEYSTORE_BASE64` | PKCS12 keystore encoded as base64 (no newlines) |
+| `PARKED_KEYSTORE_PASSWORD` | keystore password |
+| `PARKED_KEY_ALIAS` | key alias |
+| `PARKED_KEY_PASSWORD` | key password (may be the same) |
 
-Bez tych sekretów release nie powstanie — workflow kończy się błędem, zamiast
-opublikować niepodpisany plik.
+Without these secrets the release fails instead of publishing an unsigned file.
 
-## Testy
+## Tests
 
-Testy jednostkowe JVM obejmują m.in.:
+JVM unit tests cover, among others:
 
-- połączenie → rozłączenie → zapis,
-- krótką utratę połączenia i ponowne połączenie (anulowanie),
-- powtarzane i zdublowane zdarzenia Bluetooth,
-- restart usługi z oczekującym zapisem (wznowienie i odrzucenie starego),
-- start przy już rozłączonym radiu (brak fałszywego zapisu),
-- zmianę urządzenia i zmianę opóźnienia,
-- brak GPS, niską dokładność, nieprawidłowe współrzędne, stary fallback,
-- duplikat cyklu i minimalny odstęp między zapisami,
-- punkt pobrany przy rozłączeniu zapisany później bez zmiany współrzędnych,
-- eksport JSON/CSV/GPX (poprawność XML i cytowanie).
+- connect → disconnect → save,
+- a short connection loss followed by reconnect (cancellation),
+- repeated and duplicated Bluetooth events,
+- service restart with a pending save (resume and reject stale saves),
+- start while the radio is already disconnected (no false save),
+- device change and delay change,
+- missing GPS, low accuracy, invalid coordinates and stale fallback,
+- duplicate cycle and minimum interval between saves,
+- a fix acquired at disconnect saved later without moving the coordinates,
+- JSON/CSV/GPX export (XML validity and quoting).
 
-Scenariusze wymagające fizycznego telefonu (reboot, ubicie procesu przez ColorOS,
-rzeczywiste połączenie z radiem) opisano w [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-jako checklistę manualną — nie da się ich wiarygodnie zasymulować w testach JVM.
+Scenarios that require a physical phone (reboot, process killed by ColorOS, a real radio
+connection) are described in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) as a manual
+checklist — they cannot be reliably simulated in JVM tests.
 
-## Rozwiązywanie problemów
+## Troubleshooting
 
-| Objaw | Co sprawdzić |
+| Symptom | What to check |
 |---|---|
-| Brak zapisu po rozłączeniu | Czy monitoring jest włączony? Czy wybrane radio to to samo, z którym łączy się telefon? Czy usługa działa (Diagnostyka)? |
-| „Usługa nie działa” | Wyłącz optymalizację baterii, włącz autostart, otwórz aplikację i wznów monitoring. |
-| Zapis bardzo niedokładny | Zmniejsz limit dokładności, sprawdź GPS na zewnątrz; fallback jest oznaczony w historii. |
-| Brak lokalizacji w tle | Uprawnienie musi mieć wartość „Zawsze pozwalaj”; na Androidzie 11+ to osobny ekran ustawień. |
-| Brak mapy | Sprawdź internet; kafelki OSM wymagają sieci. Piny historii działają bez sieci. |
-| Kompas nie obraca się | Telefon nie ma czujnika orientacji — strzałka nadal pokazuje kierunek względem północy. |
-| Nie chcę powiadomienia o monitorowaniu | To wymagane przez Androida powiadomienie usługi pierwszoplanowej. Ukryj kanał w Ustawieniach → Powiadomienia; monitoring nadal działa. |
-| Zdjęcie się nie dodaje | Wybierz obraz z pamięci urządzenia; limit 25 MB. |
+| No save after disconnecting | Is monitoring enabled? Is the selected radio the same one the phone connects to? Is the service running (Diagnostics)? |
+| "Service not running" | Disable battery optimization, enable autostart, open the app and restart monitoring. |
+| Very inaccurate save | Lower the accuracy limit, check GPS outdoors; a fallback point is marked in history. |
+| No background location | The permission must be set to "Allow all the time"; on Android 11+ this is a separate settings screen. |
+| No map | Check the internet connection; OSM tiles require network. History pins work offline. |
+| Compass does not rotate | The phone has no orientation sensor — the arrow still points relative to north. |
+| I don't want the monitoring notification | It is the Android-required foreground service notification. Hide the channel in Settings → Notifications; monitoring keeps working. |
+| Photo cannot be added | Pick an image from device storage; the limit is 25 MB. |
 
-## Struktura projektu
+## Project structure
 
 ```
 app/src/main/java/com/bartixxx/parked/
-├── bluetooth/       # bonded devices, wykrywanie połączenia
-├── capture/         # silnik pobrania i walidacji lokalizacji
-├── data/            # Room, DataStore, repozytoria, stan wyzwalacza
+├── bluetooth/       # bonded devices, connection detection
+├── capture/         # location acquisition and validation engine
+├── data/            # Room, DataStore, repositories, trigger state
 ├── export/          # JSON / CSV / GPX
-├── location/        # LocationManager + opcjonalny fused
+├── location/        # LocationManager platform providers
 ├── monitor/         # FGS, boot receiver, watchdog
-├── notifications/   # jedyny kanał: wymagane powiadomienie FGS
-├── ui/              # Compose: pulpit, historia, mapa z kompasem, ustawienia, diagnostyka
-└── util/            # uprawnienia, intencje systemowe
+├── notifications/   # the only channel: required FGS notification
+├── ui/              # Compose: dashboard, history, map with compass, settings, diagnostics
+└── util/            # permissions, system intents
 ```
 
-## Licencja i mapa
+## F-Droid
 
-Kod: **GNU GPL v3.0** — plik [LICENSE](LICENSE).
+F-Droid metadata lives in `fastlane/metadata/android/` (English and Polish) and the
+recipe is prepared in [docs/FDROID.md](docs/FDROID.md). The app uses reproducible builds:
+F-Droid rebuilds the tagged source and publishes the APK signed with the upstream key.
 
-Mapa: dane © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright),
-licencja ODbL. Kafelki: OpenStreetMap Standard. Aplikacja nie jest powiązana
-z OpenStreetMap Foundation.
+## License and map data
 
-Nazwa „Parked” jest robocza; identyfikator aplikacji to
-`com.bartixxx.parked`.
+Code: **GNU GPL v3.0** — see [LICENSE](LICENSE).
+
+Map: data © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright),
+ODbL license. Tiles: OpenStreetMap Standard. The app is not affiliated with the
+OpenStreetMap Foundation.
+
+Application ID: `com.bartixxx.parked`.

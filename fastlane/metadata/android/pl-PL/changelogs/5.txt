@@ -1,0 +1,5 @@
+• Zmiana pakietu na com.bartixxx.parked — najpierw odinstaluj starą aplikację; lokalne dane zostaną utracone.
+• Interfejs w języku polskim i angielskim, zgodnie z językiem telefonu.
+• Usunięto Google Play Services: lokalizacja korzysta wyłącznie z providerów systemowych. Jeden APK dla GitHuba i F-Droida.
+• Odtwarzalne buildy wydania na potrzeby weryfikacji F-Droid.
+• Tekst licencji wskazuje publiczne repozytorium źródłowe.

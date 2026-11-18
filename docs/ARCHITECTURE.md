@@ -1,9 +1,9 @@
-# Architektura Parked
+# Parked architecture
 
-Dokument opisuje, jak aplikacja podejmuje decyzję o zapisie, gdzie trzyma stan i jakie
-są granice niezawodności na nowoczesnym Androidzie.
+This document describes how the app decides to save a spot, where it keeps state and
+what the reliability limits are on modern Android.
 
-## Warstwy
+## Layers
 
 ```
 UI (Compose) ── MainViewModel ── AppContainer
@@ -15,262 +15,273 @@ UI (Compose) ── MainViewModel ── AppContainer
       │                            ▲
       │                            │ ParkingSink
       ▼                            │
- BluetoothMonitorService ── ParkingCaptureEngine ── CompositeLocationSource
-      │                            │                        ├─ PlatformLocationSource
-      ▼                            │                        └─ FusedLocationSource (opcjonalnie)
+ BluetoothMonitorService ── ParkingCaptureEngine ── PlatformLocationSource
+      │                            │
+      ▼                            │
  BluetoothRepository              LocationValidator
       │
-      ├─ dynamiczne broadcasty ACL / adapter / bond
-      └─ poll co 20 s + proxy profili (HFP/A2DP/LE Audio)
+      ├─ dynamic ACL / adapter / bond broadcasts
+      └─ 20 s poll + profile proxies (HFP/A2DP/LE Audio)
 ```
 
-`AppContainer` jest tworzony raz w `ParkedApp.onCreate` i współdzielony przez Activity,
-usługę i odbiorniki. Baza Room oraz DataStore są singletonami w procesie.
+`AppContainer` is created once in `ParkedApp.onCreate` and shared by the Activity, the
+service and the receivers. The Room database and DataStore are process singletons.
 
-## Przechowywanie danych
+## Data storage
 
 ### Room — `parked.db`
 
 `ParkingSpot`:
 
-| Kolumna | Uwagi |
+| Column | Notes |
 |---|---|
-| `id` | PK autoincrement |
-| `latitude`, `longitude` | double, walidowane przed zapisem |
-| `accuracyMeters` | null tylko dla ręcznego dodania |
-| `savedAtEpochMs` | czas zapisu |
-| `fixTimeEpochMs` | czas pomiaru (może być starszy) |
-| `note`, `photoPath` | notatka max 500 znaków, zdjęcie w prywatnym katalogu |
+| `id` | autoincrement PK |
+| `latitude`, `longitude` | doubles, validated before saving |
+| `accuracyMeters` | null only for manual entries |
+| `savedAtEpochMs` | save time |
+| `fixTimeEpochMs` | fix time (may be older) |
+| `note`, `photoPath` | note max 500 characters, photo in private storage |
 | `source` | `AUTO`, `MANUAL`, `FALLBACK` |
-| `isFallback`, `isMock` | jawne oznaczenia |
-| `provider`, `deviceAddress`, `deviceName` | kontekst |
-| `cycleId` | **unikalny indeks** dla automatycznych zapisów |
+| `isFallback`, `isMock` | explicit markers |
+| `provider`, `deviceAddress`, `deviceName` | context |
+| `cycleId` | **unique index** for automatic saves |
 
-`DiagnosticsEvent` przechowuje max 300 ostatnich wpisów (obcinane po insercie).
+`DiagnosticsEvent` stores at most the last 300 entries (trimmed after insert).
 
-Zdjęcia trafiają do `filesDir/photos`, kopiowane strumieniowo z limitem 25 MB.
-Ścieżka jest usuwana razem z wpisem; `deletePhotoFile` sprawdza canonical path, żeby
-nie usunąć pliku spoza katalogu aplikacji.
+Photos go to `filesDir/photos`, copied as a stream with a 25 MB limit. The path is
+removed together with the entry; `deletePhotoFile` verifies the canonical path so it
+cannot delete a file outside the app directory.
 
 ### DataStore
 
-- `parked_settings` — konfiguracja użytkownika; każda wartość jest przycinana do
-  zdefiniowanego zakresu przy odczycie i zapisie.
-- `parked_trigger_state` — faza, `cycleId`, adres urządzenia, deadline, czas ostatniego
-  automatycznego zapisu. Zapis po każdej zmianie stanu.
+- `parked_settings` — user configuration; every value is clamped to its defined range on
+  read and write.
+- `parked_trigger_state` — phase, `cycleId`, device address, deadline and the time of the
+  last automatic save. Saved after every state change.
 
-Backup systemowy jest wyłączony (`allowBackup=false`, reguły data extraction), więc dane
-nie opuszczają urządzenia przez chmurę.
+System backup is disabled (`allowBackup=false`, data extraction rules), so data does not
+leave the device through the cloud.
 
-## Automat stanów wyzwalacza
+## Trigger state machine
 
-`ParkingTriggerStateMachine` jest czystą logiką (bez Androida) i ma pełne testy JVM.
+`ParkingTriggerStateMachine` is pure logic (no Android) with full JVM test coverage.
 
-Fazy:
+Phases:
 
-| Faza | Znaczenie |
+| Phase | Meaning |
 |---|---|
-| `UNARMED` | brak aktywnego cyklu; start przy rozłączonym radiu tu trafia |
-| `CONNECTED` | wybrane radio jest połączone; czekamy na rozłączenie |
-| `PENDING` | rozłączenie wykryte; zaplanowano zapis na `pendingAtEpochMs` |
-| `CAPTURING` | trwa pobieranie i walidacja lokalizacji |
-| `SAVED` | cykl zakończony sukcesem lub świadomym pominięciem duplikatu |
+| `UNARMED` | no active cycle; starting while the radio is disconnected lands here |
+| `CONNECTED` | the selected radio is connected; waiting for a disconnect |
+| `PENDING` | disconnect detected; a save is scheduled at `pendingAtEpochMs` |
+| `CAPTURING` | location acquisition and validation in progress |
+| `SAVED` | cycle finished successfully or a duplicate was intentionally skipped |
 
-### Reguły
+### Rules
 
-1. Tylko przejście `CONNECTED → rozłączone` uzbraja zapis.
-2. Powtarzane `CONNECTED` nie zwiększa `cycleId`; powtarzane `DISCONNECTED` nie tworzy
-   drugiego terminu.
-3. Ponowne połączenie w `PENDING` anuluje timer i przechodzi w nowy cykl `CONNECTED`.
-4. Timer przed terminem nic nie robi; po terminie przechodzi w `CAPTURING` dokładnie raz.
-5. `CAPTURING` nie jest przerywane kolejnym `DISCONNECTED`.
-6. Sukces → `SAVED`, porażka → `UNARMED` (wymaga nowego połączenia; brak automatycznej
-   pętli retry, która mogłaby zapisać złe miejsce).
-7. Jeśli od ostatniego automatycznego zapisu minęło mniej niż 2 minuty, zapis jest
-   pomijany (`SuppressDuplicate`) — ochrona przed flappingiem radia.
-8. Start usługi:
-   - `PENDING` w przyszłości → wznowienie tego samego deadline,
-   - `PENDING` po terminie w oknie 10 min → natychmiastowy `CAPTURING`,
-   - starszy `PENDING` → odrzucenie,
-   - `CONNECTED`, ale radio fizycznie rozłączone → `UNARMED` (nie wiemy, kiedy auto
-     zaparkowało; nie zapisujemy fałszywego punktu).
-9. Zmiana wybranego urządzenia anuluje timer, capture i czyści stan.
-10. Zatrzymanie monitorowania czyści stan i anuluje zaplanowaną pracę.
+1. Only a `CONNECTED → disconnected` transition arms a save.
+2. Repeated `CONNECTED` does not increase `cycleId`; repeated `DISCONNECTED` does not
+   create a second deadline.
+3. Reconnecting during `PENDING` cancels the timer and starts a new `CONNECTED` cycle.
+4. The timer does nothing before the deadline; after it, it moves to `CAPTURING` exactly
+   once.
+5. `CAPTURING` is not interrupted by another `DISCONNECTED`.
+6. Success → `SAVED`, failure → `UNARMED` (a new connection is required; there is no
+   automatic retry loop that could save a wrong spot).
+7. If less than 2 minutes have passed since the last automatic save, the save is skipped
+   (`SuppressDuplicate`) — protection against radio flapping.
+8. Service start:
+   - `PENDING` in the future → resume the same deadline,
+   - `PENDING` past its deadline within a 10-minute window → immediate `CAPTURING`,
+   - older `PENDING` → reject,
+   - `CONNECTED` but the radio is physically disconnected → `UNARMED` (we do not know
+     when the car was parked; no false point is saved).
+9. Changing the selected device cancels the timer and capture and clears state.
+10. Stopping monitoring clears state and cancels scheduled work.
 
-`cycleId` jest monotoniczny w obrębie bieżącego stanu; unikalny indeks w bazie jest
-drugą linią obrony przy wyścigu procesów.
+`cycleId` is monotonic within the current state; the unique database index is the second
+line of defence in a process race.
 
-### Pomiar przy rozłączeniu (prefetch)
+### Fix at disconnect (prefetch)
 
-Po przejściu `CONNECTED → PENDING` usługa od razu uruchamia `ParkingCaptureEngine.acquire`
-z jednym, ciągłym podejściem i limitem 20 s (`PREFETCH_MAX_SECONDS`). Gotowy,
-zwalidowany fix jest trzymany w pamięci (`AcquiredFix`) i zapisywany dopiero po
-upłynięciu opóźnienia przez `save` — bez ponownego pytania o lokalizację. Dzięki temu
-zapisane współrzędne odpowiadają chwili rozłączenia, a nie chwili zakończenia timera.
-Ponowne połączenie, zmiana urządzenia, zatrzymanie monitorowania i duplikat anulują
-zarówno timer, jak i trwający pomiar. Jeśli prefetch zdąży zakończyć się błędem, wynik
-jest ostateczny (brak natychmiastowego retry); jeśli z jakiegoś powodu brakuje prefetchu,
-usługa wykonuje zwykłe `capture` z pełnym limitem czasu.
+After the `CONNECTED → PENDING` transition the service immediately starts
+`ParkingCaptureEngine.acquire` with one continuous attempt and a 20 s limit
+(`PREFETCH_MAX_SECONDS`). The ready, validated fix is kept in memory (`AcquiredFix`) and
+written only after the delay elapses via `save` — without asking for the location again.
+This makes the saved coordinates correspond to the moment of disconnection, not the
+moment the timer ends. Reconnecting, changing the device, stopping monitoring and a
+duplicate cancel both the timer and an in-flight acquisition. If the prefetch finishes
+with an error, the result is final (no immediate retry); if for some reason there is no
+prefetch, the service performs a regular `capture` with the full timeout.
 
-## Usługa monitorowania
+## Monitoring service
 
 `BluetoothMonitorService`:
 
-- start jako foreground service z typem `connectedDevice|location`,
-- jeśli `startForeground` z typem lokalizacji rzuci wyjątek (brak uprawnienia,
-  ograniczenie systemu), następuje fallback do `connectedDevice`,
-- powiadomienie usługi pierwszoplanowej (kanał o niskim priorytecie, ciche) z akcją
-  „Zatrzymaj” — to jedyne powiadomienie w aplikacji; Parked nie wysyła powiadomień
-  o zapisie ani błędach (stary kanał `parked_events` jest usuwany przy starcie),
-- dynamiczny `BroadcastReceiver` na:
+- starts as a foreground service with type `connectedDevice|location`,
+- if `startForeground` with the location type throws (missing permission, system
+  restriction), it falls back to `connectedDevice`,
+- foreground notification (low-priority, silent channel) with a "Stop" action — the only
+  notification in the app; Parked does not send save or error notifications (the old
+  `parked_events` channel is removed at startup),
+- dynamic `BroadcastReceiver` for:
   - `ACTION_ACL_CONNECTED`, `ACTION_ACL_DISCONNECTED`,
-  - `ACTION_STATE_CHANGED` adaptera,
+  - adapter `ACTION_STATE_CHANGED`,
   - `ACTION_BOND_STATE_CHANGED`,
-- filtr broadcastów: jeśli extra zawiera inne urządzenie niż wybrane, zdarzenie jest
-  ignorowane,
-- poll co 20 s jako uzupełnienie broadcastów (niektóre nakładki je gubią),
-- `PowerManager.PARTIAL_WAKE_LOCK` tylko na czas capture (max 3 min),
+- broadcast filter: if the extra contains a device other than the selected one, the event
+  is ignored,
+- a 20 s poll as a supplement to broadcasts (some vendor overlays drop them),
+- `PowerManager.PARTIAL_WAKE_LOCK` only during capture (max 3 min),
 - `START_STICKY`, `stopWithTask=false`,
-- po restarcie procesu stan jest odtwarzany z DataStore.
+- after a process restart the state is restored from DataStore.
 
-Świeży stan jest propagowany do UI przez `MonitorStateHolder` (StateFlow w procesie).
+Fresh state is propagated to the UI through `MonitorStateHolder` (a process-wide
+StateFlow).
 
-### Start i ograniczenia tła
+### Start and background restrictions
 
-- Android 12+ zabrania startu FGS z tła bez wyjątku (np. z Activity, boot, PendingIntent).
-- `BootReceiver` próbuje wznowić usługę po `BOOT_COMPLETED`, `MY_PACKAGE_REPLACED`
-  i wybranych QuickBoot, ale tylko gdy monitoring jest włączony, urządzenie wybrane
-  i uprawnienia nadal przyznane.
-- `MonitorWatchdogWorker` co 15 min sprawdza, czy usługa żyje. Jeśli nie i brakuje
-  uprawnień, zapisuje ostrzeżenie w Diagnostyce zamiast próbować w nieskończoność
-  (bez powiadomienia).
-- Jeśli system zabroni startu, zdarzenie trafia do logów; użytkownik wznawia monitoring,
-  otwierając aplikację (start z Activity jest dozwolony).
-- Żaden z tych mechanizmów nie jest gwarancją — to best effort. ColorOS może zabić
-  proces mimo FGS, watchdoga i wyłączonej optymalizacji.
+- Android 12+ forbids starting an FGS from the background without an exemption (for
+  example from an Activity, boot or PendingIntent).
+- `BootReceiver` tries to restart the service after `BOOT_COMPLETED`,
+  `MY_PACKAGE_REPLACED` and selected QuickBoot actions, but only when monitoring is
+  enabled, a device is selected and permissions are still granted.
+- `MonitorWatchdogWorker` checks every 15 minutes whether the service is alive. If not
+  and permissions are missing, it writes a warning to Diagnostics instead of retrying
+  forever (no notification).
+- If the system forbids the start, the event goes to the logs; the user resumes
+  monitoring by opening the app (starting from an Activity is allowed).
+- None of these mechanisms is a guarantee — they are best effort. ColorOS may kill the
+  process despite the FGS, the watchdog and disabled optimization.
 
-## Lokalizacja
+## Location
 
-`LocationSource` zwraca pojedynczy fix lub `null`; brak uprawnienia nie rzuca wyjątku.
+`LocationSource` returns a single fix or `null`; a missing permission never throws.
 
-`CompositeLocationSource` uruchamia równolegle dwa źródła:
+`PlatformLocationSource` uses `LocationManager` with these providers:
 
-1. `FusedLocationSource` — Play Services `getCurrentLocation` z
-   `PRIORITY_HIGH_ACCURACY`, jeśli Play Services jest dostępne.
-2. `PlatformLocationSource` — `LocationManager` z providerami GPS, network oraz
-   (od API 31) systemowym `FUSED_PROVIDER`.
+1. GPS,
+2. network,
+3. (from API 31) the platform `FUSED_PROVIDER`.
 
-Oba źródła działają przez cały budżet czasu. Fix o dokładności ≤ 10 m i świeżości
-w oknie −3…+10 s kończy oczekiwanie natychmiast. W przeciwnym razie wybierany jest
-kandydat o najniższym wyniku `dokładność + 1 m/s × |czas pomiaru − start|`: dzięki
-temu przyzwoity pomiar z chwili rozłączenia wygrywa z idealnym pomiarem zrobionym po
-20 s, gdy użytkownik już odszedł od auta, a stary cache nie wygrywa tylko dlatego, że
-ma niską deklarowaną dokładność. Fused i systemowy fused łączą GPS, Wi-Fi i sieć
-komórkową, więc w miastach często biją surowy GPS. Wybrane źródło (`provider`) jest
-zapisywane razem z punktem i widoczne w historii oraz na karcie mapy.
+All enabled providers run for the whole time budget. A fix with accuracy ≤ 10 m and a
+timestamp inside the −3…+10 s window ends the wait immediately. Otherwise the best fix
+seen so far is returned after the timeout. The platform fused provider combines GPS,
+Wi-Fi and cell data, so in cities it is often better than raw GPS. The selected source
+(`provider`) is stored with the point and shown in history and on the map card.
 
-`PlatformLocationSource` kończy oczekiwanie wcześniej, gdy fix jest rzeczywiście dobry:
-GPS ≤ 15 m albo dowolny provider ≤ 10 m. Dzięki temu nie zapisujemy pierwszego, często
-sieciowego lub cache'owanego pomiaru. Wynik fused nie jest przyjmowany bezwarunkowo —
-rywalizuje z platformą według powyższego wyniku.
+`PlatformLocationSource` ends the wait early when a fix is genuinely good: GPS ≤ 15 m or
+any provider ≤ 10 m. This prevents saving the first, often network or cached, fix.
 
 `ParkingCaptureEngine`:
 
-1. Dwa podejścia po `timeout/2` (min. 1 s); prefetch przy rozłączeniu używa jednego
-   podejścia i timeoutu skróconego do 20 s.
-2. Każdy fix przechodzi `LocationValidator`:
-   - współrzędne skończone, w zakresach, nie `(0,0)`,
-   - znana, nieujemna dokładność,
-   - wiek ≤ 2 min (świeży pomiar), tolerancja 60 s na zegar z przyszłości,
-   - dokładność ≤ limit użytkownika.
-3. Jeśli brak świeżego fixu i fallback jest włączony: ostatnia znana lokalizacja
-   (GPS/network/passive/fused), walidowana z limitem wieku fallbacku.
-4. Zapis do Room z `source` i `isFallback`; wynik `Saved`, `Duplicate` lub `Failed`.
-5. `acquire` i `save` są rozdzielone: fix pobrany przy rozłączeniu zachowuje swoje
-   współrzędne i `fixTimeEpochMs`, a `savedAtEpochMs` odpowiada chwili faktycznego zapisu.
-6. Błąd zapisu nie jest maskowany — trafia do logów (bez powiadomienia).
+1. Two attempts of `timeout/2` (min. 1 s); the disconnect prefetch uses one attempt with
+   the timeout shortened to 20 s.
+2. Every fix passes `LocationValidator`:
+   - finite coordinates, within ranges, not `(0,0)`,
+   - known, non-negative accuracy,
+   - age ≤ 2 min (fresh fix), 60 s tolerance for a clock in the future,
+   - accuracy ≤ the user limit.
+3. If there is no fresh fix and fallback is enabled: the last known location
+   (GPS/network/passive/fused), validated against the fallback age limit.
+4. Write to Room with `source` and `isFallback`; the result is `Saved`, `Duplicate` or
+   `Failed`.
+5. `acquire` and `save` are separate: a fix acquired at disconnect keeps its coordinates
+   and `fixTimeEpochMs`, while `savedAtEpochMs` is the actual save time.
+6. A storage error is not masked — it goes to the log (without a notification).
 
-Walidacja odrzuca typowe „śmieciowe” punkty, ale nie jest systemem anty-spoofingowym:
-mock location jest oznaczane, nie blokowane.
+Validation rejects typical "junk" points but is not an anti-spoofing system: mock
+locations are marked, not blocked.
 
-## Mapa i kompas
+## Map and compass
 
-Ekran mapy używa osmdroid z kafelkami OSM. Pinezki są rysowane własnym `Overlay`
-na canvasie (stały rozmiar, kolor zależny od fallbacku, halo dla wybranego punktu),
-więc nie zależą od domyślnych baloników osmdroid. Wybrany punkt dostaje dodatkowo
-delikatny okrąg dokładności: jego środek to dokładne współrzędne (czubek pinu),
-a promień wynika z `accuracyMeters` i jest korygowany o szerokość geograficzną.
-Dotknięcie pinu wybiera miejsce, a dolna karta pokazuje datę, współrzędne,
-dokładność, źródło pomiaru, notatkę i przycisk nawigacji. Pozycja i zoom mapy są
-zapisywane w `rememberSaveable`, więc przełączanie zakładek ich nie resetuje.
+The map screen uses osmdroid with OSM tiles. Pins are drawn by a custom `Overlay` on the
+canvas (fixed size, colour depending on fallback, halo for the selected point), so they
+do not depend on osmdroid's default balloons. The selected point also gets a subtle
+accuracy circle: its centre is the exact coordinate (the pin tip), and the radius comes
+from `accuracyMeters`, corrected for latitude. Tapping a pin selects the spot, and the
+bottom card shows the date, coordinates, accuracy, fix source, note and a navigation
+button. Map position and zoom are stored in `rememberSaveable`, so switching tabs does
+not reset them.
 
-Kompas (`TargetCompass`) rysuje tarczę obróconą o bieżący azymut urządzenia i igłę
-wskazującą namiar na cel. Azymut pochodzi z `TYPE_ROTATION_VECTOR`, a przy jego braku
-z akcelerometru + magnetometru; uwzględniany jest obrót ekranu. Odległość i namiar
-liczy `Location.distanceBetween` między bieżącą pozycją a wybranym (lub ostatnim)
-miejscem. Cel jest pokazywany w metrach, stopniach i kierunku kardynalnym.
+The compass (`TargetCompass`) draws a dial rotated by the current device azimuth and a
+needle pointing at the target bearing. The azimuth comes from `TYPE_ROTATION_VECTOR`, or
+from the accelerometer + magnetometer when unavailable; screen rotation is taken into
+account. Distance and bearing are calculated with `Location.distanceBetween` between the
+current position and the selected (or latest) spot. The target is shown in metres,
+degrees and a cardinal direction.
 
-## Eksport
+## Localization
 
-`ParkingExporter` jest czystym kodem JVM:
+The UI, notifications and user-facing errors are localized in English (default) and
+Polish (`values-pl`). Android picks the language from the system settings, and the app
+declares both locales in `locales_config.xml` for the Android 13+ per-app language
+picker. The diagnostics log is technical and always written in English, so reports are
+consistent regardless of the device language.
 
-- JSON — ręczne budowanie z escapowaniem znaków kontrolnych, `schemaVersion: 1`,
-- CSV — nagłówek, cytowanie przecinków/cudzysłowów/nowych linii,
-- GPX 1.1 — poprawny XML, `wpt`, czas pomiaru, opis, symbol `Parking`.
+## Export
 
-Testy parsują GPX przez `DocumentBuilderFactory`, więc błędny XML wywali CI.
+`ParkingExporter` is pure JVM code:
 
-Eksport zapisuje przez `ContentResolver.openOutputStream(uri)` wskazany w SAF;
-aplikacja nie ma uprawnienia do całej pamięci.
+- JSON — manual construction with control-character escaping, `schemaVersion: 1`,
+- CSV — header, quoting of commas/quotes/newlines,
+- GPX 1.1 — valid XML, `wpt`, fix time, description, `Parking` symbol.
 
-## Bezpieczeństwo i prywatność
+Tests parse GPX through `DocumentBuilderFactory`, so invalid XML fails CI.
 
-- Brak `INTERNET` poza kafelkami mapy; brak wysyłania lokalizacji.
+Export writes through `ContentResolver.openOutputStream(uri)` selected in SAF; the app
+has no permission to access all storage.
+
+## Security and privacy
+
+- No `INTERNET` use except map tiles; no location uploads.
 - `android:usesCleartextTraffic="false"`.
-- Backup wyłączony, brak eksportu danych przez system.
-- Zdjęcia i baza w prywatnym sandboxie aplikacji.
-- Receiver Bluetooth zarejestrowany jako `RECEIVER_NOT_EXPORTED`.
-- `BootReceiver` jest eksportowany (wymóg broadcastów systemowych), ale nie wykonuje
-  nic poza sprawdzeniem własnych ustawień i próbą startu własnej usługi.
-- Minimalne uprawnienia: lokalizacja, Bluetooth, FGS, boot, wake lock.
-  `POST_NOTIFICATIONS` jest zadeklarowane w manifeście, ale aplikacja **nie prosi**
-  o tę zgodę — wymagane powiadomienie FGS może wtedy pojawić się tylko w Menedżerze
-  zadań, a monitoring nadal działa. Brak SMS, kontaktów, mikrofonu, kamery (zdjęcia
-  przez SAF), dostępu do plików.
+- Backup disabled, no system data export.
+- Photos and the database live in the app's private sandbox.
+- Bluetooth receiver registered as `RECEIVER_NOT_EXPORTED`.
+- `BootReceiver` is exported (a system broadcast requirement), but it does nothing beyond
+  checking its own settings and trying to start its own service.
+- Minimal permissions: location, Bluetooth, FGS, boot, wake lock. `POST_NOTIFICATIONS` is
+  declared in the manifest, but the app **does not request** it — the required FGS
+  notification may then appear only in the task manager, and monitoring keeps working.
+  No SMS, contacts, microphone, camera (photos via SAF) or file access.
 
-## Testy i checklista manualna
+## Tests and manual checklist
 
-Automatyczne (JVM, uruchamiane w CI):
+Automatic (JVM, run in CI):
 
-- stan wyzwalacza: wszystkie przejścia i przypadki brzegowe,
-- walidator lokalizacji,
-- silnik capture z fake source/sink (w tym zapis fixu pobranego przy rozłączeniu
-  bez zmiany współrzędnych),
-- eksportery,
-- kompilacja wszystkich ekranów Compose i usług.
+- trigger state: all transitions and edge cases,
+- location validator,
+- capture engine with fake source/sink (including saving a fix acquired at disconnect
+  without changing its coordinates),
+- exporters,
+- compilation of all Compose screens and services.
 
-Manualne (telefon, najlepiej OnePlus/ColorOS):
+Manual (phone, preferably OnePlus/ColorOS):
 
-1. Sparuj radio, wybierz w aplikacji, włącz monitoring.
-2. Połącz → rozłącz: pomiar od razu, zapis po opóźnieniu, wpis w historii.
-3. Połącz → rozłącz → połącz w czasie opóźnienia: brak zapisu, anulowanie.
-4. Krótka utrata połączenia (radio poza zasięgiem) i powrót: brak duplikatu.
-5. Wyłącz GPS: błąd lub fallback oznaczony jako awaryjny.
-6. Ustaw limit dokładności na 10 m w pomieszczeniu: błąd zamiast złego punktu.
-7. Restart telefonu z włączonym monitoringiem: usługa wznawia się (lub wpis w Diagnostyce).
-8. Ubij proces z ostatnich aplikacji: FGS powinien przetrwać; jeśli nie — watchdog
-   lub start przy otwarciu aplikacji.
-9. Wielokrotne szybkie rozłączenia: minimum 2 min między automatycznymi zapisami.
-10. Zablokowany telefon (Doze): zapis nadal następuje, jeśli system nie ubił usługi.
-11. Eksport JSON/CSV/GPX i otwarcie GPX w innej aplikacji mapowej.
-12. Dodanie zdjęcia, notatki i usunięcie wpisu (pliki zdjęć znikają).
-13. Aktualizacja release na poprzednią wersję: instalacja przechodzi (ten sam klucz).
+1. Pair the radio, select it in the app, enable monitoring.
+2. Connect → disconnect: fix immediately, save after the delay, entry in history.
+3. Connect → disconnect → connect during the delay: no save, cancellation.
+4. Short connection loss (radio out of range) and return: no duplicate.
+5. Disable GPS: error or a fallback marked as emergency.
+6. Set the accuracy limit to 10 m indoors: an error instead of a wrong point.
+7. Reboot the phone with monitoring enabled: the service restarts (or an entry appears in
+   Diagnostics).
+8. Kill the process from recents: the FGS should survive; if not — the watchdog or app
+   start handles it.
+9. Several quick disconnects: at least 2 minutes between automatic saves.
+10. Locked phone (Doze): saving still happens if the system did not kill the service.
+11. Export JSON/CSV/GPX and open the GPX in another map app.
+12. Add a photo and a note, then delete the entry (photo files disappear).
+13. Release update over the previous version: installation succeeds (same key).
 
 ## CI/CD
 
-- `android.yml`: push/PR na `main`, `workflow_dispatch`; JDK 21, SDK 36,
-  testy, debug APK, weryfikacja podpisu i metadanych, artefakt, raporty testów.
-- `release.yml`: tag `v*` lub ręczny dispatch; dekoduje keystore z sekretów,
-  buduje `assembleRelease`, weryfikuje `apksigner`, publikuje APK i SHA-256 w Release.
-- Klucz podpisujący jest stały i trzymany wyłącznie w sekretach GitHub; bez niego
-  aktualizacje nie byłyby możliwe.
+- `android.yml`: push/PR to `main`, `workflow_dispatch`; JDK 21, SDK 36, tests, debug
+  APK, signature and metadata verification, artifact, test reports.
+- `release.yml`: tag `v*` or manual dispatch; decodes the keystore from secrets, builds
+  `assembleRelease`, verifies with `apksigner`, publishes the APK and SHA-256 in the
+  Release. Release APKs are aligned and signed with build-tools 34.0.0 for compatibility
+  with F-Droid's reproducibility verification.
+- The signing key is stable and stored only in GitHub secrets; without it updates would
+  not be possible.
+- F-Droid rebuilds the tagged source and verifies that its APK matches the upstream
+  binary; `AllowedAPKSigningKeys` pins the upstream certificate fingerprint.

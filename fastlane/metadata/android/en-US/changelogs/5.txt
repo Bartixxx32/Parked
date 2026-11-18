@@ -1,0 +1,5 @@
+• Package changed to com.bartixxx.parked — the old app must be uninstalled first; local data will be lost.
+• English and Polish interface, following the phone language.
+• Google Play Services removed: location now uses the system providers only. One APK for GitHub and F-Droid.
+• Reproducible release builds for F-Droid verification.
+• License text now states the public source repository.

@@ -1,0 +1,28 @@
+Parked automatycznie zapisuje miejsce postoju, gdy telefon rozłączy się z radiem samochodowym przez Bluetooth. Bez konta, bez chmury i bez reklam — wszystko zostaje na telefonie.
+
+JAK TO DZIAŁA
+1. Sparuj telefon z radiem w systemowych ustawieniach Bluetooth.
+2. Wybierz radio w aplikacji Parked i włącz monitorowanie.
+3. Po rozłączeniu z radiem aplikacja od razu pobiera lokalizację i zapisuje miejsce po skonfigurowanym opóźnieniu. Ponowne połączenie w trakcie odliczania anuluje zapis.
+
+NAJWAŻNIEJSZE FUNKCJE
+• Automatyczny zapis miejsca postoju wyzwalany rozłączeniem Bluetooth
+• Lokalizacja jest pobierana w chwili rozłączenia, więc odejście od auta nie przesuwa punktu
+• Ręczny zapis bieżącej lokalizacji i ręczne wprowadzanie współrzędnych
+• Historia z datą, współrzędnymi, dokładnością, źródłem pomiaru, notatką i opcjonalnym zdjęciem
+• Mapa OpenStreetMap ze wszystkimi miejscami i okręgiem dokładności
+• Wbudowany kompas pokazujący kierunek i odległość do wybranego miejsca
+• Eksport historii do JSON, CSV lub GPX
+• Ekran diagnostyki ze stanem usługi, uprawnieniami, testem GPS i lokalnymi logami
+• Interfejs w języku polskim i angielskim
+
+NIEZAWODNOŚĆ
+Parked korzysta z usługi pierwszoplanowej, dzięki czemu Android może monitorować połączenie w tle. Dla najlepszych efektów wyłącz optymalizację baterii dla aplikacji i włącz autostart na telefonach z agresywnym zarządzaniem energią (np. ColorOS). Restart po ponownym uruchomieniu telefonu i po aktualizacji aplikacji jest obsługiwany automatycznie, o ile system na to pozwala.
+
+PRYWATNOŚĆ
+Współrzędne, notatki i zdjęcia są przechowywane wyłącznie na Twoim urządzeniu. Aplikacja nie ma kont, analityki ani telemetrii i nigdy nie wysyła lokalizacji. Jedyny ruch sieciowy to pobieranie kafelków mapy OpenStreetMap, gdy ekran mapy jest otwarty.
+
+WYMAGANIA
+Android 10 lub nowszy. Do automatycznego zapisu potrzebne są uprawnienia do Bluetooth, lokalizacji i lokalizacji w tle.
+
+Parked to wolne oprogramowanie z licencją GNU GPL v3.0.
