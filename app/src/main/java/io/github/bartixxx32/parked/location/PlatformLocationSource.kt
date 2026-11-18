@@ -67,7 +67,7 @@ class PlatformLocationSource(private val context: Context) : LocationSource {
                             val fix = location.toLocationFix(isLastKnown = false)
                             if (!LocationValidator.coordinatesValid(fix.latitude, fix.longitude)) return
                             if (best == null || isBetter(fix, best!!)) best = fix
-                            if (fix.accuracyMeters in 0f..acceptableAccuracyMeters) {
+                            if (shouldFinishEarly(fix, acceptableAccuracyMeters)) {
                                 finish(fix)
                             }
                         }
@@ -150,5 +150,26 @@ class PlatformLocationSource(private val context: Context) : LocationSource {
             return candidate.accuracyMeters < current.accuracyMeters
         }
         return candidate.timeEpochMs > current.timeEpochMs
+    }
+
+    /**
+     * Stops waiting as soon as the fix is genuinely good instead of accepting the very
+     * first callback, which is often a coarse network/cached location. A GPS fix has to be
+     * clearly better than a network fix to end the wait early; otherwise listeners keep
+     * running until the timeout and the best fix seen so far is returned.
+     */
+    private fun shouldFinishEarly(fix: LocationFix, acceptableAccuracyMeters: Float): Boolean {
+        val accuracy = fix.accuracyMeters
+        if (!accuracy.isFinite() || accuracy < 0f) return false
+        val target = when (fix.provider) {
+            LocationManager.GPS_PROVIDER -> GPS_GOOD_ACCURACY_METERS
+            else -> ANY_PROVIDER_GOOD_ACCURACY_METERS
+        }
+        return accuracy <= minOf(target, acceptableAccuracyMeters)
+    }
+
+    private companion object {
+        const val GPS_GOOD_ACCURACY_METERS = 15f
+        const val ANY_PROVIDER_GOOD_ACCURACY_METERS = 10f
     }
 }

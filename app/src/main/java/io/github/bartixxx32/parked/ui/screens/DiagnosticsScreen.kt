@@ -96,7 +96,6 @@ fun DiagnosticsScreen(
                 PermissionStatusRow("Bluetooth", permissions.bluetoothPermission)
                 PermissionStatusRow("Lokalizacja", permissions.locationOk)
                 PermissionStatusRow("Lokalizacja w tle", permissions.backgroundLocation)
-                PermissionStatusRow("Powiadomienia", permissions.notifications)
                 PermissionStatusRow("Bateria bez ograniczeń", permissions.batteryOptimizationIgnored)
                 PermissionStatusRow("Bluetooth włączony", permissions.bluetoothEnabled)
             }

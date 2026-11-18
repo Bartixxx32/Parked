@@ -8,14 +8,13 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import io.github.bartixxx32.parked.ParkedApp
-import io.github.bartixxx32.parked.notifications.NotificationHelper
 import io.github.bartixxx32.parked.util.PermissionUtils
 import java.util.concurrent.TimeUnit
 
 /**
  * Best-effort watchdog. Android may forbid starting a foreground service from the
- * background; in that case the user gets an actionable notification instead. OEM
- * autostart/battery settings remain the only reliable remedy (see Settings screen).
+ * background; the failure is recorded in diagnostics instead of posting a notification.
+ * OEM autostart/battery settings remain the only reliable remedy (see Settings screen).
  */
 class MonitorWatchdogWorker(
     context: Context,
@@ -38,11 +37,7 @@ class MonitorWatchdogWorker(
         ) {
             container.diagnosticsRepository.warn(
                 "Watchdog",
-                "Monitorowanie nie działa, ale brakuje uprawnień — powiadomiono użytkownika",
-            )
-            NotificationHelper.showServiceProblem(
-                applicationContext,
-                "Monitorowanie zostało zatrzymane, a uprawnienia wygasły. Otwórz aplikację.",
+                "Monitorowanie nie działa, ale brakuje uprawnień — otwórz aplikację",
             )
             return Result.success()
         }
@@ -55,10 +50,6 @@ class MonitorWatchdogWorker(
             container.diagnosticsRepository.error(
                 "Watchdog",
                 "System zablokował wznowienie usługi: ${error.message}",
-            )
-            NotificationHelper.showServiceProblem(
-                applicationContext,
-                "System zatrzymał monitorowanie w tle. Dotknij, aby otworzyć Parked i wznowić.",
             )
             Result.success()
         }

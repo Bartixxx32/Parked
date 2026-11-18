@@ -69,10 +69,6 @@ class SettingsRepository(private val context: Context) {
         context.parkedSettingsDataStore.edit { it[Keys.FALLBACK_MAX_AGE_HOURS] = clamped }
     }
 
-    suspend fun setNotificationsEnabled(enabled: Boolean) {
-        context.parkedSettingsDataStore.edit { it[Keys.NOTIFICATIONS_ENABLED] = enabled }
-    }
-
     private fun Preferences.toSettings(): AppSettings = AppSettings(
         monitoringEnabled = this[Keys.MONITORING_ENABLED] ?: false,
         deviceAddress = this[Keys.DEVICE_ADDRESS]?.takeIf { it.isNotBlank() },
@@ -86,7 +82,6 @@ class SettingsRepository(private val context: Context) {
         allowFallbackLastKnown = this[Keys.ALLOW_FALLBACK] ?: true,
         fallbackMaxAgeHours = (this[Keys.FALLBACK_MAX_AGE_HOURS]
             ?: AppSettings.DEFAULT_FALLBACK_MAX_AGE_HOURS).coerceIn(AppSettings.FALLBACK_MAX_AGE_RANGE),
-        notificationsEnabled = this[Keys.NOTIFICATIONS_ENABLED] ?: true,
     )
 
     private object Keys {
@@ -98,6 +93,5 @@ class SettingsRepository(private val context: Context) {
         val MAX_ACCURACY_METERS = intPreferencesKey("max_accuracy_meters")
         val ALLOW_FALLBACK = booleanPreferencesKey("allow_fallback_last_known")
         val FALLBACK_MAX_AGE_HOURS = intPreferencesKey("fallback_max_age_hours")
-        val NOTIFICATIONS_ENABLED = booleanPreferencesKey("notifications_enabled")
     }
 }

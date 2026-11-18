@@ -18,6 +18,9 @@ radiem samochodowym (Bluetooth). Aplikacja jest lokalna, otwarta i nie wymaga ko
 
 - Wybór jednego sparowanego urządzenia Bluetooth; inne urządzenia są ignorowane.
 - Automatyczny zapis po rozłączeniu, z konfigurowalnym opóźnieniem (domyślnie 15 s).
+  Lokalizacja jest pobierana **od razu w chwili rozłączenia**, a dopiero zapis czeka na
+  koniec opóźnienia — dzięki temu punkt odpowiada miejscu, gdzie stało auto, a nie temu,
+  gdzie doszedłeś przez te 15 sekund.
 - Ponowne połączenie w trakcie odliczania anuluje zapis.
 - Ochrona przed duplikatami: jeden zapis na cykl połączenia, unikalny `cycleId`
   w bazie oraz minimalny odstęp między automatycznymi zapisami.
@@ -25,11 +28,15 @@ radiem samochodowym (Bluetooth). Aplikacja jest lokalna, otwarta i nie wymaga ko
   druga próba, opcjonalnie awaryjna ostatnia znana lokalizacja.
 - Historia: data, współrzędne, dokładność, źródło, notatka, opcjonalne zdjęcie.
 - Ręczny zapis bieżącej lokalizacji i ręczne dodanie punktu ze współrzędnych.
-- Mapa OpenStreetMap: ostatnie miejsce, wszystkie zapisane punkty, bieżąca pozycja,
-  przycisk nawigacji zewnętrznej.
+- Mapa OpenStreetMap: czytelne pinezki wszystkich miejsc, wybieranie punktu dotknięciem,
+  bieżąca pozycja i przycisk nawigacji zewnętrznej.
+- Wbudowany kompas do celu: tarcza reagująca na obrót telefonu, kierunek geograficzny
+  (np. `NE`), namiar w stopniach i odległość w metrach do wybranego lub ostatniego miejsca.
 - Eksport historii do **JSON**, **CSV** i **GPX** przez systemowy wybór pliku.
 - Ekran diagnostyki: stan usługi, uprawnienia, test GPS, lokalne logi (max 300 wpisów).
-- Powiadomienie statusowe usługi pierwszoplanowej i powiadomienie po zapisie.
+- Brak powiadomień o zapisie i błędach. Jedyne powiadomienie to wymagane przez Androida
+  ciche, niskiego priorytetu powiadomienie usługi monitorującej (można je ukryć
+  w ustawieniach systemowych — monitoring nadal działa).
 - Wznawianie monitorowania po restarcie telefonu i po aktualizacji aplikacji (best effort).
 - Brak reklam, analityki, telemetrii, konta i wysyłania lokalizacji na serwer.
 
@@ -51,25 +58,26 @@ gdy są podpisane tym samym kluczem — oficjalne wydania są.
 3. Przyznaj uprawnienia:
    - Bluetooth (`BLUETOOTH_CONNECT` na Androidzie 12+),
    - lokalizacja dokładna lub przybliżona,
-   - **lokalizacja w tle → „Zawsze pozwalaj”**,
-   - powiadomienia (Android 13+).
+   - **lokalizacja w tle → „Zawsze pozwalaj”**.
+   Aplikacja nie prosi o zgodę na powiadomienia.
 4. Wyłącz optymalizację baterii i włącz autostart (patrz niżej).
 5. Na pulpicie włącz **Monitorowanie**.
 
-Od tej chwili po rozłączeniu z radiem aplikacja odczeka ustawiony czas, pobierze
-lokalizację i zapisze punkt. Jeśli w międzyczasie radio znów się połączy — zapis zostanie
-anulowany.
+Od tej chwili po rozłączeniu z radiem aplikacja od razu rozpoczyna pomiar lokalizacji
+(max. 20 s), a następnie po ustawionym czasie zapisuje ten punkt. Jeśli w międzyczasie
+radio znów się połączy — zapis zostanie anulowany, a pobrany punkt odrzucony.
 
 ## Ważne ustawienia
 
 | Ustawienie | Domyślnie | Znaczenie |
 |---|---:|---|
-| Opóźnienie po rozłączeniu | 15 s | Czas na ponowne połączenie; wtedy zapis jest anulowany. |
+| Opóźnienie po rozłączeniu | 15 s | Czas na ponowne połączenie; wtedy zapis jest anulowany. Sam pomiar startuje natychmiast. |
 | Limit czasu GPS | 45 s | Po tym czasie podejmowana jest ostatnia próba / fallback. |
 | Maks. dokładność | 100 m | Mniej dokładny pomiar jest odrzucany. |
 | Fallback ostatniej lokalizacji | włączony | Awaryjny punkt, wyraźnie oznaczony w historii. |
 | Maks. wiek fallbacku | 12 h | Starszy punkt nie jest używany. |
-| Powiadomienia o zapisie | włączone | Informacja o sukcesie lub błędzie. |
+
+Parked nie ma ustawienia powiadomień o zapisie — takich powiadomień po prostu nie wysyła.
 
 Zakresy są walidowane w DataStore; wartości spoza zakresu są przycinane.
 
@@ -94,8 +102,8 @@ Na OnePlus z ColorOS wykonaj dodatkowo:
 6. Nie wyłączaj Bluetooth ani nie włączaj trybu samolotu na dłużej.
 
 Jeśli system i tak zatrzyma usługę, przy następnym otwarciu aplikacji Parked spróbuje
-ją wznowić, a watchdog WorkManagera podejmie próbę co ok. 15 minut. Gdy Android zabroni
-startu z tła, pojawi się powiadomienie z prośbą o otwarcie aplikacji.
+ją wznowić, a watchdog WorkManagera podejmie próbę co ok. 15 minut. Parked nie wysyła
+powiadomień o takich zdarzeniach — szczegóły znajdziesz w Diagnostyce.
 
 **Gwarancja zapisu nie istnieje.** W razie wątpliwości użyj przycisku
 „Zapisz bieżącą lokalizację” na pulpicie.
@@ -103,16 +111,19 @@ startu z tła, pojawi się powiadomienie z prośbą o otwarcie aplikacji.
 ## Jak to działa
 
 ```
-połączenie z radiem          rozłączenie                 po opóźnieniu
+połączenie z radiem        rozłączenie: pomiar        po opóźnieniu: zapis
         │                         │                            │
         ▼                         ▼                            ▼
    CONNECTED ───────────────► PENDING ───────────────────► CAPTURING
         ▲                         │                            │
-        │   ponowne połączenie    │ anuluje zapis              │ GPS + walidacja
+        │   ponowne połączenie    │ anuluje zapis i pomiar     │ zapis gotowego fixu
         └─────────────────────────┘                            ▼
                                                           SAVED / błąd
 ```
 
+- Pomiar lokalizacji startuje **natychmiast po rozłączeniu** (maks. 20 s) i jest
+  trzymany w pamięci. Opóźnienie odkłada wyłącznie zapis, więc 15 s marszu od auta
+  nie przesuwa współrzędnych.
 - Start usługi przy już rozłączonym radiu **nie zapisuje** punktu — nie wiadomo,
   kiedy auto zaparkowało.
 - Powtarzane broadcasty połączenia/rozłączenia są idempotentne.
@@ -190,6 +201,7 @@ Testy jednostkowe JVM obejmują m.in.:
 - zmianę urządzenia i zmianę opóźnienia,
 - brak GPS, niską dokładność, nieprawidłowe współrzędne, stary fallback,
 - duplikat cyklu i minimalny odstęp między zapisami,
+- punkt pobrany przy rozłączeniu zapisany później bez zmiany współrzędnych,
 - eksport JSON/CSV/GPX (poprawność XML i cytowanie).
 
 Scenariusze wymagające fizycznego telefonu (reboot, ubicie procesu przez ColorOS,
@@ -205,6 +217,8 @@ jako checklistę manualną — nie da się ich wiarygodnie zasymulować w testac
 | Zapis bardzo niedokładny | Zmniejsz limit dokładności, sprawdź GPS na zewnątrz; fallback jest oznaczony w historii. |
 | Brak lokalizacji w tle | Uprawnienie musi mieć wartość „Zawsze pozwalaj”; na Androidzie 11+ to osobny ekran ustawień. |
 | Brak mapy | Sprawdź internet; kafelki OSM wymagają sieci. Piny historii działają bez sieci. |
+| Kompas nie obraca się | Telefon nie ma czujnika orientacji — strzałka nadal pokazuje kierunek względem północy. |
+| Nie chcę powiadomienia o monitorowaniu | To wymagane przez Androida powiadomienie usługi pierwszoplanowej. Ukryj kanał w Ustawieniach → Powiadomienia; monitoring nadal działa. |
 | Zdjęcie się nie dodaje | Wybierz obraz z pamięci urządzenia; limit 25 MB. |
 
 ## Struktura projektu
@@ -217,8 +231,8 @@ app/src/main/java/io/github/bartixxx32/parked/
 ├── export/          # JSON / CSV / GPX
 ├── location/        # LocationManager + opcjonalny fused
 ├── monitor/         # FGS, boot receiver, watchdog
-├── notifications/   # kanały i powiadomienia
-├── ui/              # Compose: pulpit, historia, mapa, ustawienia, diagnostyka
+├── notifications/   # jedyny kanał: wymagane powiadomienie FGS
+├── ui/              # Compose: pulpit, historia, mapa z kompasem, ustawienia, diagnostyka
 └── util/            # uprawnienia, intencje systemowe
 ```
 

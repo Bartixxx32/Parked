@@ -12,7 +12,6 @@ data class AppSettings(
     val maxAccuracyMeters: Int = DEFAULT_MAX_ACCURACY_METERS,
     val allowFallbackLastKnown: Boolean = true,
     val fallbackMaxAgeHours: Int = DEFAULT_FALLBACK_MAX_AGE_HOURS,
-    val notificationsEnabled: Boolean = true,
 ) {
     companion object {
         const val DEFAULT_SAVE_DELAY_SECONDS = 15

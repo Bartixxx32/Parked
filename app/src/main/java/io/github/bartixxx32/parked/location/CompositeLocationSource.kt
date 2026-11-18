@@ -18,7 +18,7 @@ class CompositeLocationSource(context: Context) : LocationSource {
         if (fused != null) {
             val fusedBudget = (timeoutMs / 2).coerceAtLeast(1_000L)
             fusedFix = fused.getCurrentFix(fusedBudget, acceptableAccuracyMeters)
-            if (fusedFix != null && fusedFix.accuracyMeters in 0f..acceptableAccuracyMeters) {
+            if (fusedFix != null && fusedFix.accuracyMeters in 0f..GOOD_FUSED_ACCURACY_METERS) {
                 return fusedFix
             }
         }
@@ -37,4 +37,8 @@ class CompositeLocationSource(context: Context) : LocationSource {
     }
 
     override fun getLastKnownFix(): LocationFix? = platform.getLastKnownFix()
+
+    private companion object {
+        const val GOOD_FUSED_ACCURACY_METERS = 20f
+    }
 }

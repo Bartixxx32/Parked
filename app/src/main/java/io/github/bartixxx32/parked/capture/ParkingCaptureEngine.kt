@@ -29,6 +29,30 @@ enum class CaptureFailure {
     INTERNAL_ERROR,
 }
 
+/**
+ * A validated fix that has been acquired but not yet written. It can be held in memory
+ * while the app waits for the reconnect window, so the saved point reflects the moment
+ * of disconnection instead of the moment the timer ends.
+ */
+data class AcquiredFix(
+    val latitude: Double,
+    val longitude: Double,
+    val accuracyMeters: Float,
+    val timeEpochMs: Long,
+    val provider: String?,
+    val isMock: Boolean,
+    val usedFallback: Boolean,
+)
+
+sealed interface AcquisitionOutcome {
+    data class Acquired(val fix: AcquiredFix) : AcquisitionOutcome
+
+    data class Failed(
+        val reason: CaptureFailure,
+        val detail: String? = null,
+    ) : AcquisitionOutcome
+}
+
 sealed interface CaptureOutcome {
     data class Saved(
         val spot: ParkingSpot,
@@ -50,6 +74,11 @@ interface ParkingSink {
 /**
  * Acquires and validates a fix, then writes it to the database.
  *
+ * Acquisition and persistence are separate so an automatic trigger can immediately start
+ * looking for a fix when the car disconnects, keep it in memory during the reconnect
+ * delay, and persist exactly that fix. No road snapping or map matching is performed:
+ * the stored coordinates are the raw coordinates reported by the location provider.
+ *
  * Two fresh-location attempts are made. If they fail and the user allows it, the best
  * last-known fix is stored as an explicitly marked emergency/fallback point. Invalid
  * coordinates (including 0,0), missing accuracy, excessive inaccuracy and stale fixes are
@@ -68,15 +97,34 @@ class ParkingCaptureEngine(
         if (request.trigger == CaptureTrigger.AUTO && request.cycleId == null) {
             return CaptureOutcome.Failed(CaptureFailure.INTERNAL_ERROR, "Brak identyfikatora cyklu")
         }
+        return when (val acquisition = acquire(settings)) {
+            is AcquisitionOutcome.Acquired -> save(request, acquisition.fix)
+            is AcquisitionOutcome.Failed ->
+                CaptureOutcome.Failed(acquisition.reason, acquisition.detail)
+        }
+    }
 
+    /**
+     * Requests and validates a fix without writing anything. Can be called as soon as the
+     * disconnect is detected.
+     *
+     * [attempts] defaults to two for manual saves. A prefetch at disconnect uses a single
+     * continuous attempt, because restarting the listeners halves the time available for
+     * the GPS to converge right after the car is left.
+     */
+    suspend fun acquire(
+        settings: AppSettings,
+        attempts: Int = ATTEMPTS,
+    ): AcquisitionOutcome {
         val maxAccuracy = settings.maxAccuracyMeters.toFloat()
         val timeoutMs = settings.gpsTimeoutSeconds * 1000L
-        val attemptTimeout = (timeoutMs / ATTEMPTS).coerceAtLeast(1_000L)
+        val attemptCount = attempts.coerceAtLeast(1)
+        val attemptTimeout = (timeoutMs / attemptCount).coerceAtLeast(1_000L)
 
         var chosen: LocationFix? = null
         var lastRejectedValidity: LocationValidity? = null
 
-        for (attempt in 0 until ATTEMPTS) {
+        for (attempt in 0 until attemptCount) {
             if (chosen != null) break
             val fix = locationSource.getCurrentFix(attemptTimeout, maxAccuracy) ?: continue
             val verdict = LocationValidator.validate(
@@ -113,7 +161,7 @@ class ParkingCaptureEngine(
             }
         }
 
-        val fix = chosen ?: return CaptureOutcome.Failed(
+        val fix = chosen ?: return AcquisitionOutcome.Failed(
             reason = when {
                 lastRejectedValidity == LocationValidity.LOW_ACCURACY ||
                     fallbackValidity == LocationValidity.LOW_ACCURACY -> CaptureFailure.LOW_ACCURACY
@@ -130,9 +178,31 @@ class ParkingCaptureEngine(
             detail = describe(lastRejectedValidity ?: fallbackValidity),
         )
 
+        return AcquisitionOutcome.Acquired(
+            AcquiredFix(
+                latitude = fix.latitude,
+                longitude = fix.longitude,
+                accuracyMeters = fix.accuracyMeters,
+                timeEpochMs = fix.timeEpochMs,
+                provider = fix.provider,
+                isMock = fix.isMock,
+                usedFallback = usedFallback,
+            ),
+        )
+    }
+
+    /** Persists a previously acquired fix. */
+    suspend fun save(
+        request: CaptureRequest,
+        fix: AcquiredFix,
+    ): CaptureOutcome {
+        if (request.trigger == CaptureTrigger.AUTO && request.cycleId == null) {
+            return CaptureOutcome.Failed(CaptureFailure.INTERNAL_ERROR, "Brak identyfikatora cyklu")
+        }
+
         val now = clock()
         val source = when {
-            usedFallback -> SpotSource.FALLBACK
+            fix.usedFallback -> SpotSource.FALLBACK
             request.trigger == CaptureTrigger.AUTO -> SpotSource.AUTO
             else -> SpotSource.MANUAL
         }
@@ -143,7 +213,7 @@ class ParkingCaptureEngine(
             savedAtEpochMs = now,
             fixTimeEpochMs = fix.timeEpochMs,
             source = source,
-            isFallback = usedFallback,
+            isFallback = fix.usedFallback,
             isMock = fix.isMock,
             provider = fix.provider,
             deviceAddress = request.deviceAddress,
@@ -159,7 +229,7 @@ class ParkingCaptureEngine(
         if (id < 0L) {
             return CaptureOutcome.Duplicate
         }
-        return CaptureOutcome.Saved(spot.copy(id = id), usedFallback)
+        return CaptureOutcome.Saved(spot.copy(id = id), fix.usedFallback)
     }
 
     private fun describe(validity: LocationValidity?): String? = when (validity) {

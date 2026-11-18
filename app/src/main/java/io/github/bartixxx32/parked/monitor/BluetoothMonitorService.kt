@@ -20,6 +20,8 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.IntentCompat
 import io.github.bartixxx32.parked.AppContainer
 import io.github.bartixxx32.parked.ParkedApp
+import io.github.bartixxx32.parked.capture.AcquiredFix
+import io.github.bartixxx32.parked.capture.AcquisitionOutcome
 import io.github.bartixxx32.parked.capture.CaptureFailure
 import io.github.bartixxx32.parked.capture.CaptureOutcome
 import io.github.bartixxx32.parked.capture.CaptureRequest
@@ -34,6 +36,7 @@ import io.github.bartixxx32.parked.data.trigger.TriggerTransition
 import io.github.bartixxx32.parked.notifications.NotificationHelper
 import io.github.bartixxx32.parked.util.PermissionUtils
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -45,6 +48,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 
 class BluetoothMonitorService : Service() {
 
@@ -72,6 +76,9 @@ class BluetoothMonitorService : Service() {
     private var pollJob: Job? = null
     private var timerJob: Job? = null
     private var captureJob: Job? = null
+    private var prefetchJob: Job? = null
+    private var prefetchDeferred: CompletableDeferred<PrefetchResult?>? = null
+    private var prefetchCycleId: Long? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -123,6 +130,7 @@ class BluetoothMonitorService : Service() {
 
     override fun onDestroy() {
         isRunning = false
+        cancelPrefetch()
         serviceScope.cancel()
         unregisterBluetoothReceiver()
         container.bluetoothRepository.stopConnectionTracking()
@@ -332,6 +340,7 @@ class BluetoothMonitorService : Service() {
         timerJob = null
         captureJob?.cancel()
         captureJob = null
+        cancelPrefetch()
         transitionMutex.withLock {
             currentState = TriggerState(
                 deviceAddress = newSettings.deviceAddress,
@@ -350,6 +359,7 @@ class BluetoothMonitorService : Service() {
 
     private suspend fun process(transitionProvider: (TriggerState) -> TriggerTransition) {
         transitionMutex.withLock {
+            val previousPhase = currentState.phase
             val transition = transitionProvider(currentState)
             val changed = transition.state != currentState
             currentState = transition.state
@@ -358,6 +368,15 @@ class BluetoothMonitorService : Service() {
             }
             updateRuntime()
             transition.actions.forEach { action -> handleAction(action) }
+            // Leaving PENDING for anything other than CAPTURING means the cycle was
+            // abandoned (reconnect, expiry, duplicate), so the fix captured at disconnect
+            // must not leak into a later cycle. A delay change stays in PENDING and keeps it.
+            if (previousPhase == TriggerPhase.PENDING &&
+                currentState.phase != TriggerPhase.PENDING &&
+                currentState.phase != TriggerPhase.CAPTURING
+            ) {
+                cancelPrefetch()
+            }
         }
     }
 
@@ -373,6 +392,7 @@ class BluetoothMonitorService : Service() {
             TriggerAction.CancelCapture -> {
                 captureJob?.cancel()
                 captureJob = null
+                cancelPrefetch()
             }
 
             is TriggerAction.CaptureLocation -> {
@@ -391,6 +411,7 @@ class BluetoothMonitorService : Service() {
             }
 
             is TriggerAction.SuppressDuplicate -> {
+                cancelPrefetch()
                 container.diagnosticsRepository.info(
                     "Trigger",
                     "Pominięto zapis, aby uniknąć duplikatu (ostatni zapis ${action.lastAutoSaveAtEpochMs} ms temu)",
@@ -408,26 +429,152 @@ class BluetoothMonitorService : Service() {
                 stateMachine.onTimerElapsed(state, now())
             }
         }
+        // Acquire the fix immediately, while the phone is still next to the car. Waiting
+        // out the reconnect delay first would record where the user walked to, not where
+        // the car was parked. The fix is kept in memory and persisted at the deadline.
+        startPrefetch()
+    }
+
+    /**
+     * Starts a background acquisition for the current pending cycle. Safe to call several
+     * times: an in-flight acquisition for the same cycle is reused, and a new cycle
+     * replaces the previous one.
+     */
+    private fun startPrefetch() {
+        val currentSettings = settings ?: return
+        if (!currentSettings.monitoringEnabled) return
+        val cycleId = currentState.cycleId
+        // Reuse a still-running or already-finished acquisition for the same cycle: a
+        // delay change must not move the point that was captured at disconnect.
+        if (prefetchDeferred != null && prefetchCycleId == cycleId) return
+
+        cancelPrefetch()
+        val deferred = CompletableDeferred<PrefetchResult?>()
+        prefetchDeferred = deferred
+        prefetchCycleId = cycleId
+        prefetchJob = serviceScope.launch {
+            val wakeLock = acquireWakeLock()
+            try {
+                container.diagnosticsRepository.info(
+                    "GPS",
+                    "Pobieranie lokalizacji przy rozłączeniu (cykl $cycleId)",
+                )
+                val prefetchSettings = currentSettings.copy(
+                    gpsTimeoutSeconds = currentSettings.gpsTimeoutSeconds
+                        .coerceAtMost(PREFETCH_MAX_SECONDS),
+                )
+                val result = when (
+                    val acquisition = container.captureEngine.acquire(
+                        settings = prefetchSettings,
+                        attempts = 1,
+                    )
+                ) {
+                    is AcquisitionOutcome.Acquired -> {
+                        container.diagnosticsRepository.info(
+                            "GPS",
+                            "Lokalizacja gotowa przy rozłączeniu: dokładność " +
+                                "${acquisition.fix.accuracyMeters.toInt()} m" +
+                                (acquisition.fix.provider?.let { ", źródło $it" } ?: ""),
+                        )
+                        PrefetchResult(acquisition.fix, null, null)
+                    }
+
+                    is AcquisitionOutcome.Failed -> {
+                        container.diagnosticsRepository.warn(
+                            "GPS",
+                            "Nie udało się pobrać lokalizacji przy rozłączeniu: " +
+                                "${acquisition.reason.userMessage()} ${acquisition.detail ?: ""}".trim(),
+                        )
+                        PrefetchResult(null, acquisition.reason, acquisition.detail)
+                    }
+                }
+                deferred.complete(result)
+            } catch (cancelled: CancellationException) {
+                deferred.complete(null)
+                throw cancelled
+            } catch (error: Exception) {
+                deferred.complete(
+                    PrefetchResult(null, CaptureFailure.INTERNAL_ERROR, error.message),
+                )
+            } finally {
+                releaseWakeLock(wakeLock)
+            }
+        }
+    }
+
+    private fun cancelPrefetch() {
+        val deferred = prefetchDeferred
+        val job = prefetchJob
+        prefetchDeferred = null
+        prefetchJob = null
+        prefetchCycleId = null
+        deferred?.complete(null)
+        job?.cancel()
+    }
+
+    /** Forgets a finished prefetch without cancelling a newer one. */
+    private fun clearPrefetch(cycleId: Long) {
+        if (prefetchCycleId != cycleId) return
+        val deferred = prefetchDeferred
+        val job = prefetchJob
+        prefetchDeferred = null
+        prefetchJob = null
+        prefetchCycleId = null
+        deferred?.complete(null)
+        job?.cancel()
+    }
+
+    private suspend fun awaitPrefetch(
+        cycleId: Long,
+        currentSettings: AppSettings,
+    ): PrefetchResult? {
+        val deferred = prefetchDeferred
+        if (deferred == null || prefetchCycleId != cycleId) return null
+        // The engine enforces its own timeouts; this is only a last-resort guard so a
+        // misbehaving provider can never block the save forever.
+        val waitMs = currentSettings.gpsTimeoutSeconds
+            .coerceAtMost(PREFETCH_MAX_SECONDS) * 1000L + PREFETCH_GRACE_MS
+        return withTimeoutOrNull(waitMs) { deferred.await() }
     }
 
     private suspend fun performCapture(cycleId: Long, deviceAddress: String?) {
         val currentSettings = settings ?: return
         if (!currentSettings.monitoringEnabled) return
 
-        container.diagnosticsRepository.info("GPS", "Pobieranie lokalizacji dla cyklu $cycleId")
+        container.diagnosticsRepository.info("GPS", "Zapis lokalizacji dla cyklu $cycleId")
         refreshNotification()
 
         val wakeLock = acquireWakeLock()
         try {
-            val outcome = container.captureEngine.capture(
-                request = CaptureRequest(
-                    trigger = CaptureTrigger.AUTO,
-                    cycleId = cycleId,
-                    deviceAddress = deviceAddress,
-                    deviceName = currentSettings.deviceName,
-                ),
-                settings = currentSettings,
+            val request = CaptureRequest(
+                trigger = CaptureTrigger.AUTO,
+                cycleId = cycleId,
+                deviceAddress = deviceAddress,
+                deviceName = currentSettings.deviceName,
             )
+            val prefetched = awaitPrefetch(cycleId, currentSettings)
+            val outcome = when {
+                prefetched?.fix != null -> {
+                    container.diagnosticsRepository.info(
+                        "GPS",
+                        "Zapisuję punkt pobrany w chwili rozłączenia",
+                    )
+                    container.captureEngine.save(request, prefetched.fix)
+                }
+
+                prefetched != null -> CaptureOutcome.Failed(
+                    reason = prefetched.failure ?: CaptureFailure.NO_LOCATION,
+                    detail = prefetched.detail,
+                )
+
+                else -> {
+                    container.diagnosticsRepository.info(
+                        "GPS",
+                        "Brak punktu z chwili rozłączenia — pobieram lokalizację teraz",
+                    )
+                    container.captureEngine.capture(request, currentSettings)
+                }
+            }
             when (outcome) {
                 is CaptureOutcome.Saved -> {
                     process { state ->
@@ -438,9 +585,6 @@ class BluetoothMonitorService : Service() {
                         "Zapisano miejsce (dokładność ${outcome.spot.accuracyMeters?.toInt() ?: "?"} m" +
                             if (outcome.usedFallback) ", punkt awaryjny)" else ")",
                     )
-                    if (currentSettings.notificationsEnabled) {
-                        NotificationHelper.showSaved(this, outcome.spot, outcome.usedFallback)
-                    }
                 }
 
                 CaptureOutcome.Duplicate -> {
@@ -461,9 +605,6 @@ class BluetoothMonitorService : Service() {
                         "GPS",
                         "Nie zapisano lokalizacji: ${outcome.reason.userMessage()} ${outcome.detail ?: ""}".trim(),
                     )
-                    if (currentSettings.notificationsEnabled) {
-                        NotificationHelper.showFailure(this, outcome.reason)
-                    }
                 }
             }
         } catch (cancelled: CancellationException) {
@@ -477,10 +618,8 @@ class BluetoothMonitorService : Service() {
                 stateMachine.onCaptureFinished(state, saved = false, nowEpochMs = now())
             }
             container.diagnosticsRepository.error("GPS", "Nieoczekiwany błąd: ${error.message}")
-            if (currentSettings.notificationsEnabled) {
-                NotificationHelper.showFailure(this, CaptureFailure.INTERNAL_ERROR)
-            }
         } finally {
+            clearPrefetch(cycleId)
             releaseWakeLock(wakeLock)
         }
     }
@@ -523,7 +662,7 @@ class BluetoothMonitorService : Service() {
                 "Rozłączono z $name. Zapis lokalizacji za ok. $seconds s."
             }
 
-            TriggerPhase.CAPTURING -> "Ustalam lokalizację GPS…"
+            TriggerPhase.CAPTURING -> "Zapisywanie miejsca…"
             TriggerPhase.SAVED -> "Miejsce zapisane. Oczekuję na ponowne połączenie z $name."
         }
         runCatching { NotificationHelper.updateMonitorNotification(this, text) }
@@ -588,6 +727,7 @@ class BluetoothMonitorService : Service() {
         timerJob = null
         captureJob?.cancel()
         captureJob = null
+        cancelPrefetch()
         transitionMutex.withLock {
             currentState = stateMachine.onMonitoringStopped(currentState).state
             runCatching { container.triggerStateRepository.save(currentState) }
@@ -629,6 +769,8 @@ class BluetoothMonitorService : Service() {
 
         private const val POLL_INTERVAL_MS = 20_000L
         private const val PROFILE_WARMUP_RECHECK_MS = 1_500L
+        private const val PREFETCH_MAX_SECONDS = 20
+        private const val PREFETCH_GRACE_MS = 5_000L
         private const val MAX_CAPTURE_WAKE_LOCK_MS = 3 * 60_000L
 
         @Volatile
@@ -657,3 +799,13 @@ class BluetoothMonitorService : Service() {
         }
     }
 }
+
+/**
+ * Result of the disconnect-time acquisition. A null [fix] with a [failure] means the
+ * acquisition finished and genuinely failed, so there is no point retrying immediately.
+ */
+private data class PrefetchResult(
+    val fix: AcquiredFix?,
+    val failure: CaptureFailure?,
+    val detail: String?,
+)

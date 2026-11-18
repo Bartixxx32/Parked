@@ -8,7 +8,6 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.content.ContextCompat
 import io.github.bartixxx32.parked.ParkedApp
-import io.github.bartixxx32.parked.notifications.NotificationHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -49,10 +48,6 @@ class BootReceiver : BroadcastReceiver() {
                         "Boot",
                         "Nie wznowiono monitorowania po restarcie — brak uprawnień",
                     )
-                    NotificationHelper.showServiceProblem(
-                        context,
-                        "Po restarcie brakuje uprawnień do Bluetooth lub lokalizacji. Otwórz aplikację.",
-                    )
                     return@launch
                 }
 
@@ -68,12 +63,6 @@ class BootReceiver : BroadcastReceiver() {
                     (context.applicationContext as ParkedApp).container.diagnosticsRepository.error(
                         "Boot",
                         "Nie udało się wznowić monitorowania: ${error.message}",
-                    )
-                }
-                runCatching {
-                    NotificationHelper.showServiceProblem(
-                        context,
-                        "System uniemożliwił automatyczne wznowienie monitorowania. Otwórz aplikację.",
                     )
                 }
             } finally {

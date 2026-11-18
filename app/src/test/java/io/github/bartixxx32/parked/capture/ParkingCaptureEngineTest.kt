@@ -208,4 +208,47 @@ class ParkingCaptureEngineTest {
         assertEquals(CaptureFailure.INTERNAL_ERROR, (outcome as CaptureOutcome.Failed).reason)
         assertTrue(sink.inserted.isEmpty())
     }
+
+    @Test
+    fun `fix acquired at disconnect is saved later without moving it`() = runBlocking {
+        val fix = freshFix(
+            accuracy = 6f,
+            latitude = 52.2297123,
+            longitude = 21.0122987,
+        )
+        val source = FakeLocationSource(current = fix)
+        val sink = RecordingSink(resultId = 11L)
+        var clockNow = now
+        val engine = ParkingCaptureEngine(
+            locationSource = source,
+            sink = sink,
+            clock = { clockNow },
+        )
+
+        val acquisition = engine.acquire(settings) as AcquisitionOutcome.Acquired
+        assertEquals(1, source.currentRequests)
+        assertTrue(sink.inserted.isEmpty())
+        assertEquals(fix.timeEpochMs, acquisition.fix.timeEpochMs)
+        assertEquals(fix.latitude, acquisition.fix.latitude, 0.0)
+        assertEquals(fix.longitude, acquisition.fix.longitude, 0.0)
+
+        clockNow = now + 15_000L
+        val outcome = engine.save(
+            CaptureRequest(
+                trigger = CaptureTrigger.AUTO,
+                cycleId = 12L,
+                deviceAddress = "AA:BB",
+                deviceName = "Radio",
+            ),
+            acquisition.fix,
+        ) as CaptureOutcome.Saved
+
+        assertEquals(11L, outcome.spot.id)
+        assertEquals(fix.latitude, outcome.spot.latitude, 0.0)
+        assertEquals(fix.longitude, outcome.spot.longitude, 0.0)
+        assertEquals(now + 15_000L, outcome.spot.savedAtEpochMs)
+        assertEquals(fix.timeEpochMs, outcome.spot.fixTimeEpochMs)
+        assertEquals(6f, outcome.spot.accuracyMeters)
+        assertEquals(SpotSource.AUTO, outcome.spot.source)
+    }
 }

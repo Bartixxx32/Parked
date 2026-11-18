@@ -27,6 +27,13 @@ object AppIntents {
         Intent(Settings.ACTION_BLUETOOTH_SETTINGS),
     )
 
+    fun openNotificationSettings(context: Context): Boolean = start(
+        context,
+        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+        },
+    )
+
     fun openBatteryOptimizationSettings(context: Context): Boolean = start(
         context,
         Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS),

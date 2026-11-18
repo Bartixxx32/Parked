@@ -100,6 +100,18 @@ Fazy:
 `cycleId` jest monotoniczny w obrębie bieżącego stanu; unikalny indeks w bazie jest
 drugą linią obrony przy wyścigu procesów.
 
+### Pomiar przy rozłączeniu (prefetch)
+
+Po przejściu `CONNECTED → PENDING` usługa od razu uruchamia `ParkingCaptureEngine.acquire`
+z jednym, ciągłym podejściem i limitem 20 s (`PREFETCH_MAX_SECONDS`). Gotowy,
+zwalidowany fix jest trzymany w pamięci (`AcquiredFix`) i zapisywany dopiero po
+upłynięciu opóźnienia przez `save` — bez ponownego pytania o lokalizację. Dzięki temu
+zapisane współrzędne odpowiadają chwili rozłączenia, a nie chwili zakończenia timera.
+Ponowne połączenie, zmiana urządzenia, zatrzymanie monitorowania i duplikat anulują
+zarówno timer, jak i trwający pomiar. Jeśli prefetch zdąży zakończyć się błędem, wynik
+jest ostateczny (brak natychmiastowego retry); jeśli z jakiegoś powodu brakuje prefetchu,
+usługa wykonuje zwykłe `capture` z pełnym limitem czasu.
+
 ## Usługa monitorowania
 
 `BluetoothMonitorService`:
@@ -107,7 +119,9 @@ drugą linią obrony przy wyścigu procesów.
 - start jako foreground service z typem `connectedDevice|location`,
 - jeśli `startForeground` z typem lokalizacji rzuci wyjątek (brak uprawnienia,
   ograniczenie systemu), następuje fallback do `connectedDevice`,
-- powiadomienie statusowe (kanał o niskim priorytecie) z akcją „Zatrzymaj”,
+- powiadomienie usługi pierwszoplanowej (kanał o niskim priorytecie, ciche) z akcją
+  „Zatrzymaj” — to jedyne powiadomienie w aplikacji; Parked nie wysyła powiadomień
+  o zapisie ani błędach (stary kanał `parked_events` jest usuwany przy starcie),
 - dynamiczny `BroadcastReceiver` na:
   - `ACTION_ACL_CONNECTED`, `ACTION_ACL_DISCONNECTED`,
   - `ACTION_STATE_CHANGED` adaptera,
@@ -128,9 +142,10 @@ drugą linią obrony przy wyścigu procesów.
   i wybranych QuickBoot, ale tylko gdy monitoring jest włączony, urządzenie wybrane
   i uprawnienia nadal przyznane.
 - `MonitorWatchdogWorker` co 15 min sprawdza, czy usługa żyje. Jeśli nie i brakuje
-  uprawnień, pokazuje powiadomienie zamiast próbować w nieskończoność.
-- Jeśli system zabroni startu, użytkownik dostaje powiadomienie i może otworzyć aplikację
-  (wtedy start z Activity jest dozwolony).
+  uprawnień, zapisuje ostrzeżenie w Diagnostyce zamiast próbować w nieskończoność
+  (bez powiadomienia).
+- Jeśli system zabroni startu, zdarzenie trafia do logów; użytkownik wznawia monitoring,
+  otwierając aplikację (start z Activity jest dozwolony).
 - Żaden z tych mechanizmów nie jest gwarancją — to best effort. ColorOS może zabić
   proces mimo FGS, watchdoga i wyłączonej optymalizacji.
 
@@ -145,9 +160,15 @@ drugą linią obrony przy wyścigu procesów.
 2. Równolegle/następnie używa `LocationManager` z providerami GPS i network.
 3. Wybiera lepszy fix (mniejsza dokładność, potem świeżość).
 
+`PlatformLocationSource` kończy oczekiwanie wcześniej, gdy fix jest rzeczywiście dobry:
+GPS ≤ 15 m albo dowolny provider ≤ 10 m. Fused wynik jest przyjmowany od razu tylko
+przy dokładności ≤ 20 m; inaczej źródło platformowe ma szansę dostarczyć lepszy punkt.
+Dzięki temu nie zapisujemy pierwszego, często sieciowego lub cache'owanego pomiaru.
+
 `ParkingCaptureEngine`:
 
-1. Dwa podejścia po `timeout/2` (min. 1 s).
+1. Dwa podejścia po `timeout/2` (min. 1 s); prefetch przy rozłączeniu używa jednego
+   podejścia i timeoutu skróconego do 20 s.
 2. Każdy fix przechodzi `LocationValidator`:
    - współrzędne skończone, w zakresach, nie `(0,0)`,
    - znana, nieujemna dokładność,
@@ -156,10 +177,27 @@ drugą linią obrony przy wyścigu procesów.
 3. Jeśli brak świeżego fixu i fallback jest włączony: ostatnia znana lokalizacja
    (GPS/network/passive/fused), walidowana z limitem wieku fallbacku.
 4. Zapis do Room z `source` i `isFallback`; wynik `Saved`, `Duplicate` lub `Failed`.
-5. Błąd zapisu nie jest maskowany — trafia do logów i powiadomienia.
+5. `acquire` i `save` są rozdzielone: fix pobrany przy rozłączeniu zachowuje swoje
+   współrzędne i `fixTimeEpochMs`, a `savedAtEpochMs` odpowiada chwili faktycznego zapisu.
+6. Błąd zapisu nie jest maskowany — trafia do logów (bez powiadomienia).
 
 Walidacja odrzuca typowe „śmieciowe” punkty, ale nie jest systemem anty-spoofingowym:
 mock location jest oznaczane, nie blokowane.
+
+## Mapa i kompas
+
+Ekran mapy używa osmdroid z kafelkami OSM. Pinezki są rysowane własnym `Overlay`
+na canvasie (stały rozmiar, kolor zależny od fallbacku, halo dla wybranego punktu),
+więc nie zależą od domyślnych baloników osmdroid. Dotknięcie pinu wybiera miejsce,
+a dolna karta pokazuje datę, współrzędne, dokładność, źródło, notatkę i przycisk
+nawigacji. Pozycja i zoom mapy są zapisywane w `rememberSaveable`, więc przełączanie
+zakładek ich nie resetuje.
+
+Kompas (`TargetCompass`) rysuje tarczę obróconą o bieżący azymut urządzenia i igłę
+wskazującą namiar na cel. Azymut pochodzi z `TYPE_ROTATION_VECTOR`, a przy jego braku
+z akcelerometru + magnetometru; uwzględniany jest obrót ekranu. Odległość i namiar
+liczy `Location.distanceBetween` między bieżącą pozycją a wybranym (lub ostatnim)
+miejscem. Cel jest pokazywany w metrach, stopniach i kierunku kardynalnym.
 
 ## Eksport
 
@@ -183,8 +221,11 @@ aplikacja nie ma uprawnienia do całej pamięci.
 - Receiver Bluetooth zarejestrowany jako `RECEIVER_NOT_EXPORTED`.
 - `BootReceiver` jest eksportowany (wymóg broadcastów systemowych), ale nie wykonuje
   nic poza sprawdzeniem własnych ustawień i próbą startu własnej usługi.
-- Minimalne uprawnienia: lokalizacja, Bluetooth, powiadomienia, FGS, boot, wake lock.
-  Brak SMS, kontaktów, mikrofonu, kamery (zdjęcia przez SAF), dostępu do plików.
+- Minimalne uprawnienia: lokalizacja, Bluetooth, FGS, boot, wake lock.
+  `POST_NOTIFICATIONS` jest zadeklarowane w manifeście, ale aplikacja **nie prosi**
+  o tę zgodę — wymagane powiadomienie FGS może wtedy pojawić się tylko w Menedżerze
+  zadań, a monitoring nadal działa. Brak SMS, kontaktów, mikrofonu, kamery (zdjęcia
+  przez SAF), dostępu do plików.
 
 ## Testy i checklista manualna
 
@@ -192,19 +233,20 @@ Automatyczne (JVM, uruchamiane w CI):
 
 - stan wyzwalacza: wszystkie przejścia i przypadki brzegowe,
 - walidator lokalizacji,
-- silnik capture z fake source/sink,
+- silnik capture z fake source/sink (w tym zapis fixu pobranego przy rozłączeniu
+  bez zmiany współrzędnych),
 - eksportery,
 - kompilacja wszystkich ekranów Compose i usług.
 
 Manualne (telefon, najlepiej OnePlus/ColorOS):
 
 1. Sparuj radio, wybierz w aplikacji, włącz monitoring.
-2. Połącz → rozłącz: zapis po opóźnieniu, powiadomienie, wpis w historii.
+2. Połącz → rozłącz: pomiar od razu, zapis po opóźnieniu, wpis w historii.
 3. Połącz → rozłącz → połącz w czasie opóźnienia: brak zapisu, anulowanie.
 4. Krótka utrata połączenia (radio poza zasięgiem) i powrót: brak duplikatu.
 5. Wyłącz GPS: błąd lub fallback oznaczony jako awaryjny.
 6. Ustaw limit dokładności na 10 m w pomieszczeniu: błąd zamiast złego punktu.
-7. Restart telefonu z włączonym monitoringiem: usługa wznawia się (lub powiadomienie).
+7. Restart telefonu z włączonym monitoringiem: usługa wznawia się (lub wpis w Diagnostyce).
 8. Ubij proces z ostatnich aplikacji: FGS powinien przetrwać; jeśli nie — watchdog
    lub start przy otwarciu aplikacji.
 9. Wielokrotne szybkie rozłączenia: minimum 2 min między automatycznymi zapisami.

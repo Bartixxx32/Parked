@@ -171,10 +171,6 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch { container.settingsRepository.setFallbackMaxAgeHours(hours) }
     }
 
-    fun updateNotificationsEnabled(enabled: Boolean) {
-        viewModelScope.launch { container.settingsRepository.setNotificationsEnabled(enabled) }
-    }
-
     fun saveCurrentLocation() {
         if (_uiState.value.saving) return
         viewModelScope.launch {

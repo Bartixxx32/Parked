@@ -86,7 +86,7 @@ fun DashboardScreen(
     val remainingSeconds = ((monitor.pendingAtEpochMs - nowMs) / 1000L).coerceAtLeast(0L)
     val pending = monitor.phase == TriggerPhase.PENDING
     val missingForeground =
-        !permissions.bluetoothPermission || !permissions.locationOk || !permissions.notifications
+        !permissions.bluetoothPermission || !permissions.locationOk
     val missingBackground = permissions.locationOk && !permissions.backgroundLocation
     val reliabilityProblems = missingForeground || missingBackground ||
         !permissions.batteryOptimizationIgnored || !permissions.bluetoothEnabled
@@ -277,11 +277,6 @@ fun DashboardScreen(
                     detail = "Włącz Bluetooth w systemie.",
                     actionLabel = if (!permissions.bluetoothEnabled) "Ustawienia" else null,
                     onAction = if (!permissions.bluetoothEnabled) onOpenBluetoothSettings else null,
-                )
-                PermissionStatusRow(
-                    title = "Powiadomienia",
-                    granted = permissions.notifications,
-                    detail = "Status monitorowania i informacja o zapisie.",
                 )
                 PermissionStatusRow(
                     title = "Optymalizacja baterii wyłączona",

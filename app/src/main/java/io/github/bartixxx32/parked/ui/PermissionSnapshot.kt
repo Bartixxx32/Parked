@@ -11,14 +11,13 @@ data class PermissionSnapshot(
     val fineLocation: Boolean,
     val coarseLocation: Boolean,
     val backgroundLocation: Boolean,
-    val notifications: Boolean,
     val batteryOptimizationIgnored: Boolean,
 ) {
     val locationOk: Boolean
         get() = fineLocation || coarseLocation
 
     val hasCriticalIssues: Boolean
-        get() = !bluetoothPermission || !locationOk || !notifications || !batteryOptimizationIgnored
+        get() = !bluetoothPermission || !locationOk || !batteryOptimizationIgnored
 
     companion object {
         fun read(context: Context): PermissionSnapshot {
@@ -30,7 +29,6 @@ data class PermissionSnapshot(
                 fineLocation = PermissionUtils.hasFineLocation(context),
                 coarseLocation = PermissionUtils.hasCoarseLocation(context),
                 backgroundLocation = PermissionUtils.hasBackgroundLocation(context),
-                notifications = PermissionUtils.hasNotificationPermission(context),
                 batteryOptimizationIgnored = PermissionUtils.isIgnoringBatteryOptimizations(context),
             )
         }

@@ -46,7 +46,7 @@ fun SettingsScreen(
     onMaxAccuracyChange: (Int) -> Unit,
     onFallbackEnabledChange: (Boolean) -> Unit,
     onFallbackMaxAgeChange: (Int) -> Unit,
-    onNotificationsEnabledChange: (Boolean) -> Unit,
+    onOpenNotificationSettings: () -> Unit,
     onRequestPermissions: () -> Unit,
     onRequestBackgroundLocation: () -> Unit,
     onBatterySettings: () -> Unit,
@@ -171,7 +171,8 @@ fun SettingsScreen(
                     range = AppSettings.SAVE_DELAY_RANGE,
                     step = 5,
                     unit = "s",
-                    description = "Krótka chwila na ponowne połączenie; wtedy zapis jest anulowany.",
+                    description = "Lokalizacja jest pobierana od razu przy rozłączeniu. To opóźnienie " +
+                        "tylko odkłada zapis, żeby dać czas na ponowne połączenie (wtedy zapis jest anulowany).",
                     onValueChange = onSaveDelayChange,
                 )
                 SettingSlider(
@@ -207,12 +208,24 @@ fun SettingsScreen(
                     enabled = settings.allowFallbackLastKnown,
                     onValueChange = onFallbackMaxAgeChange,
                 )
-                SwitchRow(
-                    title = "Powiadomienia o zapisie",
-                    subtitle = "Informacja o zapisanym miejscu lub błędzie lokalizacji.",
-                    checked = settings.notificationsEnabled,
-                    onCheckedChange = onNotificationsEnabledChange,
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        text = "Powiadomienia",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = "Parked nie wysyła powiadomień o zapisie ani błędach. " +
+                            "Jedyne powiadomienie to wymagane przez Androida powiadomienie " +
+                            "usługi monitorującej. Możesz je wyłączyć w ustawieniach " +
+                            "systemowych — monitorowanie nadal będzie działać.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    TextButton(onClick = onOpenNotificationSettings) {
+                        Text("Ustawienia powiadomień")
+                    }
+                }
             }
         }
 
@@ -244,12 +257,6 @@ fun SettingsScreen(
                     } else {
                         null
                     },
-                )
-                PermissionStatusRow(
-                    title = "Powiadomienia",
-                    granted = permissions.notifications,
-                    actionLabel = if (!permissions.notifications) "Przyznaj" else null,
-                    onAction = if (!permissions.notifications) onRequestPermissions else null,
                 )
                 PermissionStatusRow(
                     title = "Bluetooth włączony w systemie",

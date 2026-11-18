@@ -38,6 +38,8 @@ import io.github.bartixxx32.parked.data.db.ParkingSpot
 import io.github.bartixxx32.parked.ui.screens.DashboardScreen
 import io.github.bartixxx32.parked.ui.screens.DiagnosticsScreen
 import io.github.bartixxx32.parked.ui.screens.HistoryScreen
+import io.github.bartixxx32.parked.ui.screens.MapCamera
+import io.github.bartixxx32.parked.ui.screens.MapCameraSaver
 import io.github.bartixxx32.parked.ui.screens.MapScreen
 import io.github.bartixxx32.parked.ui.screens.SettingsScreen
 import io.github.bartixxx32.parked.util.AppIntents
@@ -69,6 +71,9 @@ fun ParkedRoot(viewModel: MainViewModel) {
     var permissions by remember { mutableStateOf(PermissionSnapshot.read(context)) }
     var tabName by rememberSaveable { mutableStateOf(ParkedTab.DASHBOARD.name) }
     var focusSpotId by rememberSaveable { mutableStateOf(-1L) }
+    var mapCamera by rememberSaveable(stateSaver = MapCameraSaver) {
+        mutableStateOf<MapCamera?>(null)
+    }
     val tab = runCatching { ParkedTab.valueOf(tabName) }.getOrDefault(ParkedTab.DASHBOARD)
 
     val foregroundLauncher = rememberLauncherForActivityResult(
@@ -133,6 +138,11 @@ fun ParkedRoot(viewModel: MainViewModel) {
     val openBluetoothSettings: () -> Unit = {
         if (!AppIntents.openBluetoothSettings(context)) {
             notifyFailure("Nie udało się otworzyć ustawień Bluetooth")
+        }
+    }
+    val openNotificationSettings: () -> Unit = {
+        if (!AppIntents.openNotificationSettings(context)) {
+            notifyFailure("Nie udało się otworzyć ustawień powiadomień")
         }
     }
     val openAppSettings: () -> Unit = {
@@ -215,7 +225,10 @@ fun ParkedRoot(viewModel: MainViewModel) {
                     spots = spots,
                     permissions = permissions,
                     focusSpotId = focusSpotId.takeIf { it > 0L },
+                    initialCamera = mapCamera,
+                    onCameraChanged = { camera -> mapCamera = camera },
                     onNavigate = navigateTo,
+                    onRequestPermissions = requestPermissions,
                     onOpenSettings = { tabName = ParkedTab.SETTINGS.name },
                 )
 
@@ -230,7 +243,7 @@ fun ParkedRoot(viewModel: MainViewModel) {
                     onMaxAccuracyChange = viewModel::updateMaxAccuracy,
                     onFallbackEnabledChange = viewModel::updateFallbackEnabled,
                     onFallbackMaxAgeChange = viewModel::updateFallbackMaxAge,
-                    onNotificationsEnabledChange = viewModel::updateNotificationsEnabled,
+                    onOpenNotificationSettings = openNotificationSettings,
                     onRequestPermissions = requestPermissions,
                     onRequestBackgroundLocation = requestBackgroundLocation,
                     onBatterySettings = openBatterySettings,
