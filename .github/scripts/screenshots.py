@@ -77,6 +77,8 @@ def find_text(text: str, timeout: float = 20.0) -> tuple[int, int] | None:
 def tap_text(text: str, timeout: float = 20.0) -> None:
     position = find_text(text, timeout)
     if position is None:
+        label = re.sub(r"\W+", "-", text).strip("-").lower() or "element"
+        save_diagnostics(f"missing-{label}")
         raise RuntimeError(f"UI element not found: {text!r}")
     tap(*position)
     time.sleep(0.8)
@@ -99,9 +101,53 @@ def screenshot(name: str) -> None:
     print(f"captured {name}", flush=True)
 
 
+def save_diagnostics(label: str) -> None:
+    """Save enough context to debug a failed run from the CI artifact."""
+    OUTDIR.mkdir(parents=True, exist_ok=True)
+    try:
+        (OUTDIR / f"debug-{label}.png").write_bytes(
+            adb("exec-out", "screencap", "-p", binary=True)
+        )
+    except Exception as error:  # noqa: BLE001 - diagnostics must never mask the real error
+        print(f"cannot save screenshot: {error}", flush=True)
+    for name, command in (
+        ("ui.xml", "cat /sdcard/window_dump.xml"),
+        ("logcat.txt", "logcat -d -t 1500"),
+        ("activity.txt", "dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity'"),
+        ("focus.txt", "dumpsys window | grep -E 'mCurrentFocus|mFocusedApp'"),
+        ("process.txt", f"pidof {PKG}"),
+    ):
+        try:
+            (OUTDIR / f"debug-{label}-{name}").write_text(shell(command))
+        except Exception as error:  # noqa: BLE001
+            print(f"cannot save {name}: {error}", flush=True)
+
+
+def tap_tab(index: int) -> None:
+    """Tap one of the five bottom navigation items.
+
+    Coordinate taps keep working even when uiautomator does not expose Compose
+    labels, which differs between Android versions.
+    """
+    size = shell("wm size")
+    match = re.search(r"(\d+)x(\d+)", size)
+    if not match:
+        raise RuntimeError(f"cannot read screen size: {size!r}")
+    width, height = int(match.group(1)), int(match.group(2))
+    x = int(width * (index + 0.5) / 5)
+    y = height - 140  # inside the navigation bar above the gesture inset
+    tap(x, y)
+    time.sleep(1)
+
+
 def launch() -> None:
     shell(f"am start -W -n {ACTIVITY} >/dev/null")
-    time.sleep(3)
+    time.sleep(4)
+    pid = shell(f"pidof {PKG}").strip()
+    if not pid:
+        save_diagnostics("not-running")
+        raise RuntimeError("the app process is not running after launch")
+    print(f"app pid: {pid}", flush=True)
 
 
 def set_locale(locale: str) -> None:
@@ -112,7 +158,7 @@ def set_locale(locale: str) -> None:
 
 
 def add_spots() -> None:
-    tap_text("History")
+    tap_tab(1)
     for latitude, longitude, note in SPOTS:
         tap_text("Add spot manually")
         tap_text("Latitude")
@@ -132,43 +178,51 @@ def add_spots() -> None:
 def capture_english() -> None:
     set_locale("en-US")
     add_spots()
-    tap_text("History")
+    tap_tab(1)
     time.sleep(1)
     screenshot("2.png")
-    tap_text("Dashboard")
+    tap_tab(0)
     time.sleep(1)
     screenshot("1.png")
-    tap_text("Map")
+    tap_tab(2)
     time.sleep(12)  # let OSM tiles load
     screenshot("3.png")
-    tap_text("Settings")
+    tap_tab(3)
     time.sleep(1)
     screenshot("4.png")
-    tap_text("Diagnostics")
+    tap_tab(4)
     time.sleep(1)
     screenshot("5.png")
 
 
 def capture_polish() -> None:
     set_locale("pl-PL")
-    tap_text("Pulpit")
+    tap_tab(0)
     time.sleep(1)
     screenshot("1.png")
-    tap_text("Historia")
+    tap_tab(1)
     time.sleep(1)
     screenshot("2.png")
-    tap_text("Mapa")
+    tap_tab(2)
     time.sleep(12)
     screenshot("3.png")
-    tap_text("Ustawienia")
+    tap_tab(3)
     time.sleep(1)
     screenshot("4.png")
-    tap_text("Diagnostyka")
+    tap_tab(4)
     time.sleep(1)
     screenshot("5.png")
 
 
 def main() -> int:
+    try:
+        return run()
+    except Exception:
+        save_diagnostics("fatal")
+        raise
+
+
+def run() -> int:
     # Prepare the device.
     shell("settings put secure show_ime_with_hard_keyboard 1")
     for permission in (
