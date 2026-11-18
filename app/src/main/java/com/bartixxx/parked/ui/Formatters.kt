@@ -40,6 +40,8 @@ object Formatters {
         "fused" -> "Fused (Android)"
         "network" -> stringResource(R.string.provider_network)
         "passive" -> stringResource(R.string.provider_passive)
+        "manual" -> stringResource(R.string.source_manual)
+        "unknown" -> stringResource(R.string.provider_unknown)
         else -> provider ?: stringResource(R.string.no_data)
     }
 
@@ -50,6 +52,8 @@ object Formatters {
         "fused" -> "Fused"
         "network" -> stringResource(R.string.provider_network_short)
         "passive" -> stringResource(R.string.provider_passive)
+        "manual" -> stringResource(R.string.source_manual)
+        "unknown" -> null
         else -> provider
     }
 

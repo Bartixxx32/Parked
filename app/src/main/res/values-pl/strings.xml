@@ -305,6 +305,7 @@
     <string name="provider_network_short">Sieć</string>
     <string name="provider_network">Sieć / Wi-Fi</string>
     <string name="provider_passive">Pasywny</string>
+    <string name="provider_unknown">Nieznany</string>
     <string name="age_seconds">%1$d s temu</string>
     <string name="age_minutes">%1$d min temu</string>
     <string name="age_hours">%1$d h temu</string>
