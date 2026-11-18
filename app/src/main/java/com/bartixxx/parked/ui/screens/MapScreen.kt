@@ -5,6 +5,7 @@ import android.graphics.Color as AndroidColor
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.Point
+import android.graphics.Typeface
 import android.location.Location
 import android.os.SystemClock
 import android.view.MotionEvent
@@ -48,6 +49,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -58,6 +60,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import com.bartixxx.parked.R
 import com.bartixxx.parked.data.db.ParkingSpot
 import com.bartixxx.parked.data.db.SpotSource
+import com.bartixxx.parked.family.FamilyPalette
+import com.bartixxx.parked.family.FamilySpot
 import com.bartixxx.parked.ui.Formatters
 import com.bartixxx.parked.ui.PermissionSnapshot
 import com.bartixxx.parked.ui.components.TargetCompass
@@ -110,16 +114,19 @@ val MapCameraSaver = listSaver<MapCamera?, Any>(
 @Composable
 fun MapScreen(
     spots: List<ParkingSpot>,
+    familySpots: List<FamilySpot>,
     permissions: PermissionSnapshot,
     focusSpotId: Long?,
     initialCamera: MapCamera?,
     onCameraChanged: (MapCamera) -> Unit,
     onNavigate: (ParkingSpot) -> Unit,
+    onNavigateFamily: (FamilySpot) -> Unit,
     onRequestPermissions: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     val context = LocalContext.current
     var selectedSpotId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var selectedFamilyDeviceId by rememberSaveable { mutableStateOf<String?>(null) }
     var userLocation by remember { mutableStateOf<GeoPoint?>(null) }
     var locationOverlay by remember { mutableStateOf<MyLocationNewOverlay?>(null) }
     var didInitialCenter by remember { mutableStateOf(false) }
@@ -128,10 +135,15 @@ fun MapScreen(
     val selectedSpot = remember(spots, selectedSpotId) {
         spots.firstOrNull { it.id == selectedSpotId }
     }
+    val selectedFamilySpot = remember(familySpots, selectedFamilyDeviceId) {
+        familySpots.firstOrNull { it.deviceId == selectedFamilyDeviceId }
+    }
     val target = selectedSpot ?: latest
 
     val spotsState = rememberUpdatedState(spots)
     val selectedIdState = rememberUpdatedState(selectedSpotId)
+    val familySpotsState = rememberUpdatedState(familySpots)
+    val selectedFamilyIdState = rememberUpdatedState(selectedFamilyDeviceId)
     val cameraCallback by rememberUpdatedState(onCameraChanged)
 
     val mapView = remember {
@@ -159,7 +171,22 @@ fun MapScreen(
             mapView = mapView,
             spotsProvider = { spotsState.value },
             selectedIdProvider = { selectedIdState.value },
-            onSelect = { spot -> selectedSpotId = spot?.id },
+            onSelect = { spot ->
+                selectedSpotId = spot?.id
+                if (spot != null) selectedFamilyDeviceId = null
+            },
+        )
+    }
+
+    val familyPinOverlay = remember(mapView) {
+        FamilyPinOverlay(
+            mapView = mapView,
+            spotsProvider = { familySpotsState.value },
+            selectedIdProvider = { selectedFamilyIdState.value },
+            onSelect = { spot ->
+                selectedFamilyDeviceId = spot?.deviceId
+                if (spot != null) selectedSpotId = null
+            },
         )
     }
 
@@ -193,8 +220,9 @@ fun MapScreen(
         }
     }
 
-    DisposableEffect(mapView, pinOverlay) {
+    DisposableEffect(mapView, pinOverlay, familyPinOverlay) {
         mapView.overlays.add(pinOverlay)
+        mapView.overlays.add(familyPinOverlay)
         mapView.addMapListener(cameraListener)
         mapView.onResume()
         mapView.invalidate()
@@ -211,6 +239,7 @@ fun MapScreen(
             }
             mapView.removeMapListener(cameraListener)
             mapView.overlays.remove(pinOverlay)
+            mapView.overlays.remove(familyPinOverlay)
             locationOverlay?.let { overlay -> runCatching { overlay.disableMyLocation() } }
             locationOverlay = null
             mapView.onPause()
@@ -218,8 +247,15 @@ fun MapScreen(
         }
     }
 
-    LaunchedEffect(spots, selectedSpotId) {
+    LaunchedEffect(spots, selectedSpotId, familySpots, selectedFamilyDeviceId) {
         mapView.invalidate()
+    }
+
+    LaunchedEffect(familySpots) {
+        val selected = selectedFamilyDeviceId
+        if (selected != null && familySpots.none { it.deviceId == selected }) {
+            selectedFamilyDeviceId = null
+        }
     }
 
     LaunchedEffect(permissions.locationOk, mapView) {
@@ -253,6 +289,7 @@ fun MapScreen(
         val focused = spots.firstOrNull { it.id == focusSpotId }
         if (focused != null) {
             selectedSpotId = focused.id
+            selectedFamilyDeviceId = null
             didInitialCenter = true
             mapView.controller.setZoom(FOCUS_ZOOM)
             mapView.controller.setCenter(GeoPoint(focused.latitude, focused.longitude))
@@ -272,6 +309,29 @@ fun MapScreen(
     }
 
     val distanceBearing = remember(target?.id, userLocation?.latitude, userLocation?.longitude) {        val spot = target
+        val fix = userLocation
+        if (spot == null || fix == null) {
+            null
+        } else {
+            val results = FloatArray(3)
+            Location.distanceBetween(
+                fix.latitude,
+                fix.longitude,
+                spot.latitude,
+                spot.longitude,
+                results,
+            )
+            DistanceBearing(meters = results[0], bearing = results[1])
+        }
+    }
+
+    val familyDistanceBearing = remember(
+        selectedFamilySpot?.latitude,
+        selectedFamilySpot?.longitude,
+        userLocation?.latitude,
+        userLocation?.longitude,
+    ) {
+        val spot = selectedFamilySpot
         val fix = userLocation
         if (spot == null || fix == null) {
             null
@@ -397,15 +457,26 @@ fun MapScreen(
                 )
             }
 
-            SpotCard(
-                spot = target,
-                isSelected = selectedSpot != null,
-                distanceBearing = distanceBearing,
-                hasLocationAccess = permissions.locationOk,
-                onNavigate = { spot -> onNavigate(spot) },
-                onClearSelection = { selectedSpotId = null },
-                onOpenSettings = onOpenSettings,
-            )
+            val familySpot = selectedFamilySpot
+            if (familySpot != null) {
+                FamilySpotCard(
+                    spot = familySpot,
+                    distanceBearing = familyDistanceBearing,
+                    hasLocationAccess = permissions.locationOk,
+                    onNavigate = { spot -> onNavigateFamily(spot) },
+                    onClearSelection = { selectedFamilyDeviceId = null },
+                )
+            } else {
+                SpotCard(
+                    spot = target,
+                    isSelected = selectedSpot != null,
+                    distanceBearing = distanceBearing,
+                    hasLocationAccess = permissions.locationOk,
+                    onNavigate = { spot -> onNavigate(spot) },
+                    onClearSelection = { selectedSpotId = null },
+                    onOpenSettings = onOpenSettings,
+                )
+            }
         }
     }
 }
@@ -656,6 +727,162 @@ private fun SpotCard(
 }
 
 @Composable
+private fun FamilySpotCard(
+    spot: FamilySpot,
+    distanceBearing: DistanceBearing?,
+    hasLocationAccess: Boolean,
+    onNavigate: (FamilySpot) -> Unit,
+    onClearSelection: () -> Unit,
+) {
+    val azimuthDegrees = rememberDeviceAzimuth()
+    val accent = Color(FamilyPalette.colorFor(spot.deviceId))
+    Surface(
+        shape = RoundedCornerShape(28.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
+        shadowElevation = 12.dp,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .width(38.dp)
+                    .height(4.dp),
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.18f),
+                    modifier = Modifier.fillMaxSize(),
+                ) {}
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.map_family_spot),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = accent,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = spot.displayName,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = Formatters.dateTime(spot.savedAtEpochMs),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        text = Formatters.coordinates(spot.latitude, spot.longitude),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        InfoChip(
+                            text = spot.accuracyMeters?.let { "±${it.roundToInt()} m" }
+                                ?: stringResource(R.string.map_no_accuracy),
+                            emphasized = false,
+                        )
+                        spot.lastSeenAtEpochMs?.let { seen ->
+                            InfoChip(
+                                text = stringResource(
+                                    R.string.map_family_last_seen,
+                                    Formatters.age(seen),
+                                ),
+                                emphasized = false,
+                            )
+                        }
+                    }
+                }
+
+                if (distanceBearing != null) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        TargetCompass(
+                            azimuthDegrees = azimuthDegrees,
+                            bearingDegrees = distanceBearing.bearing,
+                            modifier = Modifier.size(92.dp),
+                        )
+                        Text(
+                            text = "${distanceBearing.meters.roundToInt()} m",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text = "${cardinalDirection(distanceBearing.bearing)} • " +
+                                "${distanceBearing.bearing.roundToInt()}°",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+
+            if (distanceBearing == null) {
+                Text(
+                    text = if (hasLocationAccess) {
+                        stringResource(R.string.map_locating)
+                    } else {
+                        stringResource(R.string.map_enable_location)
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Button(
+                    onClick = { onNavigate(spot) },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(16.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Navigation,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.action_navigate))
+                }
+                IconButton(
+                    onClick = onClearSelection,
+                    modifier = Modifier.size(48.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Close,
+                        contentDescription = stringResource(R.string.cd_clear_selection),
+                    )
+                }
+            }
+
+            Text(
+                text = stringResource(R.string.map_attribution),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+            )
+        }
+    }
+}
+
+@Composable
 private fun InfoChip(text: String, emphasized: Boolean) {
     Surface(
         shape = CircleShape,
@@ -832,6 +1059,140 @@ private class SpotPinOverlay(
         const val FALLBACK_PIN_COLOR = 0xFFD97706.toInt()
         const val MIN_ACCURACY_RADIUS_DP = 4f
         const val MAX_ACCURACY_CIRCLE_METERS = 1_000f
+    }
+}
+
+/**
+ * Draws the latest spot of every family member as a colour-coded pin. The colour
+ * matches the member row in settings, the initial helps when several pins are close.
+ */
+private class FamilyPinOverlay(
+    private val mapView: MapView,
+    private val spotsProvider: () -> List<FamilySpot>,
+    private val selectedIdProvider: () -> String?,
+    private val onSelect: (FamilySpot?) -> Unit,
+) : Overlay() {
+
+    private val density = mapView.resources.displayMetrics.density
+    private val point = Point()
+    private val path = Path()
+
+    private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val ringPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        color = AndroidColor.WHITE
+    }
+    private val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0x33000000
+    }
+    private val haloPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = AndroidColor.WHITE
+        textAlign = Paint.Align.CENTER
+        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+    }
+
+    override fun draw(canvas: Canvas, mapView: MapView, shadow: Boolean) {
+        if (shadow) return
+        val selectedId = selectedIdProvider()
+        spotsProvider().forEach { spot ->
+            mapView.projection.toPixels(GeoPoint(spot.latitude, spot.longitude), point)
+            drawPin(
+                canvas = canvas,
+                x = point.x.toFloat(),
+                y = point.y.toFloat(),
+                color = FamilyPalette.colorFor(spot.deviceId),
+                initial = spot.displayName.trim()
+                    .firstOrNull()
+                    ?.uppercaseChar()
+                    ?.toString()
+                    .orEmpty()
+                    .ifEmpty { "?" },
+                selected = spot.deviceId == selectedId,
+            )
+        }
+    }
+
+    private fun drawPin(
+        canvas: Canvas,
+        x: Float,
+        y: Float,
+        color: Int,
+        initial: String,
+        selected: Boolean,
+    ) {
+        val scale = if (selected) 1.22f else 1f
+        val radius = PIN_RADIUS_DP * density * scale
+        val height = PIN_HEIGHT_DP * density * scale
+        val centerY = y - height + radius
+
+        canvas.drawOval(
+            x - radius * 0.85f,
+            y - 3f * density,
+            x + radius * 0.85f,
+            y + 2.5f * density,
+            shadowPaint,
+        )
+
+        if (selected) {
+            haloPaint.color = (color and 0x00FFFFFF) or 0x33000000
+            canvas.drawCircle(x, centerY, radius * 1.9f, haloPaint)
+        }
+
+        path.reset()
+        path.addCircle(x, centerY, radius, Path.Direction.CW)
+        val wing = radius * 0.64f
+        path.moveTo(x - wing, centerY + radius * 0.55f)
+        path.lineTo(x, y)
+        path.lineTo(x + wing, centerY + radius * 0.55f)
+        path.close()
+
+        fillPaint.color = color
+        canvas.drawPath(path, fillPaint)
+
+        ringPaint.strokeWidth = 2.2f * density
+        canvas.drawCircle(x, centerY, radius - ringPaint.strokeWidth / 2f, ringPaint)
+
+        textPaint.textSize = radius * 1.15f
+        val metrics = textPaint.fontMetrics
+        val baseline = centerY - (metrics.ascent + metrics.descent) / 2f
+        canvas.drawText(initial, x, baseline, textPaint)
+    }
+
+    override fun onSingleTapConfirmed(e: MotionEvent, mapView: MapView): Boolean {
+        val selectedId = selectedIdProvider()
+        var best: FamilySpot? = null
+        var bestDistance = PIN_TOUCH_RADIUS_DP * density
+
+        spotsProvider().forEach { spot ->
+            mapView.projection.toPixels(GeoPoint(spot.latitude, spot.longitude), point)
+            val dx = point.x.toFloat() - e.x
+            val dy = (point.y.toFloat() - PIN_HEIGHT_DP * density * 0.55f) - e.y
+            val distance = hypot(dx.toDouble(), dy.toDouble()).toFloat()
+            if (distance < bestDistance) {
+                bestDistance = distance
+                best = spot
+            }
+        }
+
+        val hit = best
+        if (hit != null) {
+            onSelect(hit)
+            mapView.invalidate()
+            return true
+        }
+        if (selectedId != null) {
+            onSelect(null)
+            mapView.invalidate()
+            return true
+        }
+        return false
+    }
+
+    private companion object {
+        const val PIN_RADIUS_DP = 10f
+        const val PIN_HEIGHT_DP = 29f
+        const val PIN_TOUCH_RADIUS_DP = 30f
     }
 }
 

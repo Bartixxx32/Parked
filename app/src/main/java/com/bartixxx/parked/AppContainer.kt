@@ -9,6 +9,8 @@ import com.bartixxx.parked.data.ParkingRepository
 import com.bartixxx.parked.data.db.AppDatabase
 import com.bartixxx.parked.data.settings.SettingsRepository
 import com.bartixxx.parked.data.trigger.TriggerStateRepository
+import com.bartixxx.parked.family.FamilyRepository
+import com.bartixxx.parked.family.FamilyStore
 import com.bartixxx.parked.location.LocationSource
 import com.bartixxx.parked.location.PlatformLocationSource
 import com.bartixxx.parked.monitor.MonitorStateHolder
@@ -37,6 +39,12 @@ class AppContainer(context: Context) {
 
     val parkingRepository by lazy {
         ParkingRepository(appContext, database.parkingSpotDao())
+    }
+
+    val familyStore by lazy { FamilyStore(appContext) }
+
+    val familyRepository by lazy {
+        FamilyRepository(familyStore, parkingRepository, applicationScope)
     }
 
     val bluetoothRepository by lazy { BluetoothRepository(appContext) }

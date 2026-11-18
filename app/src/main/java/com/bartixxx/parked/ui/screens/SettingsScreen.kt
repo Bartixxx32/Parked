@@ -31,7 +31,9 @@ import com.bartixxx.parked.BuildConfig
 import com.bartixxx.parked.R
 import com.bartixxx.parked.bluetooth.BondedDevice
 import com.bartixxx.parked.data.settings.AppSettings
+import com.bartixxx.parked.family.FamilyState
 import com.bartixxx.parked.ui.PermissionSnapshot
+import com.bartixxx.parked.ui.components.FamilySection
 import com.bartixxx.parked.ui.components.PermissionStatusRow
 import com.bartixxx.parked.ui.components.SectionCard
 import com.bartixxx.parked.ui.components.SettingSlider
@@ -39,6 +41,7 @@ import com.bartixxx.parked.ui.components.SettingSlider
 @Composable
 fun SettingsScreen(
     settings: AppSettings,
+    familyState: FamilyState,
     permissions: PermissionSnapshot,
     bondedDevices: List<BondedDevice>,
     onRefreshDevices: () -> Unit,
@@ -56,6 +59,14 @@ fun SettingsScreen(
     onOpenLocationSettings: () -> Unit,
     onOpenBluetoothSettings: () -> Unit,
     onOpenAppSettings: () -> Unit,
+    onCreateFamilyGroup: (String) -> Unit,
+    onJoinFamilyGroup: (String, String) -> Unit,
+    onLeaveFamilyGroup: () -> Unit,
+    onRefreshFamily: () -> Unit,
+    onRotateFamilyCode: () -> Unit,
+    onSetFamilyEnabled: (Boolean) -> Unit,
+    onSetFamilyDisplayName: (String) -> Unit,
+    onSetFamilyServerUrl: (String) -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -225,6 +236,20 @@ fun SettingsScreen(
                     }
                 }
             }
+        }
+
+        item(key = "family") {
+            FamilySection(
+                state = familyState,
+                onCreate = onCreateFamilyGroup,
+                onJoin = onJoinFamilyGroup,
+                onLeave = onLeaveFamilyGroup,
+                onRefresh = onRefreshFamily,
+                onRotate = onRotateFamilyCode,
+                onSetEnabled = onSetFamilyEnabled,
+                onSetDisplayName = onSetFamilyDisplayName,
+                onSetServerUrl = onSetFamilyServerUrl,
+            )
         }
 
         item(key = "permissions") {

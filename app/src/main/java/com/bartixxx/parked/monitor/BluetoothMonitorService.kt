@@ -589,6 +589,9 @@ class BluetoothMonitorService : Service() {
                         "Spot saved (accuracy ${outcome.spot.accuracyMeters?.toInt() ?: "?"} m" +
                             if (outcome.usedFallback) ", emergency point)" else ")",
                     )
+                    container.applicationScope.launch {
+                        container.familyRepository.syncSpot(outcome.spot)
+                    }
                 }
 
                 CaptureOutcome.Duplicate -> {

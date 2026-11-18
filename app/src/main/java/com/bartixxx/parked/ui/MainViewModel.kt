@@ -18,6 +18,8 @@ import com.bartixxx.parked.data.db.ParkingSpot
 import com.bartixxx.parked.data.settings.AppSettings
 import com.bartixxx.parked.export.ExportFormat
 import com.bartixxx.parked.export.ParkingExporter
+import com.bartixxx.parked.family.FamilyError
+import com.bartixxx.parked.family.FamilyState
 import com.bartixxx.parked.location.LocationFix
 import com.bartixxx.parked.location.LocationValidator
 import com.bartixxx.parked.monitor.BluetoothMonitorService
@@ -52,6 +54,8 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
 
     val settings: StateFlow<AppSettings> = container.settingsRepository.settings
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppSettings())
+
+    val familyState: StateFlow<FamilyState> = container.familyRepository.state
 
     val spots: StateFlow<List<ParkingSpot>> = container.parkingRepository.spots
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -195,13 +199,16 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
                     settings = currentSettings,
                 )
                 when (outcome) {
-                    is CaptureOutcome.Saved -> message(
-                        appContext.getString(
-                            R.string.msg_spot_saved_accuracy,
-                            outcome.spot.accuracyMeters?.toInt()?.let { "$it m" }
-                                ?: appContext.getString(R.string.no_data),
-                        ),
-                    )
+                    is CaptureOutcome.Saved -> {
+                        message(
+                            appContext.getString(
+                                R.string.msg_spot_saved_accuracy,
+                                outcome.spot.accuracyMeters?.toInt()?.let { "$it m" }
+                                    ?: appContext.getString(R.string.no_data),
+                            ),
+                        )
+                        container.familyRepository.syncSpot(outcome.spot)
+                    }
                     CaptureOutcome.Duplicate -> message(appContext.getString(R.string.msg_duplicate_spot))
                     is CaptureOutcome.Failed -> message(
                         appContext.getString(outcome.reason.userMessageRes()),
@@ -225,16 +232,22 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
             return
         }
         viewModelScope.launch {
-            runCatching { container.parkingRepository.addManualSpot(latitude, longitude, note) }
-                .onSuccess { message(appContext.getString(R.string.msg_manual_spot_added)) }
-                .onFailure {
-                    message(
-                        appContext.getString(
-                            R.string.msg_add_spot_failed,
-                            it.message.orEmpty(),
-                        ),
-                    )
+            val result = runCatching {
+                container.parkingRepository.addManualSpot(latitude, longitude, note)
+            }
+            result.onSuccess {
+                message(appContext.getString(R.string.msg_manual_spot_added))
+                container.parkingRepository.latestSpot()?.let { spot ->
+                    container.familyRepository.syncSpot(spot)
                 }
+            }.onFailure {
+                message(
+                    appContext.getString(
+                        R.string.msg_add_spot_failed,
+                        it.message.orEmpty(),
+                    ),
+                )
+            }
         }
     }
 
@@ -404,6 +417,127 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
             if (fix.isMock) append(" • MOCK")
         }
     }
+
+    fun createFamilyGroup(displayName: String) {
+        viewModelScope.launch {
+            val error = container.familyRepository.createGroup(displayName)
+            message(
+                if (error == null) {
+                    appContext.getString(R.string.msg_family_created)
+                } else {
+                    familyErrorMessage(error)
+                },
+            )
+        }
+    }
+
+    fun joinFamilyGroup(inviteCode: String, displayName: String) {
+        viewModelScope.launch {
+            val error = container.familyRepository.joinGroup(inviteCode, displayName)
+            message(
+                if (error == null) {
+                    appContext.getString(R.string.msg_family_joined)
+                } else {
+                    familyErrorMessage(error)
+                },
+            )
+        }
+    }
+
+    fun leaveFamilyGroup() {
+        viewModelScope.launch {
+            val error = container.familyRepository.leaveGroup()
+            message(
+                if (error == null) {
+                    appContext.getString(R.string.msg_family_left)
+                } else {
+                    familyErrorMessage(error)
+                },
+            )
+        }
+    }
+
+    fun refreshFamily(showMessage: Boolean = true) {
+        viewModelScope.launch {
+            val error = container.familyRepository.refresh()
+            if (showMessage) {
+                message(
+                    if (error == null) {
+                        appContext.getString(R.string.msg_family_refreshed)
+                    } else {
+                        familyErrorMessage(error)
+                    },
+                )
+            }
+        }
+    }
+
+    fun rotateFamilyCode() {
+        viewModelScope.launch {
+            val error = container.familyRepository.rotateInviteCode()
+            message(
+                if (error == null) {
+                    appContext.getString(R.string.msg_family_rotated)
+                } else {
+                    familyErrorMessage(error)
+                },
+            )
+        }
+    }
+
+    fun setFamilyEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            val error = container.familyRepository.setEnabled(enabled)
+            message(
+                if (error == null) {
+                    appContext.getString(
+                        if (enabled) R.string.msg_family_enabled else R.string.msg_family_disabled,
+                    )
+                } else {
+                    familyErrorMessage(error)
+                },
+            )
+        }
+    }
+
+    fun setFamilyDisplayName(displayName: String) {
+        viewModelScope.launch {
+            val error = container.familyRepository.updateDisplayName(displayName)
+            message(
+                if (error == null) {
+                    appContext.getString(R.string.msg_family_name_updated)
+                } else {
+                    familyErrorMessage(error)
+                },
+            )
+        }
+    }
+
+    fun setFamilyServerUrl(url: String) {
+        viewModelScope.launch {
+            val error = container.familyRepository.setServerUrl(url)
+            message(
+                if (error == null) {
+                    appContext.getString(R.string.msg_family_server_updated)
+                } else {
+                    familyErrorMessage(error)
+                },
+            )
+        }
+    }
+
+    private fun familyErrorMessage(error: FamilyError): String = appContext.getString(
+        when (error) {
+            FamilyError.NETWORK -> R.string.family_error_network
+            FamilyError.INVALID_CODE -> R.string.family_error_invalid_code
+            FamilyError.UNAUTHORIZED -> R.string.family_error_unauthorized
+            FamilyError.INVALID_NAME -> R.string.family_error_invalid_name
+            FamilyError.INVALID_URL -> R.string.family_error_invalid_url
+            FamilyError.NOT_CONNECTED -> R.string.family_error_not_connected
+            FamilyError.SERVER -> R.string.family_error_server
+            FamilyError.UNKNOWN -> R.string.family_error_unknown
+        },
+    )
 
     private fun message(text: String) {
         _messages.tryEmit(text)

@@ -13,6 +13,7 @@ revoke all on schema parked from anon, authenticated;
 create table if not exists parked.groups (
     id uuid primary key default gen_random_uuid(),
     code_hash text not null unique,
+    admin_token_hash text,
     created_at timestamptz not null default now(),
     rotated_at timestamptz
 );

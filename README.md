@@ -39,6 +39,11 @@ dependencies — no Google Play Services.
 - Built-in target compass: a dial that reacts to phone rotation, cardinal direction
   (for example `NE`), bearing in degrees and distance in metres to the selected or latest
   spot.
+- Optional family mode, off by default: create or join a group with an invite code and
+  see each member's latest parked car on the map. Only the latest coordinates, accuracy,
+  display name and timestamps are uploaded; notes and photos stay local. The backend is
+  self-hostable and the app can point at any HTTPS instance
+  (see [backend/README.md](backend/README.md)).
 - History export to **JSON**, **CSV** and **GPX** via the system file picker.
 - Diagnostics screen: service state, permissions, GPS test and local logs (max 300
   entries).
@@ -157,9 +162,14 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - All data (history, notes, photos, logs, settings) is stored exclusively in the app's
   private storage.
 - No ads, analytics, Crashlytics, telemetry or user accounts.
-- The app does not send coordinates to any server.
-- The only network traffic is downloading map tiles from OpenStreetMap servers while the
-  map screen is open (the server sees the IP address and tile area, like any website).
+- Without family mode the app does not send coordinates to any server.
+- Family mode is opt-in. When enabled, the app sends the latest coordinates, accuracy,
+  display name and timestamps to the configured family server so other group members can
+  see the car. Notes, photos and spot history are never uploaded. Leaving the group
+  deletes the member's cloud data.
+- Otherwise the only network traffic is downloading map tiles from OpenStreetMap servers
+  while the map screen is open (the server sees the IP address and tile area, like any
+  website).
 - Export creates a file only where you point the system file picker.
 - Android backup is disabled; data does not reach the cloud through system backup.
 
@@ -218,7 +228,8 @@ JVM unit tests cover, among others:
 - missing GPS, low accuracy, invalid coordinates and stale fallback,
 - duplicate cycle and minimum interval between saves,
 - a fix acquired at disconnect saved later without moving the coordinates,
-- JSON/CSV/GPX export (XML validity and quoting).
+- JSON/CSV/GPX export (XML validity and quoting),
+- invite-code normalization and validation (Crockford base32).
 
 Scenarios that require a physical phone (reboot, process killed by ColorOS, a real radio
 connection) are described in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) as a manual
@@ -245,6 +256,7 @@ app/src/main/java/com/bartixxx/parked/
 ├── capture/         # location acquisition and validation engine
 ├── data/            # Room, DataStore, repositories, trigger state
 ├── export/          # JSON / CSV / GPX
+├── family/          # optional family groups, API client, credentials
 ├── location/        # LocationManager platform providers
 ├── monitor/         # FGS, boot receiver, watchdog
 ├── notifications/   # the only channel: required FGS notification

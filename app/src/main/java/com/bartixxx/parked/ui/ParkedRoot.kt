@@ -38,6 +38,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bartixxx.parked.R
 import com.bartixxx.parked.data.db.ParkingSpot
+import com.bartixxx.parked.family.FamilySpot
 import com.bartixxx.parked.ui.screens.DashboardScreen
 import com.bartixxx.parked.ui.screens.DiagnosticsScreen
 import com.bartixxx.parked.ui.screens.HistoryScreen
@@ -47,7 +48,10 @@ import com.bartixxx.parked.ui.screens.MapScreen
 import com.bartixxx.parked.ui.screens.SettingsScreen
 import com.bartixxx.parked.util.AppIntents
 import com.bartixxx.parked.util.PermissionUtils
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+
+private const val FAMILY_REFRESH_INTERVAL_MS = 60_000L
 
 private enum class ParkedTab(@StringRes val labelRes: Int, val icon: ImageVector) {
     DASHBOARD(R.string.tab_dashboard, Icons.Filled.Home),
@@ -69,6 +73,7 @@ fun ParkedRoot(viewModel: MainViewModel) {
     val diagnostics by viewModel.diagnostics.collectAsStateWithLifecycle()
     val bondedDevices by viewModel.bondedDevices.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val family by viewModel.familyState.collectAsStateWithLifecycle()
 
     val snackbarHostState = remember { SnackbarHostState() }
     var permissions by remember { mutableStateOf(PermissionSnapshot.read(context)) }
@@ -115,6 +120,14 @@ fun ParkedRoot(viewModel: MainViewModel) {
         if (settings.monitoringEnabled) viewModel.ensureMonitoringRunning()
     }
 
+    LaunchedEffect(tab, family.joined) {
+        if (tab != ParkedTab.MAP || !family.joined) return@LaunchedEffect
+        while (true) {
+            viewModel.refreshFamily(showMessage = false)
+            delay(FAMILY_REFRESH_INTERVAL_MS)
+        }
+    }
+
     val requestPermissions: () -> Unit = {
         foregroundLauncher.launch(PermissionUtils.foregroundPermissions())
     }
@@ -155,6 +168,11 @@ fun ParkedRoot(viewModel: MainViewModel) {
     }
     val navigateTo: (ParkingSpot) -> Unit = { spot ->
         if (!AppIntents.navigateTo(context, spot.latitude, spot.longitude, spot.note)) {
+            notifyFailure(context.getString(R.string.msg_no_navigation_app))
+        }
+    }
+    val navigateToFamily: (FamilySpot) -> Unit = { spot ->
+        if (!AppIntents.navigateTo(context, spot.latitude, spot.longitude, spot.displayName)) {
             notifyFailure(context.getString(R.string.msg_no_navigation_app))
         }
     }
@@ -227,17 +245,24 @@ fun ParkedRoot(viewModel: MainViewModel) {
 
                 ParkedTab.MAP -> MapScreen(
                     spots = spots,
+                    familySpots = if (family.joined) {
+                        family.familySpots.filter { it.deviceId != family.credentials.deviceId }
+                    } else {
+                        emptyList()
+                    },
                     permissions = permissions,
                     focusSpotId = focusSpotId.takeIf { it > 0L },
                     initialCamera = mapCamera,
                     onCameraChanged = { camera -> mapCamera = camera },
                     onNavigate = navigateTo,
+                    onNavigateFamily = navigateToFamily,
                     onRequestPermissions = requestPermissions,
                     onOpenSettings = { tabName = ParkedTab.SETTINGS.name },
                 )
 
                 ParkedTab.SETTINGS -> SettingsScreen(
                     settings = settings,
+                    familyState = family,
                     permissions = permissions,
                     bondedDevices = bondedDevices,
                     onRefreshDevices = viewModel::refreshBondedDevices,
@@ -255,6 +280,14 @@ fun ParkedRoot(viewModel: MainViewModel) {
                     onOpenLocationSettings = openLocationSettings,
                     onOpenBluetoothSettings = openBluetoothSettings,
                     onOpenAppSettings = openAppSettings,
+                    onCreateFamilyGroup = viewModel::createFamilyGroup,
+                    onJoinFamilyGroup = viewModel::joinFamilyGroup,
+                    onLeaveFamilyGroup = viewModel::leaveFamilyGroup,
+                    onRefreshFamily = { viewModel.refreshFamily() },
+                    onRotateFamilyCode = viewModel::rotateFamilyCode,
+                    onSetFamilyEnabled = viewModel::setFamilyEnabled,
+                    onSetFamilyDisplayName = viewModel::setFamilyDisplayName,
+                    onSetFamilyServerUrl = viewModel::setFamilyServerUrl,
                 )
 
                 ParkedTab.DIAGNOSTICS -> DiagnosticsScreen(
