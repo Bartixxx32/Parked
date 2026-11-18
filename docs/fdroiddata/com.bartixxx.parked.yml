@@ -1,6 +1,6 @@
 # F-Droid metadata for Parked.
 # Copy this file to `metadata/com.bartixxx.parked.yml` in the fdroiddata repository.
-# Replace COMMIT_SHA with the full SHA of the v1.1.0 tag before submitting.
+# The commit below is the v1.1.0 tag commit.
 Categories:
   - Navigation
 License: GPL-3.0-only
@@ -18,7 +18,7 @@ Binaries:
 Builds:
   - versionName: 1.1.0
     versionCode: 5
-    commit: COMMIT_SHA
+    commit: a966d002fa8dc4db44000bc13489679d589be47e
     subdir: app
     gradle:
       - yes
