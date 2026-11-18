@@ -40,12 +40,7 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
         with:
-          packages: 'platform-tools'
-
-      - name: Install Android SDK packages
-        run: |
-          yes | sdkmanager --licenses > /dev/null 2>&1 || true
-          sdkmanager --install "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -65,10 +60,7 @@ jobs:
           echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/parked-release.p12"
           test -s "$RUNNER_TEMP/parked-release.p12"
 
-      - name: Run release unit tests
-        run: ./gradlew --no-daemon testReleaseUnitTest --stacktrace
-
-      - name: Build signed release APK
+      - name: Test and build signed release APK
         env:
           PARKED_KEYSTORE_FILE: ${{ runner.temp }}/parked-release.p12
           PARKED_KEYSTORE_TYPE: PKCS12
@@ -83,7 +75,9 @@ jobs:
             echo "::error::Signing secrets are incomplete (PARKED_KEYSTORE_PASSWORD, PARKED_KEY_ALIAS, PARKED_KEY_PASSWORD)"
             exit 1
           fi
-          ./gradlew --no-daemon assembleRelease --stacktrace
+          # One Gradle invocation: release classes compiled for the tests are reused
+          # by assembleRelease instead of being configured and checked twice.
+          ./gradlew --no-daemon testReleaseUnitTest assembleRelease --stacktrace
 
       - name: Verify APK signature and prepare release files
         run: |

@@ -33,14 +33,9 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
         with:
-          # Since cmdline-tools 19 the obsolete "tools" package no longer
-          # exists; pinning packages avoids setup-android's default "tools".
-          packages: 'platform-tools'
-
-      - name: Install Android SDK packages
-        run: |
-          yes | sdkmanager --licenses > /dev/null 2>&1 || true
-          sdkmanager --install "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+          # Install everything in one sdkmanager pass. cmdline-tools 19+ no longer
+          # ships the obsolete "tools" package, so the list is explicit.
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -51,11 +46,10 @@ jobs:
       - name: Gradle and toolchain info
         run: ./gradlew --version
 
-      - name: Run unit tests
-        run: ./gradlew --no-daemon testDebugUnitTest --stacktrace
-
-      - name: Build debug APK
-        run: ./gradlew --no-daemon assembleDebug --stacktrace
+      - name: Run unit tests and build debug APK
+        # One Gradle invocation: the test task compiles the app, and assembleDebug
+        # reuses those outputs instead of paying a second daemon start and configuration.
+        run: ./gradlew --no-daemon testDebugUnitTest assembleDebug --stacktrace
 
       - name: Verify APK
         run: |
