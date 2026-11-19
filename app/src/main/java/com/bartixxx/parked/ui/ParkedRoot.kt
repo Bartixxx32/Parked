@@ -36,6 +36,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import com.bartixxx.parked.R
 import com.bartixxx.parked.data.db.ParkingSpot
 import com.bartixxx.parked.family.FamilySpot
@@ -120,11 +121,16 @@ fun ParkedRoot(viewModel: MainViewModel) {
         if (settings.monitoringEnabled) viewModel.ensureMonitoringRunning()
     }
 
-    LaunchedEffect(tab, family.joined) {
+    LaunchedEffect(tab, family.joined, lifecycleOwner) {
         if (tab != ParkedTab.MAP || !family.joined) return@LaunchedEffect
-        while (true) {
-            viewModel.refreshFamily(showMessage = false)
-            delay(FAMILY_REFRESH_INTERVAL_MS)
+        // Poll only while the map is on screen and the app is resumed. A plain
+        // while(true) kept hitting the Worker from the background and could use
+        // up the free daily request quota.
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            while (true) {
+                viewModel.refreshFamily(showMessage = false)
+                delay(FAMILY_REFRESH_INTERVAL_MS)
+            }
         }
     }
 
@@ -243,6 +249,11 @@ fun ParkedRoot(viewModel: MainViewModel) {
                     onSuggestedExportName = viewModel::exportSuggestedName,
                     onNavigate = navigateTo,
                     onOpenMap = openMap,
+                    canSendToFamily = family.joined &&
+                        family.enabled &&
+                        family.credentials.encrypted,
+                    familyPhotoSending = family.sendingPhoto,
+                    onSendToFamily = viewModel::sendFamilyPhoto,
                 )
 
                 ParkedTab.MAP -> MapScreen(

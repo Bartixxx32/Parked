@@ -29,6 +29,16 @@ const CRYPTO_KEY_SALT_LENGTH = 22;
 const CRYPTO_WRAPPED_KEY_LENGTH = 64;
 const CRYPTO_KEY_IV_LENGTH = 16;
 const CRYPTO_JOIN_AUTH_KEY_LENGTH = 43;
+const MAX_PHOTO_BYTES = 2_000_000;
+const MAX_PHOTO_PENDING_PER_GROUP = 5;
+const MAX_PHOTO_PENDING_PER_DEVICE = 3;
+const MAX_PHOTOS_PER_CLEANUP = 100;
+const DEFAULT_PHOTO_RETENTION_HOURS = 24;
+const MAX_PHOTO_RETENTION_HOURS = 168;
+const DEFAULT_PHOTO_BUCKET = "parked-photos";
+const PHOTO_ID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const PHOTO_IV_RE = /^[A-Za-z0-9_-]{16}$/;
 
 const SECURITY_HEADERS = {
   "cache-control": "no-store",
@@ -61,7 +71,13 @@ export default {
   },
 
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(cleanupExpired(env));
+    // The hourly run only enforces the photo TTL. The daily run also removes
+    // stale spots, devices and empty groups.
+    ctx.waitUntil(
+      event?.cron === "17 * * * *"
+        ? cleanupExpiredPhotos(env)
+        : cleanupExpired(env),
+    );
   },
 };
 
@@ -94,6 +110,23 @@ async function route(request, env) {
   }
   if (method === "DELETE" && path === "/v1/spot") {
     return deleteSpot(request, env);
+  }
+  if (method === "POST" && path === "/v1/photos") {
+    return uploadPhoto(request, env);
+  }
+  if (method === "GET" && path === "/v1/photos") {
+    return listPhotos(request, env);
+  }
+  const photoMatch = path.match(/^\/v1\/photos\/([^/]+)$/);
+  if (method === "GET" && photoMatch) {
+    return downloadPhoto(request, env, photoMatch[1]);
+  }
+  if (method === "DELETE" && photoMatch) {
+    return deletePhoto(request, env, photoMatch[1]);
+  }
+  const photoAckMatch = path.match(/^\/v1\/photos\/([^/]+)\/ack$/);
+  if (method === "POST" && photoAckMatch) {
+    return ackPhoto(request, env, photoAckMatch[1]);
   }
   if (method === "PATCH" && path === "/v1/device") {
     return updateDevice(request, env);
@@ -384,6 +417,294 @@ async function deleteSpot(request, env) {
   return empty(204);
 }
 
+async function uploadPhoto(request, env) {
+  const device = await requireDevice(request, env);
+  await enforceRateLimit(request, env, "WRITE_LIMITER", "photo-upload", device.id);
+
+  const group = await getGroup(env, device.group_id);
+  if (group?.crypto_mode !== "e2ee") {
+    // A plaintext group has no key the Worker does not know, so accepting the
+    // upload would mean storing a photo the server can read. Refuse instead.
+    throw new HttpError(400, "crypto_required");
+  }
+
+  const photoId = cleanPhotoId(request.headers.get("x-photo-id"));
+  const iv = cleanPhotoIv(request.headers.get("x-photo-iv"));
+  const keyVersion = cleanKeyVersion(
+    Number(request.headers.get("x-key-version") || ""),
+  );
+  if (!photoId || !iv || keyVersion === null) {
+    throw new HttpError(400, "invalid_photo");
+  }
+  if (keyVersion !== group.key_version) {
+    throw new HttpError(409, "key_version_mismatch");
+  }
+
+  const bytes = await readLimitedBytes(request, MAX_PHOTO_BYTES);
+  if (bytes.byteLength < 16) throw new HttpError(400, "invalid_photo");
+
+  const now = new Date();
+  const encodedNow = encodeURIComponent(now.toISOString());
+  const [groupPending, devicePending] = await Promise.all([
+    supabase(
+      env,
+      `photos?group_id=eq.${device.group_id}&expires_at=gt.${encodedNow}&select=id&limit=${MAX_PHOTO_PENDING_PER_GROUP}`,
+    ),
+    supabase(
+      env,
+      `photos?sender_device_id=eq.${device.id}&expires_at=gt.${encodedNow}&select=id&limit=${MAX_PHOTO_PENDING_PER_DEVICE}`,
+    ),
+  ]);
+  if (
+    (groupPending?.length || 0) >= MAX_PHOTO_PENDING_PER_GROUP ||
+    (devicePending?.length || 0) >= MAX_PHOTO_PENDING_PER_DEVICE
+  ) {
+    // Photos are deleted as soon as every phone confirms, so this is a
+    // temporary cap that keeps the free Storage bucket bounded.
+    throw new HttpError(409, "photo_limit");
+  }
+
+  const devices = await supabase(
+    env,
+    `devices?group_id=eq.${device.group_id}&select=id`,
+  );
+  const recipients = (devices || [])
+    .map((member) => member.id)
+    .filter((id) => id !== device.id);
+  if (recipients.length === 0) {
+    throw new HttpError(409, "no_recipients");
+  }
+
+  const objectPath = `${device.group_id}/${photoId}`;
+  await storageUpload(env, objectPath, bytes);
+
+  const expiresAt = new Date(
+    now.getTime() + photoRetentionHours(env) * 60 * 60 * 1000,
+  ).toISOString();
+  try {
+    await supabase(env, "photos", {
+      method: "POST",
+      body: {
+        id: photoId,
+        group_id: device.group_id,
+        sender_device_id: device.id,
+        object_path: objectPath,
+        iv,
+        key_version: keyVersion,
+        size_bytes: bytes.byteLength,
+        created_at: now.toISOString(),
+        expires_at: expiresAt,
+      },
+      prefer: "return=minimal",
+    });
+    await supabase(env, "photo_deliveries", {
+      method: "POST",
+      body: recipients.map((deviceId) => ({
+        photo_id: photoId,
+        device_id: deviceId,
+      })),
+      prefer: "return=minimal",
+    });
+  } catch (error) {
+    await storageDelete(env, objectPath).catch(() => {});
+    await supabase(env, `photos?id=eq.${photoId}`, {
+      method: "DELETE",
+      prefer: "return=minimal",
+    }).catch(() => {});
+    throw error;
+  }
+
+  return json(
+    {
+      id: photoId,
+      expiresAt,
+      recipients: recipients.length,
+    },
+    201,
+  );
+}
+
+async function listPhotos(request, env) {
+  const device = await requireDevice(request, env);
+  await enforceRateLimit(request, env, "READ_LIMITER", "photo-list", device.id);
+
+  const deliveries = await supabase(
+    env,
+    `photo_deliveries?device_id=eq.${device.id}&acked_at=is.null&select=photo_id&limit=20`,
+  );
+  const ids = [
+    ...new Set(
+      (deliveries || [])
+        .map((delivery) => delivery.photo_id)
+        .filter(Boolean),
+    ),
+  ];
+  if (ids.length === 0) return json({ photos: [] });
+
+  const photos = await supabase(
+    env,
+    `photos?id=in.(${ids.join(",")})&expires_at=gt.${encodeURIComponent(new Date().toISOString())}&select=id,sender_device_id,iv,key_version,size_bytes,created_at,expires_at&order=created_at.asc`,
+  );
+  return json({
+    photos: (photos || []).map((photo) => ({
+      id: photo.id,
+      senderDeviceId: photo.sender_device_id,
+      iv: photo.iv,
+      keyVersion: photo.key_version,
+      sizeBytes: photo.size_bytes,
+      createdAt: photo.created_at,
+      expiresAt: photo.expires_at,
+    })),
+  });
+}
+
+async function downloadPhoto(request, env, rawPhotoId) {
+  const photoId = cleanPhotoId(rawPhotoId);
+  if (!photoId) throw new HttpError(404, "not_found");
+
+  const device = await requireDevice(request, env);
+  await enforceRateLimit(request, env, "READ_LIMITER", "photo-download", device.id);
+
+  const deliveries = await supabase(
+    env,
+    `photo_deliveries?photo_id=eq.${photoId}&device_id=eq.${device.id}&select=photo_id`,
+  );
+  if (!deliveries?.[0]) throw new HttpError(404, "not_found");
+
+  const photos = await supabase(
+    env,
+    `photos?id=eq.${photoId}&select=id,group_id,object_path,iv,key_version,expires_at`,
+  );
+  const photo = photos?.[0];
+  if (!photo || photo.group_id !== device.group_id) {
+    throw new HttpError(404, "not_found");
+  }
+  if (Date.parse(photo.expires_at) <= Date.now()) {
+    throw new HttpError(404, "not_found");
+  }
+
+  let object;
+  try {
+    object = await storageDownload(env, photo.object_path);
+  } catch (error) {
+    if (error instanceof HttpError && error.status === 404) {
+      // Storage lost the object (for example a failed cleanup). Drop the
+      // metadata so recipients stop seeing a photo that can never download.
+      await supabase(env, `photos?id=eq.${photoId}`, {
+        method: "DELETE",
+        prefer: "return=minimal",
+      }).catch(() => {});
+    }
+    throw error;
+  }
+  const headers = {
+    ...SECURITY_HEADERS,
+    "content-type": "application/octet-stream",
+    "cache-control": "no-store",
+    "x-photo-iv": photo.iv,
+    "x-key-version": String(photo.key_version),
+  };
+  const length = object.headers.get("content-length");
+  if (length) headers["content-length"] = length;
+  return new Response(object.body, { status: 200, headers });
+}
+
+async function ackPhoto(request, env, rawPhotoId) {
+  const photoId = cleanPhotoId(rawPhotoId);
+  if (!photoId) throw new HttpError(404, "not_found");
+
+  const device = await requireDevice(request, env);
+  await enforceRateLimit(request, env, "WRITE_LIMITER", "photo-ack", device.id);
+
+  const deliveries = await supabase(
+    env,
+    `photo_deliveries?photo_id=eq.${photoId}&device_id=eq.${device.id}&select=photo_id`,
+  );
+  if (!deliveries?.[0]) throw new HttpError(404, "not_found");
+
+  await supabase(
+    env,
+    `photo_deliveries?photo_id=eq.${photoId}&device_id=eq.${device.id}`,
+    {
+      method: "PATCH",
+      body: { acked_at: new Date().toISOString() },
+      prefer: "return=minimal",
+    },
+  );
+
+  await deletePhotoIfDelivered(env, photoId);
+  return empty(204);
+}
+
+async function deletePhoto(request, env, rawPhotoId) {
+  const photoId = cleanPhotoId(rawPhotoId);
+  if (!photoId) throw new HttpError(404, "not_found");
+
+  const device = await requireDevice(request, env);
+  await enforceRateLimit(request, env, "WRITE_LIMITER", "photo-delete", device.id);
+
+  const photos = await supabase(
+    env,
+    `photos?id=eq.${photoId}&group_id=eq.${device.group_id}&select=id,sender_device_id,object_path`,
+  );
+  const photo = photos?.[0];
+  if (!photo) throw new HttpError(404, "not_found");
+  if (photo.sender_device_id !== device.id) {
+    throw new HttpError(403, "forbidden");
+  }
+
+  await storageDelete(env, photo.object_path);
+  await supabase(env, `photos?id=eq.${photoId}`, {
+    method: "DELETE",
+    prefer: "return=minimal",
+  });
+  return empty(204);
+}
+
+/**
+ * Removes the Storage object once every recipient has confirmed the download.
+ * Keeping the row until the object is gone lets the hourly cleanup retry a
+ * failed Storage delete instead of orphaning the ciphertext.
+ */
+async function deletePhotoIfDelivered(env, photoId) {
+  const remaining = await supabase(
+    env,
+    `photo_deliveries?photo_id=eq.${photoId}&acked_at=is.null&select=device_id&limit=1`,
+  );
+  if ((remaining?.length || 0) > 0) return false;
+
+  const photos = await supabase(
+    env,
+    `photos?id=eq.${photoId}&select=object_path`,
+  );
+  const photo = photos?.[0];
+  if (!photo) return true;
+
+  await storageDelete(env, photo.object_path);
+  await supabase(env, `photos?id=eq.${photoId}`, {
+    method: "DELETE",
+    prefer: "return=minimal",
+  });
+  return true;
+}
+
+/**
+ * A device leaving can remove the last unacked recipient. Re-check the group's
+ * pending photos so a photo does not wait for the TTL after everyone who still
+ * belongs to the group has already downloaded it.
+ */
+async function reconcileGroupPhotos(env, groupId) {
+  const photos = await supabase(
+    env,
+    `photos?group_id=eq.${groupId}&select=id&limit=${MAX_PHOTOS_PER_CLEANUP}`,
+  );
+  for (const photo of photos || []) {
+    await deletePhotoIfDelivered(env, photo.id).catch((error) => {
+      console.error("photo reconcile failed", photo.id, error?.message || error);
+    });
+  }
+}
+
 async function updateDevice(request, env) {
   const device = await requireDevice(request, env);
   await enforceRateLimit(request, env, "WRITE_LIMITER", "write", device.id);
@@ -410,20 +731,38 @@ async function deleteDevice(request, env) {
   const device = await requireDevice(request, env);
   await enforceRateLimit(request, env, "WRITE_LIMITER", "write", device.id);
 
+  const remaining = await supabase(
+    env,
+    `devices?group_id=eq.${device.group_id}&id=neq.${device.id}&select=id&limit=1`,
+  );
+  const lastDevice = !remaining || remaining.length === 0;
+
+  // Deleting the device cascades its photo rows. Remove the matching Storage
+  // objects first so the ciphertext does not outlive the database record.
+  const photos = await supabase(
+    env,
+    lastDevice
+      ? `photos?group_id=eq.${device.group_id}&select=object_path&limit=${MAX_PHOTOS_PER_CLEANUP}`
+      : `photos?sender_device_id=eq.${device.id}&select=object_path&limit=${MAX_PHOTOS_PER_CLEANUP}`,
+  );
+  for (const photo of photos || []) {
+    await storageDelete(env, photo.object_path).catch((error) => {
+      console.error("photo object delete failed", error?.message || error);
+    });
+  }
+
   await supabase(env, `devices?id=eq.${device.id}`, {
     method: "DELETE",
     prefer: "return=minimal",
   });
 
-  const remaining = await supabase(
-    env,
-    `devices?group_id=eq.${device.group_id}&select=id&limit=1`,
-  );
-  if (!remaining || remaining.length === 0) {
+  if (lastDevice) {
     await supabase(env, `groups?id=eq.${device.group_id}`, {
       method: "DELETE",
       prefer: "return=minimal",
     });
+  } else {
+    await reconcileGroupPhotos(env, device.group_id);
   }
 
   return empty(204);
@@ -516,6 +855,8 @@ async function enforceRateLimit(request, env, bindingName, scope, actor) {
 }
 
 async function cleanupExpired(env) {
+  await cleanupExpiredPhotos(env);
+
   const retainDays = clampInt(env.RETAIN_DAYS, 1, 365, DEFAULT_RETAIN_DAYS);
   const cutoff = new Date(
     Date.now() - retainDays * 24 * 60 * 60 * 1000,
@@ -555,6 +896,31 @@ async function cleanupExpired(env) {
   for (const group of groups) {
     if (usedGroupIds.has(group.id)) continue;
     await supabase(env, `groups?id=eq.${group.id}`, {
+      method: "DELETE",
+      prefer: "return=minimal",
+    });
+  }
+}
+
+async function cleanupExpiredPhotos(env) {
+  const encodedNow = encodeURIComponent(new Date().toISOString());
+  const photos = await supabase(
+    env,
+    `photos?expires_at=lt.${encodedNow}&select=id,object_path&limit=${MAX_PHOTOS_PER_CLEANUP}`,
+  );
+  for (const photo of photos || []) {
+    try {
+      // 404 is treated as success: the object is already gone.
+      await storageDelete(env, photo.object_path);
+    } catch (error) {
+      console.error(
+        "expired photo delete failed",
+        photo.id,
+        error?.message || error,
+      );
+      continue;
+    }
+    await supabase(env, `photos?id=eq.${photo.id}`, {
       method: "DELETE",
       prefer: "return=minimal",
     });
@@ -677,6 +1043,137 @@ function cleanEncryptedPayload(raw) {
 function cleanKeyVersion(raw) {
   if (!Number.isInteger(raw) || raw < 1 || raw > MAX_KEY_VERSION) return null;
   return raw;
+}
+
+async function readLimitedBytes(request, maxBytes) {
+  const declared = Number(request.headers.get("content-length") || "0");
+  if (Number.isFinite(declared) && declared > maxBytes) {
+    throw new HttpError(413, "photo_too_large");
+  }
+  if (!request.body) return new Uint8Array(0);
+
+  const reader = request.body.getReader();
+  const chunks = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel();
+        throw new HttpError(413, "photo_too_large");
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return bytes;
+}
+
+function cleanPhotoId(raw) {
+  if (typeof raw !== "string") return null;
+  const value = raw.trim().toLowerCase();
+  return PHOTO_ID_RE.test(value) ? value : null;
+}
+
+function cleanPhotoIv(raw) {
+  if (typeof raw !== "string" || !PHOTO_IV_RE.test(raw)) return null;
+  return raw;
+}
+
+function photoBucket(env) {
+  const raw = typeof env?.PHOTO_BUCKET === "string" ? env.PHOTO_BUCKET.trim() : "";
+  return /^[a-z0-9][a-z0-9-]{1,62}$/.test(raw) ? raw : DEFAULT_PHOTO_BUCKET;
+}
+
+function photoRetentionHours(env) {
+  return clampInt(
+    env?.PHOTO_RETENTION_HOURS,
+    1,
+    MAX_PHOTO_RETENTION_HOURS,
+    DEFAULT_PHOTO_RETENTION_HOURS,
+  );
+}
+
+function storageObjectUrl(env, path) {
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw new HttpError(500, "server_error");
+  }
+  const base = env.SUPABASE_URL.replace(/\/$/, "");
+  const bucket = encodeURIComponent(photoBucket(env));
+  const object = String(path)
+    .split("/")
+    .map(encodeURIComponent)
+    .join("/");
+  return `${base}/storage/v1/object/${bucket}/${object}`;
+}
+
+function storageHeaders(env, extra = {}) {
+  return {
+    apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+    authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+    ...extra,
+  };
+}
+
+async function storageUpload(env, path, bytes) {
+  const response = await fetch(storageObjectUrl(env, path), {
+    method: "POST",
+    headers: storageHeaders(env, {
+      "content-type": "application/octet-stream",
+      "x-upsert": "false",
+    }),
+    body: bytes,
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    console.error(
+      "storage upload failed",
+      response.status,
+      detail.slice(0, 300),
+    );
+    throw new HttpError(500, "server_error");
+  }
+}
+
+async function storageDownload(env, path) {
+  const response = await fetch(storageObjectUrl(env, path), {
+    headers: storageHeaders(env),
+  });
+  if (response.ok) return response;
+  if (response.status === 404) throw new HttpError(404, "not_found");
+  const detail = await response.text();
+  console.error(
+    "storage download failed",
+    response.status,
+    detail.slice(0, 300),
+  );
+  throw new HttpError(500, "server_error");
+}
+
+async function storageDelete(env, path) {
+  const response = await fetch(storageObjectUrl(env, path), {
+    method: "DELETE",
+    headers: storageHeaders(env),
+  });
+  // A missing object is already in the desired state.
+  if (response.ok || response.status === 404) return;
+  const detail = await response.text();
+  console.error(
+    "storage delete failed",
+    response.status,
+    detail.slice(0, 300),
+  );
+  throw new HttpError(500, "server_error");
 }
 
 async function supabase(env, path, { method = "GET", body, prefer } = {}) {
@@ -847,11 +1344,15 @@ function errorResponse(error) {
 
 // Exported for the Node test suite. Cloudflare Workers ignores named exports.
 export {
+  DEFAULT_PHOTO_BUCKET,
   MAX_GROUP_MEMBERS,
+  MAX_PHOTO_BYTES,
   cleanBase64Url,
   cleanDisplayName,
   cleanEncryptedPayload,
   cleanKeyVersion,
+  cleanPhotoId,
+  cleanPhotoIv,
   clientTimeOrNow,
   cryptoResponse,
   generateInviteCode,
@@ -861,6 +1362,8 @@ export {
   normalizeInviteCode,
   normalizeJoinAuthKey,
   parseCryptoPayload,
+  photoBucket,
+  photoRetentionHours,
   randomToken,
   sha256Hex,
   timingSafeEqual,

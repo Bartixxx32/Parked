@@ -191,7 +191,7 @@
     <string name="about_title">About</string>
     <string name="app_version">Parked %1$s (%2$d)</string>
     <string name="license_text">GPL-3.0 license. The source code is developed in a public repository.</string>
-    <string name="privacy_text">Privacy: no ads, analytics, telemetry or account. Coordinates, notes and photos stay on this device. Without family mode the app sends no location; map tiles come directly from OpenStreetMap servers. Family mode is opt-in and shares only your latest spot with your group.</string>
+    <string name="privacy_text">Privacy: no ads, analytics, telemetry or account. Coordinates, notes and photos stay on this device unless you enable family mode or explicitly send a photo to your family. Without family mode the app sends no location; map tiles come directly from OpenStreetMap servers. Family mode is opt-in, end-to-end encrypted and shares only your latest spot.</string>
     <string name="map_legal">Map: © OpenStreetMap contributors, data under the ODbL license. Tiles: OpenStreetMap Standard.</string>
 
     <!-- Diagnostics -->
@@ -305,7 +305,7 @@
 
     <!-- Family mode -->
     <string name="family_title">Family</string>
-    <string name="family_intro">Share your latest parking spot with family members. Optional and off by default. New groups are end-to-end encrypted: only family phones can read the car label and location, while notes and photos stay on this phone.</string>
+    <string name="family_intro">Share your latest parking spot with family members. Optional and off by default. New groups are end-to-end encrypted: only family phones can read the car label and location, notes stay on this phone, and photos leave only when you send them to the family.</string>
     <string name="family_create">Create group</string>
     <string name="family_join">Join group</string>
     <string name="family_joined_as">Your car: %1$s</string>
@@ -320,7 +320,7 @@
     <string name="family_share_code">Share</string>
     <string name="family_rotate_code">New code</string>
     <string name="family_encrypted_badge">End-to-end encrypted</string>
-    <string name="family_encrypted_help">The server stores only encrypted labels and locations.</string>
+    <string name="family_encrypted_help">The server stores only encrypted labels, locations and photos. Photos are deleted after every family phone downloads them.</string>
     <string name="family_plaintext_badge">Not end-to-end encrypted</string>
     <string name="family_plaintext_help">This group was created by an older app version. Leave it and create a new group to encrypt labels and locations.</string>
     <string name="family_invite_link">Invite link</string>
@@ -342,6 +342,14 @@
     <string name="family_last_sync">Last sync: %1$s</string>
     <string name="family_never_synced">not synced yet</string>
     <string name="family_pending_upload">The latest spot could not be uploaded. It will retry on the next refresh.</string>
+    <string name="family_photos">Family photos</string>
+    <string name="family_photos_empty">Photos sent by family members will appear here after they are downloaded.</string>
+    <string name="family_photos_help">Encrypted on the sender’s phone and deleted from the server once every family phone has downloaded them.</string>
+    <string name="family_photo_sending">Sending photo…</string>
+    <string name="family_send_photo">Send to family</string>
+    <string name="family_send_photo_title">Send this photo to your family?</string>
+    <string name="family_send_photo_message">The photo is end-to-end encrypted and stored temporarily on the family server. It is deleted as soon as every family phone downloads it, or after 24 hours at the latest. Notes never leave this phone.</string>
+    <string name="family_send_photo_confirm">Send photo</string>
     <string name="family_refresh">Refresh</string>
     <string name="family_change_name">Change car</string>
     <string name="family_leave">Leave group</string>
@@ -373,6 +381,7 @@
     <string name="msg_family_server_updated">Server URL saved</string>
     <string name="msg_family_enabled">Family sharing enabled</string>
     <string name="msg_family_disabled">Family sharing disabled</string>
+    <string name="msg_family_photo_sent">Photo sent to the family</string>
     <string name="family_error_network">No connection to the family server. Check the internet and try again.</string>
     <string name="family_error_invalid_code">That invite code is not valid.</string>
     <string name="family_error_invalid_invite">This invite link is invalid or has expired. Ask for a new link.</string>
@@ -383,6 +392,11 @@
     <string name="family_error_not_connected">Join a family group first.</string>
     <string name="family_error_rate_limited">Too many attempts. Wait a moment and try again.</string>
     <string name="family_error_group_full">This family group is full (20 cars).</string>
+    <string name="family_error_photo_limit">There are already several photos waiting for the family. Try again after they are downloaded or after 24 hours.</string>
+    <string name="family_error_photo_too_large">This photo is too large to send. Try a smaller photo.</string>
+    <string name="family_error_photo_failed">Could not prepare this photo for sending. Try another photo.</string>
+    <string name="family_error_no_photo">This spot has no photo to send.</string>
+    <string name="family_error_no_recipients">No other family member has joined yet, so there is nobody to send the photo to.</string>
     <string name="family_error_server">The family server returned an error. Try again later.</string>
     <string name="family_error_unknown">Something went wrong. Try again.</string>
     <string name="family_share_subject">Parked family invite</string>

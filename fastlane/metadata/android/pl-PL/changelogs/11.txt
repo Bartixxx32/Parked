@@ -1,0 +1,5 @@
+• Zdjęcie miejsca można teraz świadomie wysłać rodzinie przyciskiem „Wyślij rodzinie”. Zdjęcie jest kompresowane i szyfrowane end-to-end na telefonie.
+• Serwer rodziny przechowuje tylko zaszyfrowane dane i usuwa zdjęcie, gdy wszystkie telefony rodziny je pobiorą, najpóźniej po 24 godzinach.
+• Odebrane zdjęcia rodziny są widoczne w Ustawienia → Rodzina.
+• Odświeżanie mapy rodziny działa teraz tylko przy widocznej mapie i aktywnej aplikacji, oszczędzając baterię i limit serwera.
+• Ten sam pakiet i klucz podpisywania — zwykła aktualizacja z 1.4.1.

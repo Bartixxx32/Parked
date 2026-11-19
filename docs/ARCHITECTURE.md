@@ -233,11 +233,13 @@ has no permission to access all storage.
 ## Security and privacy
 
 - No `INTERNET` use except OpenStreetMap tiles and the optional, opt-in family
-  sync. Notes and photos are never uploaded; family mode shares only the latest
+  sync. Notes are never uploaded; family mode shares only the latest
   spot, and new groups encrypt its car label, coordinates, accuracy and
-  timestamps before upload. The default family server works without
-  configuration; a self-hosted HTTPS server can be set in
-  **Settings → Family → Server**.
+  timestamps before upload. A spot photo is uploaded only when the user
+  explicitly chooses **Send to family**; it is encrypted on the phone and
+  deleted from the server once every family phone confirms the download. The
+  default family server works without configuration; a self-hosted HTTPS
+  server can be set in **Settings → Family → Server**.
 - `android:usesCleartextTraffic="false"`.
 - Backup disabled, no system data export.
 - Photos and the database live in the app's private sandbox.

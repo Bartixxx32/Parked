@@ -96,10 +96,10 @@ fun StatusDot(color: Color, size: Int = 10) {
 }
 
 @Composable
-fun SpotPhoto(path: String, modifier: Modifier = Modifier) {
+fun SpotPhoto(path: String, modifier: Modifier = Modifier, maxSize: Int = 1400) {
     val bitmap by produceState<ImageBitmap?>(initialValue = null, key1 = path) {
         value = withContext(Dispatchers.IO) {
-            decodeSampledBitmap(path, maxSize = 1400)?.asImageBitmap()
+            decodeSampledBitmap(path, maxSize = maxSize)?.asImageBitmap()
         }
     }
     val image = bitmap

@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -83,6 +84,9 @@ fun HistoryScreen(
     onSuggestedExportName: (ExportFormat) -> String,
     onNavigate: (ParkingSpot) -> Unit,
     onOpenMap: (ParkingSpot) -> Unit,
+    canSendToFamily: Boolean,
+    familyPhotoSending: Boolean,
+    onSendToFamily: (ParkingSpot) -> Unit,
 ) {
     val context = LocalContext.current
     var pendingPhotoSpotId by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -127,6 +131,7 @@ fun HistoryScreen(
     var showAddDialog by remember { mutableStateOf(false) }
     var showDeleteAllDialog by remember { mutableStateOf(false) }
     var deleteTarget by remember { mutableStateOf<ParkingSpot?>(null) }
+    var sendTarget by remember { mutableStateOf<ParkingSpot?>(null) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -228,6 +233,9 @@ fun HistoryScreen(
                     onPickPhoto = { photoTargetSpotId = spot.id },
                     onRemovePhoto = { onRemovePhoto(spot.id) },
                     onUpdateNote = { note -> onUpdateNote(spot.id, note) },
+                    canSendToFamily = canSendToFamily,
+                    familyPhotoSending = familyPhotoSending,
+                    onSendPhoto = { sendTarget = spot },
                 )
             }
         }
@@ -270,6 +278,30 @@ fun HistoryScreen(
             },
             dismissButton = {
                 TextButton(onClick = { deleteTarget = null }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            },
+        )
+    }
+
+    sendTarget?.let { spot ->
+        AlertDialog(
+            onDismissRequest = { sendTarget = null },
+            title = { Text(stringResource(R.string.family_send_photo_title)) },
+            text = { Text(stringResource(R.string.family_send_photo_message)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        sendTarget = null
+                        onSendToFamily(spot)
+                    },
+                    enabled = !familyPhotoSending,
+                ) {
+                    Text(stringResource(R.string.family_send_photo_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { sendTarget = null }) {
                     Text(stringResource(R.string.action_cancel))
                 }
             },
@@ -377,6 +409,9 @@ private fun SpotCard(
     onPickPhoto: () -> Unit,
     onRemovePhoto: () -> Unit,
     onUpdateNote: (String) -> Unit,
+    canSendToFamily: Boolean,
+    familyPhotoSending: Boolean,
+    onSendPhoto: () -> Unit,
 ) {
     var editing by remember(spot.id) { mutableStateOf(false) }
     var draft by remember(spot.id, spot.note) { mutableStateOf(spot.note) }
@@ -525,6 +560,29 @@ private fun SpotCard(
                 }
             }
             if (spot.photoPath != null) {
+                if (canSendToFamily) {
+                    FilledTonalButton(
+                        onClick = onSendPhoto,
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !familyPhotoSending,
+                    ) {
+                        Icon(
+                            Icons.Filled.Send,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Spacer(Modifier.size(4.dp))
+                        Text(
+                            stringResource(
+                                if (familyPhotoSending) {
+                                    R.string.family_photo_sending
+                                } else {
+                                    R.string.family_send_photo
+                                },
+                            ),
+                        )
+                    }
+                }
                 TextButton(onClick = onRemovePhoto, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.action_remove_photo))
                 }

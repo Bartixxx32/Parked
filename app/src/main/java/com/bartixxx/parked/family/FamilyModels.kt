@@ -1,5 +1,7 @@
 package com.bartixxx.parked.family
 
+import com.bartixxx.parked.data.db.FamilyPhotoEntity
+
 /** Default public Worker. Users can point the app at their own HTTPS server. */
 const val DEFAULT_FAMILY_SERVER = "https://parked.bartixxx.workers.dev"
 
@@ -69,6 +71,11 @@ enum class FamilyError {
     RATE_LIMITED,
     GROUP_FULL,
     CRYPTO,
+    PHOTO_LIMIT,
+    PHOTO_TOO_LARGE,
+    PHOTO_FAILED,
+    NO_PHOTO,
+    NO_RECIPIENTS,
     SERVER,
     UNKNOWN,
 }
@@ -78,9 +85,12 @@ data class FamilyState(
     val members: List<FamilyMember> = emptyList(),
     val loading: Boolean = false,
     val syncing: Boolean = false,
+    val sendingPhoto: Boolean = false,
     val pendingUpload: Boolean = false,
     val error: FamilyError? = null,
     val lastSyncEpochMs: Long? = null,
+    /** Family photos already downloaded and decrypted on this phone. */
+    val photos: List<FamilyPhotoEntity> = emptyList(),
 ) {
     val joined: Boolean
         get() = credentials.joined

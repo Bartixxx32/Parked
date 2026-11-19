@@ -26,7 +26,9 @@ class AppContainer(context: Context) {
     val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     val database: AppDatabase by lazy {
-        Room.databaseBuilder(appContext, AppDatabase::class.java, "parked.db").build()
+        Room.databaseBuilder(appContext, AppDatabase::class.java, "parked.db")
+            .addMigrations(AppDatabase.MIGRATION_1_2)
+            .build()
     }
 
     val settingsRepository by lazy { SettingsRepository(appContext) }
@@ -44,7 +46,13 @@ class AppContainer(context: Context) {
     val familyStore by lazy { FamilyStore(appContext) }
 
     val familyRepository by lazy {
-        FamilyRepository(familyStore, parkingRepository, applicationScope)
+        FamilyRepository(
+            context = appContext,
+            store = familyStore,
+            parkingRepository = parkingRepository,
+            photoDao = database.familyPhotoDao(),
+            scope = applicationScope,
+        )
     }
 
     val bluetoothRepository by lazy { BluetoothRepository(appContext) }

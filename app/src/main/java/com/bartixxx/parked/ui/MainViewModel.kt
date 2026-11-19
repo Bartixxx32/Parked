@@ -491,6 +491,19 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
+    fun sendFamilyPhoto(spot: ParkingSpot) {
+        viewModelScope.launch {
+            val error = container.familyRepository.sendPhoto(spot)
+            message(
+                if (error == null) {
+                    appContext.getString(R.string.msg_family_photo_sent)
+                } else {
+                    familyErrorMessage(error)
+                },
+            )
+        }
+    }
+
     fun rotateFamilyCode() {
         viewModelScope.launch {
             val error = container.familyRepository.rotateInviteCode()
@@ -557,6 +570,11 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
             FamilyError.RATE_LIMITED -> R.string.family_error_rate_limited
             FamilyError.GROUP_FULL -> R.string.family_error_group_full
             FamilyError.CRYPTO -> R.string.family_error_crypto
+            FamilyError.PHOTO_LIMIT -> R.string.family_error_photo_limit
+            FamilyError.PHOTO_TOO_LARGE -> R.string.family_error_photo_too_large
+            FamilyError.PHOTO_FAILED -> R.string.family_error_photo_failed
+            FamilyError.NO_PHOTO -> R.string.family_error_no_photo
+            FamilyError.NO_RECIPIENTS -> R.string.family_error_no_recipients
             FamilyError.SERVER -> R.string.family_error_server
             FamilyError.UNKNOWN -> R.string.family_error_unknown
         },

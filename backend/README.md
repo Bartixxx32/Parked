@@ -29,7 +29,15 @@ and anyone can run an equivalent instance.
   `service_role` has grants; `anon` and `authenticated` have no access, even if
   the schema is exposed through PostgREST.
 - The latest spot per device is stored in `parked.spots` (`device_id` is
-  unique). There is no cloud history. Notes and photos never leave the phone.
+  unique). There is no cloud history. Notes never leave the phone.
+- Family photos are optional and sent only when the user explicitly chooses
+  **Send to family**. The phone compresses the image, encrypts it with a key
+  derived from the group key, and uploads only ciphertext to the private
+  `parked-photos` Storage bucket. `parked.photos` holds metadata and
+  `parked.photo_deliveries` tracks which family devices still have to confirm
+  the download. When every recipient acknowledges, the Worker deletes both the
+  Storage object and the metadata row. A 24-hour TTL is the fallback for phones
+  that stay offline.
 - For E2EE groups, `parked.spots.payload` holds an AES-256-GCM ciphertext of
   the car label, coordinates, accuracy and save time. `latitude`, `longitude`
   and `accuracy_m` are `NULL`. The payload is bound with AAD to the group,
@@ -49,6 +57,8 @@ and anyone can run an equivalent instance.
 | `parked.groups` | Group id, HMAC of the invite code, hash of the admin token and optional E2EE key material. |
 | `parked.devices` | Group members, legacy car label and hash of the device token. |
 | `parked.spots` | Latest plaintext coordinates/accuracy or encrypted payload per device. |
+| `parked.photos` | Temporary encrypted-photo metadata; the ciphertext is in Supabase Storage. |
+| `parked.photo_deliveries` | Per-device download acknowledgements used to delete a photo early. |
 
 Apply the DDL in order through the Supabase SQL editor or the Management API:
 
@@ -56,6 +66,7 @@ Apply the DDL in order through the Supabase SQL editor or the Management API:
 2. [`supabase/002_group_admin.sql`](supabase/002_group_admin.sql)
 3. [`supabase/003_security_hardening.sql`](supabase/003_security_hardening.sql)
 4. [`supabase/004_e2ee.sql`](supabase/004_e2ee.sql)
+5. [`supabase/005_photos.sql`](supabase/005_photos.sql)
 
 The files are written to be idempotent for the schema, tables, columns and
 indexes. Review them before re-running after manual changes.
@@ -73,6 +84,11 @@ indexes. Review them before re-running after manual changes.
 | `DELETE` | `/v1/spot` | device token | Remove the caller's shared spot immediately. |
 | `PATCH` | `/v1/device` | device token | Change the caller's car label (no-op on the server for E2EE). |
 | `DELETE` | `/v1/device` | device token | Leave; deletes the device and its spot, and the group when empty. |
+| `POST` | `/v1/photos` | device token | Upload one encrypted photo. Headers: `X-Photo-Id` (UUID), `X-Photo-Iv` (12-byte base64url), `X-Key-Version`. Body is raw ciphertext. E2EE groups only. |
+| `GET` | `/v1/photos` | device token | List photos this device still has to download and acknowledge. |
+| `GET` | `/v1/photos/{id}` | device token | Download the ciphertext. Returns `X-Photo-Iv` and `X-Key-Version` headers. |
+| `POST` | `/v1/photos/{id}/ack` | device token | Confirm download; the Worker deletes the photo once every recipient has acknowledged. |
+| `DELETE` | `/v1/photos/{id}` | sender only | Remove a pending photo early. |
 
 Device tokens are random 256-bit values sent as
 `Authorization: Bearer <token>`. The admin token is sent in `X-Admin-Token` and
@@ -87,6 +103,12 @@ it with `CODE_PEPPER` before storing. Joining requires `joinAuthKey` from the
 link fragment. Encrypted spot uploads send `payload` (base64url ciphertext) and
 `keyVersion` instead of coordinates.
 
+Encrypted photo uploads are only accepted in E2EE groups. The phone derives a
+per-photo AES-256-GCM key from the group key with HKDF; the AAD binds the
+ciphertext to the group, photo id, sender device and key version, so the server
+cannot move a photo to another group or impersonate another sender. The Worker
+never receives the photo key and cannot decrypt the image.
+
 The Worker validates coordinates, accuracy, car labels, ciphertext shape,
 key versions and body size, and applies server-side timestamps, so a client
 cannot upload a spot with an arbitrary future date.
@@ -95,12 +117,12 @@ cannot upload a spot with an arbitrary future date.
 
 | Status | `error` | Meaning |
 |---|---|---|
-| `400` | `invalid_json`, `invalid_name`, `invalid_code`, `invalid_coordinates`, `invalid_accuracy`, `invalid_crypto`, `crypto_required` | Invalid request. |
+| `400` | `invalid_json`, `invalid_name`, `invalid_code`, `invalid_coordinates`, `invalid_accuracy`, `invalid_crypto`, `invalid_photo`, `crypto_required` | Invalid request. |
 | `401` | `unauthorized` | Missing or unknown device token. |
 | `403` | `forbidden`, `invite_link_required`, `invalid_invite` | Wrong admin token, or the encrypted group needs a valid invite link. |
-| `404` | `not_found`, `invalid_code` | Unknown route or invite code. |
-| `409` | `group_full`, `key_version_mismatch` | The group already has 20 cars, or the client key version is stale. |
-| `413` | `body_too_large` | Request body above 4 KB. |
+| `404` | `not_found`, `invalid_code` | Unknown route, invite code or photo. |
+| `409` | `group_full`, `key_version_mismatch`, `photo_limit`, `no_recipients` | The group is full, the key version is stale, too many photos are pending, or there is nobody else to send to. |
+| `413` | `body_too_large`, `photo_too_large` | JSON body above 4 KB or photo ciphertext above 2 MB. |
 | `429` | `rate_limited` | Per-IP or per-device limit exceeded. |
 | `500` | `server_error` | Backend or Supabase failure. |
 
@@ -112,8 +134,9 @@ You need a Supabase project, a Cloudflare account and Node.js 20 or newer.
 
 1. Create a Supabase project (any region close to your users).
 2. Open the SQL editor and run `backend/supabase/001_parked_schema.sql`,
-   then `002_group_admin.sql`, `003_security_hardening.sql` and
-   `004_e2ee.sql`.
+   then `002_group_admin.sql`, `003_security_hardening.sql`,
+   `004_e2ee.sql` and `005_photos.sql`. The last file creates the private
+   `parked-photos` Storage bucket and enforces the 2 MB object limit.
 3. Copy the project URL (for example
    `https://YOUR_PROJECT.supabase.co`) and the `service_role` key from
    **Project Settings → API**. Keep the service role key private; it bypasses
@@ -203,7 +226,14 @@ large or aged data set; those are enforced by the SQL trigger and the cron job.
 - **Retention.** A daily cron job deletes spots older than `RETAIN_DAYS`
   (default 30), devices that have not been seen for that long, and old empty
   groups. Only the latest spot is ever stored, so there is no location history
-  to retain.
+  to retain. A second hourly cron deletes family photos past
+  `PHOTO_RETENTION_HOURS` (default 24).
+- **Photo quotas.** Encrypted photos are accepted only in E2EE groups, are
+  limited to 2 MB of ciphertext, and are capped at 5 pending per group and 3
+  pending per sender. The normal path deletes a photo as soon as every
+  recipient acknowledges, so the free Storage tier is not used as an archive.
+  Deleting a device also removes its pending uploads; leaving a group removes
+  the last recipients' copies.
 - **Constant-time admin check.** The admin-token hash is compared with a
   constant-time loop rather than `!==`.
 - **RLS.** No policies exist for `anon` or `authenticated`; the Worker uses the
@@ -228,8 +258,10 @@ large or aged data set; those are enforced by the SQL trigger and the cron job.
 
 For E2EE groups created by the current app, the Worker and the Supabase project
 operator can see group/device identifiers, timestamps, key versions, ciphertext
-lengths and request metadata, but **not** the car labels, coordinates or
-accuracy. The invite secret and raw group key never reach the server.
+lengths and request metadata, but **not** the car labels, coordinates, accuracy
+or family photos. Photo images are encrypted on the sender's phone; the server
+stores only temporary ciphertext. The invite secret and raw group key never
+reach the server.
 
 Groups created by 1.2.0/1.3.0 clients are plaintext for compatibility. Their
 Worker and Supabase operator can read the latest coordinates, car labels and

@@ -45,6 +45,12 @@ data class FamilyInvite(
     val secret: String?,
 )
 
+/** Ciphertext and IV for one family photo. The server never sees either key. */
+data class FamilyEncryptedPhoto(
+    val iv: String,
+    val ciphertext: ByteArray,
+)
+
 /** Values that travel inside the encrypted spot payload. */
 data class FamilySpotPayload(
     val carLabel: String,
@@ -87,6 +93,7 @@ object FamilyCrypto {
     private val joinAuthSalt = "parked-join-auth-v1".toByteArray(Charsets.UTF_8)
     private val joinAuthInfo = "join-auth|v1".toByteArray(Charsets.UTF_8)
     private val spotSalt = "parked-spot-salt-v1".toByteArray(Charsets.UTF_8)
+    private val photoSalt = "parked-photo-salt-v1".toByteArray(Charsets.UTF_8)
 
     fun newGroupKeyMaterial(): FamilyGroupKeyMaterial {
         val groupKey = randomBytes(KEY_BYTES)
@@ -260,6 +267,84 @@ object FamilyCrypto {
     } catch (_: Exception) {
         null
     }
+
+    /**
+     * Encrypts a compressed family photo. The AAD binds the ciphertext to the
+     * group, photo id, sender and key version, so the server cannot move a
+     * photo to another group or impersonate another sender without breaking
+     * authentication on the receiving phone.
+     */
+    fun encryptPhoto(
+        groupKey: ByteArray,
+        groupId: String,
+        photoId: String,
+        senderDeviceId: String,
+        keyVersion: Int,
+        plaintext: ByteArray,
+    ): FamilyEncryptedPhoto {
+        require(groupKey.size == KEY_BYTES) { "invalid group key" }
+        require(keyVersion > 0) { "invalid key version" }
+        require(plaintext.isNotEmpty()) { "empty photo" }
+        val iv = randomBytes(IV_BYTES)
+        val key = photoKey(groupKey, groupId, photoId, keyVersion)
+        val ciphertext = aesGcmEncrypt(
+            key,
+            iv,
+            plaintext,
+            photoAad(groupId, photoId, senderDeviceId, keyVersion),
+        )
+        return FamilyEncryptedPhoto(
+            iv = encodeBase64(iv),
+            ciphertext = ciphertext,
+        )
+    }
+
+    /** Returns null for anything that is not authentic ciphertext for this photo. */
+    fun decryptPhoto(
+        groupKey: ByteArray,
+        groupId: String,
+        photoId: String,
+        senderDeviceId: String,
+        keyVersion: Int,
+        ivEncoded: String,
+        ciphertext: ByteArray,
+    ): ByteArray? = try {
+        val iv = decodeBase64(ivEncoded)
+        if (keyVersion <= 0 || iv.size != IV_BYTES || ciphertext.size < GCM_TAG_BITS / 8) {
+            null
+        } else {
+            val key = photoKey(groupKey, groupId, photoId, keyVersion)
+            aesGcmDecrypt(
+                key,
+                iv,
+                ciphertext,
+                photoAad(groupId, photoId, senderDeviceId, keyVersion),
+            )
+        }
+    } catch (_: Exception) {
+        null
+    }
+
+    private fun photoKey(
+        groupKey: ByteArray,
+        groupId: String,
+        photoId: String,
+        keyVersion: Int,
+    ): ByteArray = hkdf(
+        groupKey,
+        photoSalt,
+        "photo|$groupId|$photoId|$keyVersion".toByteArray(Charsets.UTF_8),
+        KEY_BYTES,
+    )
+
+    private fun photoAad(
+        groupId: String,
+        photoId: String,
+        senderDeviceId: String,
+        keyVersion: Int,
+    ): ByteArray =
+        "parked-photo|v1|$groupId|$photoId|$senderDeviceId|$keyVersion"
+            .toByteArray(Charsets.UTF_8)
 
     private fun parseSpotPlaintext(plain: ByteArray): FamilySpotPayload? {
         if (plain.size != PAYLOAD_BYTES) return null

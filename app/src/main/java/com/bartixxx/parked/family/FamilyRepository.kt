@@ -1,30 +1,46 @@
 package com.bartixxx.parked.family
 
+import android.content.Context
 import com.bartixxx.parked.data.ParkingRepository
+import com.bartixxx.parked.data.db.FamilyPhotoDao
+import com.bartixxx.parked.data.db.FamilyPhotoEntity
 import com.bartixxx.parked.data.db.ParkingSpot
+import java.io.File
 import java.net.URL
+import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 /**
  * Coordinates family mode between the settings store, the API and the local
- * parking database. Only the latest local spot is uploaded; notes and photos
- * never leave the phone.
+ * parking database. Only the latest local spot is uploaded.
  *
- * New groups are end-to-end encrypted: [FamilyCrypto] encrypts the car label
- * and coordinates on this phone, and the server only stores ciphertext.
+ * Notes never leave the phone. Photos leave only when the user explicitly sends
+ * one, only as ciphertext encrypted with the group key, and the server deletes
+ * the ciphertext as soon as every family phone confirms the download.
+ *
+ * New groups are end-to-end encrypted: [FamilyCrypto] encrypts the car label,
+ * coordinates and photos on this phone, and the server only stores ciphertext.
  */
 class FamilyRepository(
+    private val context: Context,
     private val store: FamilyStore,
     private val parkingRepository: ParkingRepository,
+    private val photoDao: FamilyPhotoDao,
     private val scope: CoroutineScope,
 ) {
 
@@ -32,6 +48,7 @@ class FamilyRepository(
         val members: List<FamilyMember> = emptyList(),
         val loading: Boolean = false,
         val syncing: Boolean = false,
+        val sendingPhoto: Boolean = false,
         val pendingUpload: Boolean = false,
         val pendingDelete: Boolean = false,
         val error: FamilyError? = null,
@@ -42,17 +59,29 @@ class FamilyRepository(
     private val mutex = Mutex()
     private val keyVault = FamilyKeyVault()
 
-    val state: StateFlow<FamilyState> = combine(store.credentials, runtime) { credentials, value ->
-        FamilyState(
-            credentials = credentials,
-            members = value.members,
-            loading = value.loading,
-            syncing = value.syncing,
-            pendingUpload = value.pendingUpload,
-            error = value.error,
-            lastSyncEpochMs = value.lastSyncEpochMs,
-        )
-    }.stateIn(scope, SharingStarted.Eagerly, FamilyState())
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val state: StateFlow<FamilyState> = combine(
+        store.credentials,
+        runtime,
+    ) { credentials, value -> credentials to value }
+        .flatMapLatest { (credentials, value) ->
+            val photos = credentials.groupId?.let(photoDao::observeForGroup)
+                ?: flowOf(emptyList())
+            photos.map { storedPhotos ->
+                FamilyState(
+                    credentials = credentials,
+                    members = value.members,
+                    loading = value.loading,
+                    syncing = value.syncing,
+                    sendingPhoto = value.sendingPhoto,
+                    pendingUpload = value.pendingUpload,
+                    error = value.error,
+                    lastSyncEpochMs = value.lastSyncEpochMs,
+                    photos = storedPhotos,
+                )
+            }
+        }
+        .stateIn(scope, SharingStarted.Eagerly, FamilyState())
 
     suspend fun createGroup(carLabel: String): FamilyError? = mutex.withLock {
         val current = store.current()
@@ -170,6 +199,52 @@ class FamilyRepository(
             syncLatestLocked(apiFor(current), current)
         } catch (error: Exception) {
             fail(error)
+        }
+    }
+
+    /**
+     * Encrypts one spot photo and sends it to the family. This is always an
+     * explicit user action: uploading every new photo automatically would burn
+     * the free Storage egress quota and surprise people who expect photos to
+     * stay local.
+     */
+    suspend fun sendPhoto(spot: ParkingSpot): FamilyError? = mutex.withLock {
+        val current = store.current()
+        if (!current.joined) return@withLock FamilyError.NOT_CONNECTED
+        if (!current.encrypted) return@withLock FamilyError.CRYPTO
+        val token = current.deviceToken ?: return@withLock FamilyError.NOT_CONNECTED
+        val path = spot.photoPath ?: return@withLock FamilyError.NO_PHOTO
+
+        runtime.update { it.copy(sendingPhoto = true, error = null) }
+        try {
+            val compressed = withContext(Dispatchers.Default) {
+                FamilyPhotoCompressor.compress(File(path))
+            } ?: throw FamilyApiException(FamilyError.PHOTO_FAILED)
+            val photoId = UUID.randomUUID().toString()
+            val groupKey = groupKeyFor(current)
+            val encrypted = crypto {
+                FamilyCrypto.encryptPhoto(
+                    groupKey = groupKey,
+                    groupId = current.groupId!!,
+                    photoId = photoId,
+                    senderDeviceId = current.deviceId!!,
+                    keyVersion = current.keyVersion,
+                    plaintext = compressed,
+                )
+            }
+            apiFor(current).uploadPhoto(
+                deviceToken = token,
+                photoId = photoId,
+                iv = encrypted.iv,
+                keyVersion = current.keyVersion,
+                ciphertext = encrypted.ciphertext,
+            )
+            runtime.update { it.copy(error = null) }
+            null
+        } catch (error: Exception) {
+            fail(error)
+        } finally {
+            runtime.update { it.copy(sendingPhoto = false) }
         }
     }
 
@@ -358,7 +433,19 @@ class FamilyRepository(
             } else if (runtime.value.pendingUpload) {
                 syncLatestLocked(api, current)
             }
-            null
+
+            // Photo errors must not hide the fresh spot list, so handle them
+            // separately from the spots request above.
+            var photoError: FamilyError? = null
+            if (current.enabled && current.encrypted) {
+                try {
+                    photoError = syncPhotosLocked(api, current)
+                } catch (error: Exception) {
+                    if (error is CancellationException) throw error
+                    photoError = fail(error)
+                }
+            }
+            photoError
         } catch (error: Exception) {
             fail(error)
         }
@@ -465,6 +552,122 @@ class FamilyRepository(
                 )
             }
             mapped
+        }
+    }
+
+    /**
+     * Downloads pending photos, decrypts them on this phone, saves them under
+     * the app's private directory and acknowledges receipt. The Worker deletes
+     * the server copy when the last family phone acknowledges.
+     *
+     * A photo that is authentic but cannot be opened (for example because it
+     * was produced by a broken client) is acknowledged too: keeping it on the
+     * server would waste the quota until the TTL and could never be displayed.
+     */
+    private suspend fun syncPhotosLocked(
+        api: FamilyApi,
+        current: FamilyCredentials,
+    ): FamilyError? {
+        val token = current.deviceToken ?: return FamilyError.NOT_CONNECTED
+        val groupId = current.groupId ?: return FamilyError.NOT_CONNECTED
+        val groupKey = groupKeyFor(current)
+        val remotePhotos = api.listPhotos(token)
+        if (remotePhotos.isEmpty()) return null
+
+        val labels = runtime.value.members.associate { it.deviceId to it.carLabel }
+        var firstError: FamilyError? = null
+        for (remote in remotePhotos) {
+            if (!isSafePhotoId(remote.id)) continue
+            try {
+                if (photoDao.byId(remote.id) != null) {
+                    // Downloaded earlier, but the ACK did not reach the server.
+                    api.ackPhoto(token, remote.id)
+                    continue
+                }
+                val ciphertext = api.downloadPhoto(token, remote.id)
+                if (ciphertext.size > MAX_RECEIVED_PHOTO_BYTES) {
+                    api.ackPhoto(token, remote.id)
+                    continue
+                }
+                val plaintext = crypto {
+                    FamilyCrypto.decryptPhoto(
+                        groupKey = groupKey,
+                        groupId = groupId,
+                        photoId = remote.id,
+                        senderDeviceId = remote.senderDeviceId,
+                        keyVersion = remote.keyVersion,
+                        ivEncoded = remote.iv,
+                        ciphertext = ciphertext,
+                    )
+                }
+                if (plaintext == null) {
+                    api.ackPhoto(token, remote.id)
+                    continue
+                }
+
+                val file = saveReceivedPhoto(groupId, remote.id, plaintext)
+                try {
+                    photoDao.insert(
+                        FamilyPhotoEntity(
+                            id = remote.id,
+                            groupId = groupId,
+                            senderDeviceId = remote.senderDeviceId,
+                            senderLabel = labels[remote.senderDeviceId].orEmpty(),
+                            savedAtEpochMs = remote.savedAtEpochMs,
+                            receivedAtEpochMs = System.currentTimeMillis(),
+                            filePath = file.absolutePath,
+                        ),
+                    )
+                } catch (error: Exception) {
+                    file.delete()
+                    throw error
+                }
+                api.ackPhoto(token, remote.id)
+            } catch (error: Exception) {
+                if (error is CancellationException) throw error
+                val mapped = mapError(error)
+                if (firstError == null) firstError = mapped
+                if (mapped == FamilyError.NETWORK || mapped == FamilyError.UNAUTHORIZED) {
+                    break
+                }
+            }
+        }
+        return firstError
+    }
+
+    private suspend fun saveReceivedPhoto(
+        groupId: String,
+        photoId: String,
+        bytes: ByteArray,
+    ): File = withContext(Dispatchers.IO) {
+        val root = familyPhotosDir().canonicalFile
+        val directory = File(root, groupId).apply { mkdirs() }.canonicalFile
+        require(directory.path.startsWith(root.path + File.separator)) {
+            "invalid photo directory"
+        }
+        val target = File(directory, "$photoId.jpg").canonicalFile
+        require(target.path.startsWith(directory.path + File.separator)) {
+            "invalid photo path"
+        }
+        target.writeBytes(bytes)
+        target
+    }
+
+    private fun isSafePhotoId(id: String): Boolean =
+        runCatching { UUID.fromString(id) }.isSuccess
+
+    private fun familyPhotosDir(): File = File(context.filesDir, "family_photos")
+
+    private suspend fun clearReceivedPhotos(groupId: String) {
+        photoDao.deleteForGroup(groupId)
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val root = familyPhotosDir().canonicalFile
+                val directory = File(root, groupId).canonicalFile
+                if (directory.path.startsWith(root.path + File.separator)) {
+                    directory.deleteRecursively()
+                }
+            }
         }
     }
 
@@ -597,7 +800,9 @@ class FamilyRepository(
     }
 
     private suspend fun clearLocalSession() {
+        val current = store.current()
         store.clear()
+        current.groupId?.let { clearReceivedPhotos(it) }
         runtime.value = Runtime()
     }
 
@@ -617,5 +822,6 @@ class FamilyRepository(
 
     private companion object {
         const val MAX_CAR_LABEL_LENGTH = 60
+        const val MAX_RECEIVED_PHOTO_BYTES = 2_100_000
     }
 }
