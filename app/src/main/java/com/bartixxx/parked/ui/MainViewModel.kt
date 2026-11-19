@@ -274,6 +274,10 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
+    fun notifyPhotoCaptureFailed() {
+        message(appContext.getString(R.string.msg_photo_capture_failed))
+    }
+
     fun removePhoto(spotId: Long) {
         viewModelScope.launch {
             runCatching { container.parkingRepository.removePhoto(spotId) }
@@ -284,8 +288,18 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
 
     fun deleteSpot(id: Long) {
         viewModelScope.launch {
+            val wasLatest = runCatching {
+                container.parkingRepository.latestSpot()?.id == id
+            }.getOrDefault(false)
             runCatching { container.parkingRepository.deleteSpot(id) }
-                .onSuccess { message(appContext.getString(R.string.msg_spot_deleted)) }
+                .onSuccess {
+                    message(appContext.getString(R.string.msg_spot_deleted))
+                    if (wasLatest) {
+                        container.familyRepository.onLocalSpotDeleted()?.let { error ->
+                            message(familyErrorMessage(error))
+                        }
+                    }
+                }
                 .onFailure { message(appContext.getString(R.string.msg_spot_delete_failed)) }
         }
     }
@@ -293,7 +307,12 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
     fun deleteAllSpots() {
         viewModelScope.launch {
             runCatching { container.parkingRepository.deleteAll() }
-                .onSuccess { message(appContext.getString(R.string.msg_history_deleted)) }
+                .onSuccess {
+                    message(appContext.getString(R.string.msg_history_deleted))
+                    container.familyRepository.onLocalSpotDeleted()?.let { error ->
+                        message(familyErrorMessage(error))
+                    }
+                }
                 .onFailure { message(appContext.getString(R.string.msg_history_delete_failed)) }
         }
     }

@@ -92,6 +92,9 @@ async function route(request, env) {
   if (method === "PUT" && path === "/v1/spot") {
     return upsertSpot(request, env);
   }
+  if (method === "DELETE" && path === "/v1/spot") {
+    return deleteSpot(request, env);
+  }
   if (method === "PATCH" && path === "/v1/device") {
     return updateDevice(request, env);
   }
@@ -356,6 +359,25 @@ async function upsertSpot(request, env) {
   await supabase(env, `devices?id=eq.${device.id}`, {
     method: "PATCH",
     body: { last_seen_at: now },
+    prefer: "return=minimal",
+  });
+
+  return empty(204);
+}
+
+async function deleteSpot(request, env) {
+  const device = await requireDevice(request, env);
+  await enforceRateLimit(request, env, "WRITE_LIMITER", "write", device.id);
+
+  // The spot is already ciphertext for E2EE groups, so removing it needs no
+  // key material and works exactly the same for legacy plaintext groups.
+  await supabase(env, `spots?device_id=eq.${device.id}`, {
+    method: "DELETE",
+    prefer: "return=minimal",
+  });
+  await supabase(env, `devices?id=eq.${device.id}`, {
+    method: "PATCH",
+    body: { last_seen_at: new Date().toISOString() },
     prefer: "return=minimal",
   });
 

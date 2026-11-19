@@ -168,6 +168,10 @@ class FamilyApi(serverUrl: String) {
         )
     }
 
+    suspend fun deleteSpot(deviceToken: String) {
+        request(method = "DELETE", path = "/v1/spot", deviceToken = deviceToken)
+    }
+
     suspend fun updateCarLabel(deviceToken: String, carLabel: String) {
         request(
             method = "PATCH",

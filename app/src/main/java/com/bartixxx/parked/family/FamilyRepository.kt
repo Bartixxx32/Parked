@@ -33,6 +33,7 @@ class FamilyRepository(
         val loading: Boolean = false,
         val syncing: Boolean = false,
         val pendingUpload: Boolean = false,
+        val pendingDelete: Boolean = false,
         val error: FamilyError? = null,
         val lastSyncEpochMs: Long? = null,
     )
@@ -172,6 +173,28 @@ class FamilyRepository(
         }
     }
 
+    /**
+     * Reconciles the family server after a local spot was deleted. The family
+     * only ever sees the latest spot, so the previous one is uploaded; if the
+     * history is now empty the remote spot is removed instead of surviving
+     * until the server-side expiry.
+     */
+    suspend fun onLocalSpotDeleted(): FamilyError? = mutex.withLock {
+        val current = store.current()
+        if (!current.joined) return@withLock null
+        try {
+            val api = apiFor(current)
+            val latest = if (current.enabled) parkingRepository.latestSpot() else null
+            if (latest != null) {
+                syncSpotLocked(api, current, latest)
+            } else {
+                clearSpotLocked(api, current)
+            }
+        } catch (error: Exception) {
+            fail(error)
+        }
+    }
+
     suspend fun setEnabled(enabled: Boolean): FamilyError? {
         val current = store.current()
         if (enabled && !current.joined) {
@@ -181,6 +204,7 @@ class FamilyRepository(
         store.setEnabled(enabled)
         if (!enabled) {
             runtime.update { it.copy(error = null) }
+            clearRemoteSpot(current)
             return null
         }
         return refresh().let { error ->
@@ -324,7 +348,14 @@ class FamilyRepository(
                     error = null,
                 )
             }
-            if (runtime.value.pendingUpload) {
+            if (runtime.value.pendingDelete) {
+                val latest = parkingRepository.latestSpot()
+                if (current.enabled && latest != null) {
+                    syncSpotLocked(api, current, latest)
+                } else {
+                    clearSpotLocked(api, current)
+                }
+            } else if (runtime.value.pendingUpload) {
                 syncLatestLocked(api, current)
             }
             null
@@ -334,8 +365,50 @@ class FamilyRepository(
     }
 
     private suspend fun syncLatestLocked(api: FamilyApi, current: FamilyCredentials): FamilyError? {
-        val spot = parkingRepository.latestSpot() ?: return null
+        if (!current.enabled || !current.joined) return null
+        val spot = parkingRepository.latestSpot()
+        if (spot == null) {
+            return if (runtime.value.pendingDelete) clearSpotLocked(api, current) else null
+        }
         return syncSpotLocked(api, current, spot)
+    }
+
+    private suspend fun clearSpotLocked(
+        api: FamilyApi,
+        current: FamilyCredentials,
+    ): FamilyError? {
+        val token = current.deviceToken ?: return FamilyError.NOT_CONNECTED
+        runtime.update { it.copy(syncing = true) }
+        return try {
+            api.deleteSpot(token)
+            runtime.update {
+                it.copy(
+                    syncing = false,
+                    pendingUpload = false,
+                    pendingDelete = false,
+                    members = it.members.map { member ->
+                        if (member.deviceId == current.deviceId) {
+                            member.copy(spot = null)
+                        } else {
+                            member
+                        }
+                    },
+                    lastSyncEpochMs = System.currentTimeMillis(),
+                    error = null,
+                )
+            }
+            null
+        } catch (error: Exception) {
+            val mapped = mapError(error)
+            runtime.update {
+                it.copy(
+                    syncing = false,
+                    pendingDelete = true,
+                    error = mapped,
+                )
+            }
+            mapped
+        }
     }
 
     private suspend fun syncSpotLocked(
@@ -376,6 +449,7 @@ class FamilyRepository(
                 it.copy(
                     syncing = false,
                     pendingUpload = false,
+                    pendingDelete = false,
                     lastSyncEpochMs = System.currentTimeMillis(),
                     error = null,
                 )
@@ -504,6 +578,22 @@ class FamilyRepository(
         val normalized = normalizeServerUrl(current.serverUrl)
             ?: throw FamilyApiException(FamilyError.INVALID_URL)
         return FamilyApi(normalized)
+    }
+
+    private suspend fun clearRemoteSpot(current: FamilyCredentials) {
+        if (!current.joined || current.deviceToken == null) return
+        mutex.withLock {
+            val error = try {
+                clearSpotLocked(apiFor(current), current)
+            } catch (exception: Exception) {
+                mapError(exception)
+            }
+            if (error != null) {
+                // Sharing is already off locally. Keep the deletion pending
+                // so a later refresh can retry without re-enabling uploads.
+                runtime.update { it.copy(pendingDelete = true, error = null) }
+            }
+        }
     }
 
     private suspend fun clearLocalSession() {
