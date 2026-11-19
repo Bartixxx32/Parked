@@ -1,0 +1,5 @@
+• Family mode is now end-to-end encrypted for new groups: the server stores only ciphertext for car labels and locations.
+• Share a full invite link; the key in the part after # never goes to the server. Rotating the link issues a new secret.
+• Groups created by older app versions stay plaintext and show a clear warning. Leave and recreate the group to encrypt it.
+• Save a spot without a Bluetooth car radio: “Save current location” and manual coordinate entry are now always available on the Dashboard.
+• Same package and signing key — a normal update over 1.3.0.

@@ -164,7 +164,13 @@ object FamilyCrypto {
             if (rest.isEmpty()) return null
             val hash = rest.indexOf('#')
             val codePart = if (hash >= 0) rest.substring(0, hash) else rest
-            val secretPart = if (hash >= 0) rest.substring(hash + 1) else null
+            val secretPart = if (hash >= 0) {
+                rest.substring(hash + 1)
+                    .trimEnd('.', ',', ';', ':', '!', '?', ')', ']', '}', '"', '\'')
+                    .trim()
+            } else {
+                null
+            }
             val code = InviteCode.normalize(codePart) ?: return null
             val secret = secretPart?.let { candidate ->
                 candidate.takeIf { isValidSecret(it) } ?: return null

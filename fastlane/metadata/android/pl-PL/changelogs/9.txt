@@ -1,0 +1,5 @@
+• Tryb rodzinny jest teraz szyfrowany end-to-end w nowych grupach: serwer przechowuje tylko zaszyfrowane nazwy aut i lokalizacje.
+• Udostępniaj pełny link zaproszenia; klucz w części po # nigdy nie trafia do serwera. Wygenerowanie nowego linku zmienia sekret.
+• Grupy utworzone przez starsze wersje pozostają nieszyfrowane i pokazują wyraźne ostrzeżenie. Opuść grupę i utwórz ją ponownie, aby włączyć szyfrowanie.
+• Zapis miejsca bez radia Bluetooth w aucie: „Zapisz bieżącą lokalizację” i ręczne wpisanie współrzędnych są teraz zawsze dostępne na Pulpicie.
+• Ten sam pakiet i klucz podpisywania — zwykła aktualizacja z 1.3.0.

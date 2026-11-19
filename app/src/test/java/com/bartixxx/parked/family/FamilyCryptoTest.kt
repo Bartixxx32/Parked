@@ -149,6 +149,16 @@ class FamilyCryptoTest {
     }
 
     @Test
+    fun `invite link tolerates trailing punctuation`() {
+        val secret = FamilyCrypto.newInviteSecret()
+        val invite = FamilyCrypto.parseInvite(
+            "Join us: parked://join/BSHR4H4P5M#$secret.",
+        )
+        assertEquals("BSHR4H4P5M", invite?.code)
+        assertEquals(secret, invite?.secret)
+    }
+
+    @Test
     fun `malformed links are rejected`() {
         assertNull(FamilyCrypto.parseInvite("parked://join/BSHR4H4P5M#not-a-secret"))
         assertNull(FamilyCrypto.parseInvite("https://example.com/join/BSHR4H4P5M"))
