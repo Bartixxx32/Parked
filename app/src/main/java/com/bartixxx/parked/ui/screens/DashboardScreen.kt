@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.LocationOn
@@ -64,6 +65,7 @@ fun DashboardScreen(
     saving: Boolean,
     onToggleMonitoring: (Boolean) -> Unit,
     onSaveNow: () -> Unit,
+    onAddManual: (String, String, String) -> Unit,
     onCancelPending: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenMap: (ParkingSpot) -> Unit,
@@ -77,6 +79,7 @@ fun DashboardScreen(
     onOpenBluetoothSettings: () -> Unit,
 ) {
     var nowMs by remember { mutableStateOf(System.currentTimeMillis()) }
+    var showAddManual by remember { mutableStateOf(false) }
     LaunchedEffect(monitor.pendingAtEpochMs) {
         if (monitor.pendingAtEpochMs > 0L) {
             while (true) {
@@ -314,6 +317,19 @@ fun DashboardScreen(
 
         SectionCard(title = stringResource(R.string.section_latest_spot)) {
             val spot = latestSpot
+            if (settings.deviceAddress == null) {
+                Text(
+                    text = stringResource(R.string.manual_save_no_bluetooth_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = stringResource(R.string.manual_save_no_bluetooth_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
             if (spot == null) {
                 EmptyState(
                     title = stringResource(R.string.no_spots),
@@ -359,38 +375,16 @@ fun DashboardScreen(
                         color = MaterialTheme.colorScheme.error,
                     )
                 }
+            }
 
-                Button(
-                    onClick = onSaveNow,
-                    enabled = !saving && permissions.locationOk,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    if (saving) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onPrimary,
-                        )
-                    } else {
-                        Icon(Icons.Filled.Save, contentDescription = null, modifier = Modifier.size(18.dp))
-                    }
-                    Spacer(Modifier.size(8.dp))
-                    Text(
-                        if (saving) {
-                            stringResource(R.string.saving)
-                        } else {
-                            stringResource(R.string.save_current_location)
-                        },
-                    )
-                }
-                if (!permissions.locationOk) {
-                    Text(
-                        text = stringResource(R.string.manual_save_requires_location),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
+            ManualSaveActions(
+                saving = saving,
+                hasLocationPermission = permissions.locationOk,
+                onSaveNow = onSaveNow,
+                onAddManual = { showAddManual = true },
+            )
 
+            if (spot != null) {
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     FilledTonalButton(
                         onClick = { onOpenMap(spot) },
@@ -462,6 +456,60 @@ fun DashboardScreen(
                 }
             }
         }
+    }
+
+    if (showAddManual) {
+        ManualAddDialog(
+            onDismiss = { showAddManual = false },
+            onConfirm = onAddManual,
+        )
+    }
+}
+
+@Composable
+private fun ManualSaveActions(
+    saving: Boolean,
+    hasLocationPermission: Boolean,
+    onSaveNow: () -> Unit,
+    onAddManual: () -> Unit,
+) {
+    Button(
+        onClick = onSaveNow,
+        enabled = !saving && hasLocationPermission,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        if (saving) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(18.dp),
+                strokeWidth = 2.dp,
+                color = MaterialTheme.colorScheme.onPrimary,
+            )
+        } else {
+            Icon(Icons.Filled.Save, contentDescription = null, modifier = Modifier.size(18.dp))
+        }
+        Spacer(Modifier.size(8.dp))
+        Text(
+            if (saving) {
+                stringResource(R.string.saving)
+            } else {
+                stringResource(R.string.save_current_location)
+            },
+        )
+    }
+    if (!hasLocationPermission) {
+        Text(
+            text = stringResource(R.string.manual_save_requires_location),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+        )
+    }
+    FilledTonalButton(
+        onClick = onAddManual,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.size(8.dp))
+        Text(stringResource(R.string.add_manual_spot))
     }
 }
 

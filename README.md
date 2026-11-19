@@ -39,11 +39,12 @@ dependencies — no Google Play Services.
 - Built-in target compass: a dial that reacts to phone rotation, cardinal direction
   (for example `NE`), bearing in degrees and distance in metres to the selected or latest
   spot.
-- Optional family mode, off by default: create or join a group with an invite code and
+- Optional family mode, off by default: create or join a group with an invite link and
   see each member's latest parked car on the map. Every car has a label (model,
-  nickname or registration plate). Only the latest coordinates, accuracy, car label and
-  timestamps are uploaded; notes and photos stay local. The public server works out of
-  the box; the backend is also self-hostable and the app can point at any HTTPS instance
+  nickname or registration plate). New groups are end-to-end encrypted: the single
+  latest spot is uploaded as ciphertext and only family phones can read the label and
+  coordinates; notes and photos stay local. The public server works out of the box;
+  the backend is also self-hostable and the app can point at any HTTPS instance
   (see [backend/README.md](backend/README.md)).
 - History export to **JSON**, **CSV** and **GPX** via the system file picker.
 - Diagnostics screen: service state, permissions, GPS test and local logs (max 300
@@ -164,11 +165,15 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
   private storage.
 - No ads, analytics, Crashlytics, telemetry or user accounts.
 - Without family mode the app does not send coordinates to any server.
-- Family mode is opt-in. When enabled, the app sends the latest coordinates, accuracy,
-  car label and timestamps to the configured family server so other group members can
-  see the car. Notes, photos and spot history are never uploaded. Leaving the group
-  deletes the member's cloud data. The default is the public Parked server; you can
-  enter a self-hosted HTTPS server in **Settings → Family → Server**.
+- Family mode is opt-in. New groups are end-to-end encrypted: the car label,
+  coordinates, accuracy and timestamps are encrypted on the phone before upload, and
+  the server stores only ciphertext plus group/device identifiers. The 256-bit group
+  key is kept on family phones, wrapped by the Android Keystore. Notes, photos and
+  spot history are never uploaded. Leaving the group deletes the member's cloud data.
+  Groups created by older app versions remain plaintext for compatibility, so the
+  server operator could read those until the group is recreated. The default is the
+  public Parked server; you can enter a self-hosted HTTPS server in
+  **Settings → Family → Server**.
 - Otherwise the only network traffic is downloading map tiles from OpenStreetMap servers
   while the map screen is open (the server sees the IP address and tile area, like any
   website).
@@ -183,6 +188,11 @@ If you want to control the data yourself, the backend is open source and can be
 deployed to your own Cloudflare Workers + Supabase project. The complete
 step-by-step guide, security model and API documentation are in
 [backend/README.md](backend/README.md).
+
+To invite someone, share the full invite link. The part after `#` contains the
+key material needed to decrypt the group and is never sent to the server; the
+10-character code alone is not enough for an encrypted group. Treat the link
+like a key: anyone who has it can join until you generate a new one.
 
 In the app, open **Settings → Family → Server → Change** before creating or
 joining a group and enter your own HTTPS server URL. The setting is locked while

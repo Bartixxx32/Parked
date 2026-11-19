@@ -19,7 +19,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -46,9 +48,11 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.bartixxx.parked.R
 import com.bartixxx.parked.family.DEFAULT_FAMILY_SERVER
+import com.bartixxx.parked.family.FamilyCrypto
 import com.bartixxx.parked.family.FamilyError
 import com.bartixxx.parked.family.FamilyPalette
 import com.bartixxx.parked.family.FamilyState
@@ -83,6 +87,7 @@ fun FamilySection(
         else -> unnamedCar
     }
     val isDefaultServer = credentials.serverUrl == DEFAULT_FAMILY_SERVER
+    val inviteLink = credentials.inviteLink
     var showCreate by rememberSaveable { mutableStateOf(false) }
     var showJoin by rememberSaveable { mutableStateOf(false) }
     var showName by rememberSaveable { mutableStateOf(false) }
@@ -164,6 +169,58 @@ fun FamilySection(
                 )
             }
 
+            if (credentials.encrypted) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Icon(
+                        Icons.Filled.Lock,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Column {
+                        Text(
+                            text = stringResource(R.string.family_encrypted_badge),
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            text = stringResource(R.string.family_encrypted_help),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Icon(
+                        Icons.Filled.Warning,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.tertiary,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Column {
+                        Text(
+                            text = stringResource(R.string.family_plaintext_badge),
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            text = stringResource(R.string.family_plaintext_help),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+
             FamilySwitchRow(
                 title = stringResource(R.string.family_share_title),
                 subtitle = stringResource(R.string.family_share_desc),
@@ -173,64 +230,136 @@ fun FamilySection(
 
             HorizontalDivider()
 
-            credentials.inviteCode?.let { code ->
-                Text(
-                    text = stringResource(R.string.family_invite_code),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
+            when {
+                credentials.encrypted && inviteLink != null -> {
                     Text(
-                        text = InviteCode.format(code),
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                        text = stringResource(R.string.family_invite_link),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
                     )
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    TextButton(
-                        onClick = {
-                            copyToClipboard(context, code)
-                            copied = true
-                        },
-                        modifier = Modifier.weight(1f),
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                        modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text(
-                            stringResource(
-                                if (copied) R.string.family_code_copied
-                                else R.string.family_copy_code,
-                            ),
+                            text = inviteLink,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontFamily = FontFamily.Monospace,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
                         )
                     }
-                    TextButton(
-                        onClick = {
-                            AppIntents.shareText(
-                                context,
-                                context.getString(
-                                    R.string.family_share_text,
-                                    InviteCode.format(code),
-                                ),
-                                context.getString(R.string.family_share_subject),
-                            )
-                        },
-                        modifier = Modifier.weight(1f),
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                        Text(stringResource(R.string.family_share_code))
-                    }
-                    if (credentials.isAdmin) {
                         TextButton(
-                            onClick = { showRotate = true },
+                            onClick = {
+                                copyToClipboard(context, inviteLink)
+                                copied = true
+                            },
                             modifier = Modifier.weight(1f),
                         ) {
-                            Text(stringResource(R.string.family_rotate_code))
+                            Text(
+                                stringResource(
+                                    if (copied) R.string.family_link_copied
+                                    else R.string.family_copy_link,
+                                ),
+                            )
+                        }
+                        TextButton(
+                            onClick = {
+                                AppIntents.shareText(
+                                    context,
+                                    context.getString(
+                                        R.string.family_share_link_text,
+                                        inviteLink,
+                                    ),
+                                    context.getString(R.string.family_share_subject),
+                                )
+                            },
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Text(stringResource(R.string.family_share_link))
+                        }
+                        if (credentials.isAdmin) {
+                            TextButton(
+                                onClick = { showRotate = true },
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Text(stringResource(R.string.family_rotate_link))
+                            }
+                        }
+                    }
+                    Text(
+                        text = stringResource(R.string.family_encrypted_warning),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.tertiary,
+                    )
+                }
+
+                credentials.inviteCode != null -> {
+                    val code = credentials.inviteCode.orEmpty()
+                    Text(
+                        text = stringResource(R.string.family_invite_code),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            text = InviteCode.format(code),
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        TextButton(
+                            onClick = {
+                                copyToClipboard(context, code)
+                                copied = true
+                            },
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Text(
+                                stringResource(
+                                    if (copied) R.string.family_code_copied
+                                    else R.string.family_copy_code,
+                                ),
+                            )
+                        }
+                        TextButton(
+                            onClick = {
+                                AppIntents.shareText(
+                                    context,
+                                    context.getString(
+                                        R.string.family_share_text,
+                                        InviteCode.format(code),
+                                    ),
+                                    context.getString(R.string.family_share_subject),
+                                )
+                            },
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Text(stringResource(R.string.family_share_code))
+                        }
+                        if (credentials.isAdmin) {
+                            TextButton(
+                                onClick = { showRotate = true },
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Text(stringResource(R.string.family_rotate_code))
+                            }
                         }
                     }
                 }
@@ -252,7 +381,9 @@ fun FamilySection(
             } else {
                 state.members.forEach { member ->
                     FamilyMemberRow(
-                        carLabel = member.carLabel,
+                        carLabel = member.carLabel.ifBlank {
+                            stringResource(R.string.family_encrypted_car)
+                        },
                         deviceId = member.deviceId,
                         isYou = member.deviceId == credentials.deviceId,
                         spotAge = member.spot?.savedAtEpochMs
@@ -429,9 +560,27 @@ fun FamilySection(
     }
     if (showRotate) {
         ConfirmDialog(
-            title = stringResource(R.string.family_rotate_title),
-            message = stringResource(R.string.family_rotate_message),
-            confirmLabel = stringResource(R.string.family_rotate_code),
+            title = stringResource(
+                if (credentials.encrypted) {
+                    R.string.family_rotate_link_title
+                } else {
+                    R.string.family_rotate_title
+                },
+            ),
+            message = stringResource(
+                if (credentials.encrypted) {
+                    R.string.family_rotate_link_message
+                } else {
+                    R.string.family_rotate_message
+                },
+            ),
+            confirmLabel = stringResource(
+                if (credentials.encrypted) {
+                    R.string.family_rotate_link
+                } else {
+                    R.string.family_rotate_code
+                },
+            ),
             destructive = false,
             onDismiss = { showRotate = false },
             onConfirm = {
@@ -577,9 +726,9 @@ private fun FamilyJoinDialog(
     onDismiss: () -> Unit,
     onConfirm: (String, String) -> Unit,
 ) {
-    var code by rememberSaveable { mutableStateOf("") }
+    var invite by rememberSaveable { mutableStateOf("") }
     var carLabel by rememberSaveable { mutableStateOf(initialName) }
-    val codeValid = InviteCode.isComplete(code)
+    val inviteValid = FamilyCrypto.parseInvite(invite) != null
     val labelValid = carLabel.isNotBlank() && carLabel.length <= 60
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -587,16 +736,21 @@ private fun FamilyJoinDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(
-                    value = code,
-                    onValueChange = { code = it.take(14) },
-                    label = { Text(stringResource(R.string.family_invite_code)) },
-                    placeholder = { Text(stringResource(R.string.family_invite_code_hint)) },
+                    value = invite,
+                    onValueChange = { invite = it.take(256) },
+                    label = { Text(stringResource(R.string.family_invite_link)) },
+                    placeholder = { Text(stringResource(R.string.family_invite_link_hint)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(
-                        capitalization = KeyboardCapitalization.Characters,
+                        capitalization = KeyboardCapitalization.None,
                         keyboardType = KeyboardType.Text,
                     ),
-                    isError = code.isNotEmpty() && !codeValid,
+                    isError = invite.isNotEmpty() && !inviteValid,
+                )
+                Text(
+                    text = stringResource(R.string.family_join_link_help),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
                     text = stringResource(R.string.family_car_label_help),
@@ -615,8 +769,8 @@ private fun FamilyJoinDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { onConfirm(code, carLabel.trim()) },
-                enabled = codeValid && labelValid,
+                onClick = { onConfirm(invite, carLabel.trim()) },
+                enabled = inviteValid && labelValid,
             ) {
                 Text(stringResource(R.string.family_join))
             }
@@ -717,12 +871,14 @@ private fun familyErrorText(error: FamilyError): String = stringResource(
     when (error) {
         FamilyError.NETWORK -> R.string.family_error_network
         FamilyError.INVALID_CODE -> R.string.family_error_invalid_code
+        FamilyError.INVALID_INVITE -> R.string.family_error_invalid_invite
         FamilyError.UNAUTHORIZED -> R.string.family_error_unauthorized
         FamilyError.INVALID_NAME -> R.string.family_error_invalid_name
         FamilyError.INVALID_URL -> R.string.family_error_invalid_url
         FamilyError.NOT_CONNECTED -> R.string.family_error_not_connected
         FamilyError.RATE_LIMITED -> R.string.family_error_rate_limited
         FamilyError.GROUP_FULL -> R.string.family_error_group_full
+        FamilyError.CRYPTO -> R.string.family_error_crypto
         FamilyError.SERVER -> R.string.family_error_server
         FamilyError.UNKNOWN -> R.string.family_error_unknown
     },

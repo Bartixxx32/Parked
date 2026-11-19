@@ -12,17 +12,33 @@ data class FamilyCredentials(
     val adminToken: String? = null,
     val inviteCode: String? = null,
     /**
-     * The car label shown to the family (model or registration plate). The API
-     * and database still use the legacy `displayName` / `display_name` field so
-     * that 1.2.0 clients keep working.
+     * The car label shown to the family (model or registration plate). New
+     * groups encrypt it; the legacy API still uses `displayName` for old
+     * plaintext groups.
      */
     val carLabel: String = "",
+    val cryptoMode: FamilyCryptoMode = FamilyCryptoMode.PLAINTEXT,
+    val keyVersion: Int = FamilyCrypto.KEY_VERSION,
+    val wrappedGroupKey: String? = null,
+    val inviteSecret: String? = null,
 ) {
     val joined: Boolean
         get() = !groupId.isNullOrBlank() && !deviceToken.isNullOrBlank()
 
     val isAdmin: Boolean
         get() = !adminToken.isNullOrBlank()
+
+    val encrypted: Boolean
+        get() = cryptoMode == FamilyCryptoMode.E2EE
+
+    /** Full invite link for E2EE groups; plaintext groups share only the code. */
+    val inviteLink: String?
+        get() {
+            if (!encrypted) return null
+            val code = inviteCode?.takeIf { it.isNotBlank() } ?: return null
+            val secret = inviteSecret?.takeIf { it.isNotBlank() } ?: return null
+            return FamilyCrypto.inviteLink(code, secret)
+        }
 }
 
 data class FamilySpot(
@@ -45,12 +61,14 @@ data class FamilyMember(
 enum class FamilyError {
     NETWORK,
     INVALID_CODE,
+    INVALID_INVITE,
     UNAUTHORIZED,
     INVALID_NAME,
     INVALID_URL,
     NOT_CONNECTED,
     RATE_LIMITED,
     GROUP_FULL,
+    CRYPTO,
     SERVER,
     UNKNOWN,
 }

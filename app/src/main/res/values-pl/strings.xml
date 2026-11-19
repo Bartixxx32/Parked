@@ -73,6 +73,8 @@
     <string name="saving">Zapisywanie…</string>
     <string name="save_current_location">Zapisz bieżącą lokalizację</string>
     <string name="manual_save_requires_location">Zapis ręczny wymaga uprawnienia do lokalizacji.</string>
+    <string name="manual_save_no_bluetooth_title">Brak radia Bluetooth w aucie?</string>
+    <string name="manual_save_no_bluetooth_desc">Nadal możesz korzystać z Parked: zapisz bieżącą pozycję GPS albo wpisz współrzędne ręcznie.</string>
     <string name="full_history">Cała historia</string>
     <string name="section_reliability">Niezawodność na Androidzie</string>
     <string name="reliability_intro">Android i nakładki producentów (np. ColorOS) mogą ograniczać pracę w tle i zabijać usługi. Aby zwiększyć szansę na automatyczny zapis:</string>
@@ -300,7 +302,7 @@
 
     <!-- Tryb rodzinny -->
     <string name="family_title">Rodzina</string>
-    <string name="family_intro">Udostępniaj najnowsze miejsce parkowania członkom rodziny. Funkcja opcjonalna i domyślnie wyłączona. Wysyłane są tylko współrzędne, dokładność, nazwa samochodu i znaczniki czasu; notatki i zdjęcia zostają na tym telefonie.</string>
+    <string name="family_intro">Udostępniaj najnowsze miejsce parkowania członkom rodziny. Funkcja opcjonalna i domyślnie wyłączona. Nowe grupy są szyfrowane end-to-end: tylko telefony rodziny mogą odczytać nazwę auta i lokalizację, a notatki i zdjęcia zostają na tym telefonie.</string>
     <string name="family_create">Utwórz grupę</string>
     <string name="family_join">Dołącz do grupy</string>
     <string name="family_joined_as">Twoje auto: %1$s</string>
@@ -314,10 +316,26 @@
     <string name="family_code_copied">Kod skopiowany</string>
     <string name="family_share_code">Udostępnij</string>
     <string name="family_rotate_code">Nowy kod</string>
+    <string name="family_encrypted_badge">Szyfrowanie end-to-end</string>
+    <string name="family_encrypted_help">Serwer przechowuje tylko zaszyfrowane nazwy i lokalizacje.</string>
+    <string name="family_plaintext_badge">Brak szyfrowania end-to-end</string>
+    <string name="family_plaintext_help">Ta grupa została utworzona przez starszą wersję aplikacji. Opuść ją i utwórz nową grupę, aby szyfrować nazwy i lokalizacje.</string>
+    <string name="family_invite_link">Link zaproszenia</string>
+    <string name="family_invite_link_hint">Wklej pełny link zaproszenia od innego członka</string>
+    <string name="family_copy_link">Kopiuj link</string>
+    <string name="family_link_copied">Link skopiowany</string>
+    <string name="family_share_link">Udostępnij link</string>
+    <string name="family_share_link_text">Dołącz do mojej grupy rodzinnej w Parked: %1$s</string>
+    <string name="family_encrypted_warning">Każdy, kto ma ten link, może dołączyć i zobaczyć mapę rodziny. Udostępniaj go tylko zaufanym osobom.</string>
+    <string name="family_join_link_help">Wklej pełny link zaproszenia. Do grup szyfrowanych nie można dołączyć samym kodem.</string>
+    <string name="family_rotate_link">Nowy link</string>
+    <string name="family_rotate_link_title">Wygenerować nowy link zaproszenia?</string>
+    <string name="family_rotate_link_message">Stary link zaproszenia przestanie działać. Członkowie, którzy już dołączyli, zachowają dostęp.</string>
     <string name="family_members">Samochody</string>
     <string name="family_no_members">Brak samochodów.</string>
     <string name="family_you">ty</string>
     <string name="family_no_spot">brak miejsca</string>
+    <string name="family_encrypted_car">Zaszyfrowane auto</string>
     <string name="family_last_sync">Ostatnia synchronizacja: %1$s</string>
     <string name="family_never_synced">jeszcze nie synchronizowano</string>
     <string name="family_pending_upload">Nie udało się wysłać najnowszego miejsca. Ponowna próba przy następnym odświeżeniu.</string>
@@ -347,13 +365,15 @@
     <string name="msg_family_joined">Dołączono do grupy rodzinnej</string>
     <string name="msg_family_left">Opuszczono grupę rodzinną</string>
     <string name="msg_family_refreshed">Odświeżono miejsca rodziny</string>
-    <string name="msg_family_rotated">Wygenerowano nowy kod zaproszenia</string>
+    <string name="msg_family_rotated">Wygenerowano nowe zaproszenie</string>
     <string name="msg_family_name_updated">Zaktualizowano nazwę samochodu</string>
     <string name="msg_family_server_updated">Zapisano adres serwera</string>
     <string name="msg_family_enabled">Udostępnianie rodzinie włączone</string>
     <string name="msg_family_disabled">Udostępnianie rodzinie wyłączone</string>
     <string name="family_error_network">Brak połączenia z serwerem rodziny. Sprawdź internet i spróbuj ponownie.</string>
     <string name="family_error_invalid_code">Ten kod zaproszenia jest nieprawidłowy.</string>
+    <string name="family_error_invalid_invite">Ten link zaproszenia jest nieprawidłowy lub wygasł. Poproś o nowy link.</string>
+    <string name="family_error_crypto">Nie udało się odszyfrować danych rodziny. Opuść grupę i dołącz ponownie z nowym linkiem zaproszenia.</string>
     <string name="family_error_unauthorized">Serwer odrzucił to urządzenie. Opuść grupę i dołącz ponownie.</string>
     <string name="family_error_invalid_name">Wpisz nazwę samochodu (1–60 znaków).</string>
     <string name="family_error_invalid_url">Wpisz prawidłowy adres HTTPS serwera.</string>

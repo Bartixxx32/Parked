@@ -93,7 +93,8 @@ Checklist before opening the merge request:
    self-hostable family backend. The backend source is in `backend/`, uses
    HTTPS-only app URLs, has no browser CORS, applies rate limits, caps groups at
    20 cars and deletes stale location data; family mode is off by default and
-   uploads only the latest spot plus the car label.
+   uploads only the latest spot. New groups are end-to-end encrypted: the
+   Worker stores only ciphertext for the car label and coordinates.
 4. `fastlane` metadata exists in English and Polish; changelog for the new
    `versionCode` is present.
 5. The GitHub release contains `Parked-<version>.apk` and its `.sha256` file.
