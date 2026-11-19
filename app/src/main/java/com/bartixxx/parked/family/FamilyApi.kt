@@ -501,7 +501,7 @@ class FamilyApi(serverUrl: String) {
 
     private companion object {
         const val CONNECT_TIMEOUT_MS = 10_000
-        const val READ_TIMEOUT_MS = 15_000
+        const val READ_TIMEOUT_MS = 30_000
         const val ENCRYPTED_PLACEHOLDER = "Encrypted"
         const val MAX_BINARY_BYTES = 2_100_000
     }
