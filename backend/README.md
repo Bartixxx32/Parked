@@ -10,6 +10,10 @@ for the car label and latest coordinates; it never receives the group key or the
 invite-link secret. Groups created by 1.2.0/1.3.0 clients stay plaintext and
 remain supported for compatibility.
 
+Update both the schema and the Worker before expecting E2EE. A 1.3.0 Worker
+ignores the `crypto` field and would silently create a plaintext group, so the
+app shows the "Not end-to-end encrypted" warning for such groups.
+
 - **Public instance (default):** <https://parked.bartixxx.workers.dev>
   (health check: `GET /v1/health`). Users do not need to configure anything.
 - **Self-hosted instance:** users can enter their own HTTPS URL in

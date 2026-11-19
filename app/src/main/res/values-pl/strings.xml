@@ -318,6 +318,8 @@
     <string name="family_rotate_code">Nowy kod</string>
     <string name="family_encrypted_badge">Szyfrowanie end-to-end</string>
     <string name="family_encrypted_help">Serwer przechowuje tylko zaszyfrowane nazwy i lokalizacje.</string>
+    <string name="family_plaintext_badge">Brak szyfrowania end-to-end</string>
+    <string name="family_plaintext_help">Ta grupa została utworzona przez starszą wersję aplikacji. Opuść ją i utwórz nową grupę, aby szyfrować nazwy i lokalizacje.</string>
     <string name="family_invite_link">Link zaproszenia</string>
     <string name="family_invite_link_hint">Wklej pełny link zaproszenia od innego członka</string>
     <string name="family_copy_link">Kopiuj link</string>

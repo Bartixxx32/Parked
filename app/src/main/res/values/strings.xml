@@ -316,6 +316,8 @@
     <string name="family_rotate_code">New code</string>
     <string name="family_encrypted_badge">End-to-end encrypted</string>
     <string name="family_encrypted_help">The server stores only encrypted labels and locations.</string>
+    <string name="family_plaintext_badge">Not end-to-end encrypted</string>
+    <string name="family_plaintext_help">This group was created by an older app version. Leave it and create a new group to encrypt labels and locations.</string>
     <string name="family_invite_link">Invite link</string>
     <string name="family_invite_link_hint">Paste the full invite link from another member</string>
     <string name="family_copy_link">Copy link</string>

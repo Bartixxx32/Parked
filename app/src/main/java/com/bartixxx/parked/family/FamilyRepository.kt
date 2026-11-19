@@ -429,7 +429,7 @@ class FamilyRepository(
         }
     }
 
-    private fun saveSession(
+    private suspend fun saveSession(
         current: FamilyCredentials,
         session: FamilySession,
         label: String,
