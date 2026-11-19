@@ -182,6 +182,29 @@ def add_spots() -> None:
         time.sleep(1.5)
 
 
+def capture_map_picker(english: bool) -> None:
+    """Capture the manual add dialog and its full-screen map picker."""
+    tap_tab(1)
+    time.sleep(1)
+    if english:
+        tap_text("Add spot manually")
+        tap_text("Pick on map")
+    else:
+        tap_text("Dodaj miejsce ręcznie")
+        tap_text("Wybierz na mapie")
+    time.sleep(12)  # let OSM tiles load
+    screenshot("6.png")
+    if english:
+        tap_text("Use this point")
+        time.sleep(1)
+        tap_text("Cancel")
+    else:
+        tap_text("Użyj tego punktu")
+        time.sleep(1)
+        tap_text("Anuluj")
+    time.sleep(1)
+
+
 def capture_english() -> None:
     set_locale("en-US")
     add_spots()
@@ -200,6 +223,7 @@ def capture_english() -> None:
     tap_tab(4)
     time.sleep(1)
     screenshot("5.png")
+    capture_map_picker(english=True)
 
 
 def capture_polish() -> None:
@@ -219,6 +243,7 @@ def capture_polish() -> None:
     tap_tab(4)
     time.sleep(1)
     screenshot("5.png")
+    capture_map_picker(english=False)
 
 
 def main() -> int:
