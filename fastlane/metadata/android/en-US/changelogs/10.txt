@@ -1,0 +1,4 @@
+• Deleting the latest spot (or all history) now also removes it from the family map. If older spots remain, the family sees the previous one instead of the deleted entry.
+• Adding a photo now offers a choice: take a new photo with the camera or pick one from the gallery.
+• Family sharing turned off now clears the last shared spot from the server as well.
+• Same package and signing key — a normal update over 1.4.0.

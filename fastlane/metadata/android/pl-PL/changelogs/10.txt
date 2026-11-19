@@ -1,0 +1,4 @@
+• Usunięcie ostatniego miejsca (lub całej historii) usuwa je teraz także z mapy rodziny. Jeśli pozostaną starsze miejsca, rodzina zobaczy poprzednie zamiast usuniętego wpisu.
+• Dodawanie zdjęcia daje teraz wybór: zrób nowe zdjęcie aparatem albo wybierz istniejące z galerii.
+• Wyłączenie udostępniania rodzinie usuwa teraz ostatnie udostępnione miejsce również z serwera.
+• Ten sam pakiet i klucz podpisywania — zwykła aktualizacja z 1.4.0.
