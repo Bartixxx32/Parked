@@ -775,7 +775,7 @@ private fun FamilySpotCard(
                         fontWeight = FontWeight.Bold,
                     )
                     Text(
-                        text = spot.displayName,
+                        text = spot.carLabel,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold,
                     )
@@ -1063,8 +1063,9 @@ private class SpotPinOverlay(
 }
 
 /**
- * Draws the latest spot of every family member as a colour-coded pin. The colour
- * matches the member row in settings, the initial helps when several pins are close.
+ * Draws the latest spot of every family car as a colour-coded pin. The colour
+ * matches the car row in settings; a two-character label (model initials or the
+ * first plate characters) helps when several pins are close.
  */
 private class FamilyPinOverlay(
     private val mapView: MapView,
@@ -1102,12 +1103,7 @@ private class FamilyPinOverlay(
                 x = point.x.toFloat(),
                 y = point.y.toFloat(),
                 color = FamilyPalette.colorFor(spot.deviceId),
-                initial = spot.displayName.trim()
-                    .firstOrNull()
-                    ?.uppercaseChar()
-                    ?.toString()
-                    .orEmpty()
-                    .ifEmpty { "?" },
+                label = pinLabel(spot.carLabel),
                 selected = spot.deviceId == selectedId,
             )
         }
@@ -1118,7 +1114,7 @@ private class FamilyPinOverlay(
         x: Float,
         y: Float,
         color: Int,
-        initial: String,
+        label: String,
         selected: Boolean,
     ) {
         val scale = if (selected) 1.22f else 1f
@@ -1153,10 +1149,17 @@ private class FamilyPinOverlay(
         ringPaint.strokeWidth = 2.2f * density
         canvas.drawCircle(x, centerY, radius - ringPaint.strokeWidth / 2f, ringPaint)
 
-        textPaint.textSize = radius * 1.15f
+        textPaint.textSize = radius * if (label.length > 1) 0.92f else 1.15f
         val metrics = textPaint.fontMetrics
         val baseline = centerY - (metrics.ascent + metrics.descent) / 2f
-        canvas.drawText(initial, x, baseline, textPaint)
+        canvas.drawText(label, x, baseline, textPaint)
+    }
+
+    private fun pinLabel(carLabel: String): String {
+        val compact = carLabel.trim()
+            .filter { it.isLetterOrDigit() }
+            .uppercase()
+        return compact.take(2).ifEmpty { "?" }
     }
 
     override fun onSingleTapConfirmed(e: MotionEvent, mapView: MapView): Boolean {

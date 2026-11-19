@@ -172,7 +172,7 @@ fun ParkedRoot(viewModel: MainViewModel) {
         }
     }
     val navigateToFamily: (FamilySpot) -> Unit = { spot ->
-        if (!AppIntents.navigateTo(context, spot.latitude, spot.longitude, spot.displayName)) {
+        if (!AppIntents.navigateTo(context, spot.latitude, spot.longitude, spot.carLabel)) {
             notifyFailure(context.getString(R.string.msg_no_navigation_app))
         }
     }
@@ -286,7 +286,7 @@ fun ParkedRoot(viewModel: MainViewModel) {
                     onRefreshFamily = { viewModel.refreshFamily() },
                     onRotateFamilyCode = viewModel::rotateFamilyCode,
                     onSetFamilyEnabled = viewModel::setFamilyEnabled,
-                    onSetFamilyDisplayName = viewModel::setFamilyDisplayName,
+                    onSetFamilyCarLabel = viewModel::setFamilyCarLabel,
                     onSetFamilyServerUrl = viewModel::setFamilyServerUrl,
                 )
 

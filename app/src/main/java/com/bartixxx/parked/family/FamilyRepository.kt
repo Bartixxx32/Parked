@@ -49,13 +49,13 @@ class FamilyRepository(
         )
     }.stateIn(scope, SharingStarted.Eagerly, FamilyState())
 
-    suspend fun createGroup(displayName: String): FamilyError? = mutex.withLock {
+    suspend fun createGroup(carLabel: String): FamilyError? = mutex.withLock {
         val current = store.current()
-        val name = cleanName(displayName) ?: return@withLock FamilyError.INVALID_NAME
+        val label = cleanCarLabel(carLabel) ?: return@withLock FamilyError.INVALID_NAME
         runtime.update { it.copy(loading = true, error = null) }
         try {
             val api = apiFor(current)
-            val session = api.createGroup(name)
+            val session = api.createGroup(label)
             store.saveSession(
                 serverUrl = current.serverUrl,
                 groupId = session.groupId,
@@ -63,7 +63,7 @@ class FamilyRepository(
                 deviceToken = session.deviceToken,
                 adminToken = session.adminToken,
                 inviteCode = session.inviteCode,
-                displayName = name,
+                carLabel = label,
             )
             val updated = store.current()
             refreshLocked(api, updated)
@@ -76,14 +76,14 @@ class FamilyRepository(
         }
     }
 
-    suspend fun joinGroup(inviteCode: String, displayName: String): FamilyError? = mutex.withLock {
+    suspend fun joinGroup(inviteCode: String, carLabel: String): FamilyError? = mutex.withLock {
         val current = store.current()
-        val name = cleanName(displayName) ?: return@withLock FamilyError.INVALID_NAME
+        val label = cleanCarLabel(carLabel) ?: return@withLock FamilyError.INVALID_NAME
         val code = InviteCode.normalize(inviteCode) ?: return@withLock FamilyError.INVALID_CODE
         runtime.update { it.copy(loading = true, error = null) }
         try {
             val api = apiFor(current)
-            val session = api.joinGroup(code, name)
+            val session = api.joinGroup(code, label)
             store.saveSession(
                 serverUrl = current.serverUrl,
                 groupId = session.groupId,
@@ -91,7 +91,7 @@ class FamilyRepository(
                 deviceToken = session.deviceToken,
                 adminToken = null,
                 inviteCode = session.inviteCode ?: code,
-                displayName = name,
+                carLabel = label,
             )
             val updated = store.current()
             refreshLocked(api, updated)
@@ -150,18 +150,18 @@ class FamilyRepository(
         }
     }
 
-    suspend fun updateDisplayName(displayName: String): FamilyError? {
+    suspend fun updateCarLabel(carLabel: String): FamilyError? {
         val current = store.current()
-        val name = cleanName(displayName) ?: return FamilyError.INVALID_NAME
+        val label = cleanCarLabel(carLabel) ?: return FamilyError.INVALID_NAME
         if (!current.joined) return FamilyError.NOT_CONNECTED
         return try {
-            apiFor(current).updateDisplayName(current.deviceToken!!, name)
-            store.setDisplayName(name)
+            apiFor(current).updateCarLabel(current.deviceToken!!, label)
+            store.setCarLabel(label)
             runtime.update { value ->
                 value.copy(
                     members = value.members.map { member ->
                         if (member.deviceId == current.deviceId) {
-                            member.copy(displayName = name)
+                            member.copy(carLabel = label)
                         } else {
                             member
                         }
@@ -295,9 +295,9 @@ class FamilyRepository(
         runtime.value = Runtime()
     }
 
-    private fun cleanName(raw: String): String? {
-        val name = raw.filterNot { it.isISOControl() }.trim()
-        return name.takeIf { it.length in 1..MAX_NAME_LENGTH }
+    private fun cleanCarLabel(raw: String): String? {
+        val label = raw.filterNot { it.isISOControl() }.trim()
+        return label.takeIf { it.length in 1..MAX_CAR_LABEL_LENGTH }
     }
 
     private fun normalizeServerUrl(raw: String): String? {
@@ -310,6 +310,6 @@ class FamilyRepository(
     }
 
     private companion object {
-        const val MAX_NAME_LENGTH = 60
+        const val MAX_CAR_LABEL_LENGTH = 60
     }
 }

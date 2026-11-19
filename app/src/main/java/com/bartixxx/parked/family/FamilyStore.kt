@@ -39,7 +39,7 @@ class FamilyStore(private val context: Context) {
         deviceToken: String,
         adminToken: String?,
         inviteCode: String?,
-        displayName: String,
+        carLabel: String,
     ) {
         context.familyDataStore.edit { preferences ->
             preferences[Keys.ENABLED] = true
@@ -48,7 +48,7 @@ class FamilyStore(private val context: Context) {
             preferences[Keys.DEVICE_ID] = deviceId
             preferences[Keys.DEVICE_TOKEN] = deviceToken
             preferences[Keys.INVITE_CODE] = inviteCode.orEmpty()
-            preferences[Keys.DISPLAY_NAME] = displayName
+            preferences[Keys.CAR_LABEL] = carLabel
             if (adminToken.isNullOrBlank()) {
                 preferences.remove(Keys.ADMIN_TOKEN)
             } else {
@@ -65,8 +65,8 @@ class FamilyStore(private val context: Context) {
         context.familyDataStore.edit { it[Keys.SERVER_URL] = url }
     }
 
-    suspend fun setDisplayName(name: String) {
-        context.familyDataStore.edit { it[Keys.DISPLAY_NAME] = name }
+    suspend fun setCarLabel(label: String) {
+        context.familyDataStore.edit { it[Keys.CAR_LABEL] = label }
     }
 
     suspend fun setInviteCode(code: String) {
@@ -86,7 +86,7 @@ class FamilyStore(private val context: Context) {
         deviceToken = this[Keys.DEVICE_TOKEN]?.takeIf { it.isNotBlank() },
         adminToken = this[Keys.ADMIN_TOKEN]?.takeIf { it.isNotBlank() },
         inviteCode = this[Keys.INVITE_CODE]?.takeIf { it.isNotBlank() },
-        displayName = this[Keys.DISPLAY_NAME].orEmpty(),
+        carLabel = this[Keys.CAR_LABEL].orEmpty(),
     )
 
     private object Keys {
@@ -97,6 +97,7 @@ class FamilyStore(private val context: Context) {
         val DEVICE_TOKEN = stringPreferencesKey("family_device_token")
         val ADMIN_TOKEN = stringPreferencesKey("family_admin_token")
         val INVITE_CODE = stringPreferencesKey("family_invite_code")
-        val DISPLAY_NAME = stringPreferencesKey("family_display_name")
+        // Keep the legacy key name so upgrades from 1.2.0 keep the saved label.
+        val CAR_LABEL = stringPreferencesKey("family_display_name")
     }
 }

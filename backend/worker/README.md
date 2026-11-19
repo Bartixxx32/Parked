@@ -1,57 +1,55 @@
-# Parked family API
+# Parked family API Worker
 
-Cloudflare Worker for the optional family mode. It talks to Supabase schema
-`parked`; the Android app only talks to this Worker.
+Cloudflare Worker for optional family mode. It talks to Supabase schema
+`parked`; the Android app only talks to this Worker. See
+[`../README.md`](../README.md) for the full self-hosting guide, security model
+and API documentation.
 
-## Endpoints
+## Local checks
 
-| Method | Path | Auth | Purpose |
-|---|---|---|---|
-| `GET` | `/v1/health` | none | Liveness check. |
-| `POST` | `/v1/groups` | none | Create a group; returns the invite code, device token and admin token. |
-| `POST` | `/v1/groups/join` | none | Join with an invite code; returns a device token. |
-| `GET` | `/v1/spots` | device token | Latest spot of every member. |
-| `PUT` | `/v1/spot` | device token | Upsert the caller's latest spot. |
-| `PATCH` | `/v1/device` | device token | Change the caller's display name. |
-| `DELETE` | `/v1/device` | device token | Leave the group. |
-| `POST` | `/v1/groups/rotate` | device + admin token | Replace the invite code. |
+```bash
+cd backend/worker
+npm install
+npm test
+node --check src/index.js
+```
 
-Device tokens are sent as `Authorization: Bearer <token>`. The admin token is
-sent in `X-Admin-Token` and is only needed for rotation. Neither token is stored
-in plaintext: the database keeps SHA-256 hashes. Invite codes are stored as a
-keyed HMAC.
+The Node tests cover input validation, token/code helpers, constant-time
+comparison, security headers, CORS removal, body limits and rate-limit
+responses. They do not need Cloudflare credentials or a Supabase project.
 
-## Secrets
+## Configuration
 
-Set these in the Worker before deploying:
+`wrangler.toml` defines:
 
-```sh
+- `RETAIN_DAYS` — daily cleanup cutoff for stale spots/devices/groups.
+- A daily cron trigger at 03:17 UTC.
+- Rate-limit bindings for global, create, join, read, write and rotate.
+  The `namespace_id` values must be unique within your Cloudflare account.
+
+Worker secrets:
+
+```bash
 npx wrangler secret put SUPABASE_URL
 npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
 npx wrangler secret put CODE_PEPPER
 ```
 
-- `SUPABASE_URL` — `https://pwvumdskuphujfcqmmwu.supabase.co`
-- `SUPABASE_SERVICE_ROLE_KEY` — the `sb_secret_...` key for the Datalog project
-- `CODE_PEPPER` — a random 32-byte value, used to HMAC invite codes
-
-The service role key and pepper must never be committed or shipped in the APK.
+`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` and `CODE_PEPPER` are secrets. Never
+commit them, put them in the APK or paste them into issues. For local
+development use a `.dev.vars` file based on
+[`.dev.vars.example`](.dev.vars.example); it is git-ignored.
 
 ## Deploy
 
-```sh
+```bash
 cd backend/worker
 npm install
+npx wrangler login
 npx wrangler deploy
 ```
 
-The default URL is `https://parked.bartixxx.workers.dev`. The app also allows a
-custom HTTPS server URL for self-hosting.
-
-## Security notes
-
-- Invite codes have 50 bits of entropy (10 characters, Crockford base32).
-- Request bodies are limited to 4 KB and all coordinates are range-checked.
-- Supabase RLS is enabled with no policies; only the service role can read or
-  write the `parked` schema.
-- The Worker never returns token or code hashes, and logs never include tokens.
+Before the first deploy, apply all three SQL files in `backend/supabase/` in
+order. Then point the app at the Worker URL in
+**Settings → Family → Server → Change**. If you leave the default, the app uses
+the public instance and needs no configuration.

@@ -40,9 +40,10 @@ dependencies — no Google Play Services.
   (for example `NE`), bearing in degrees and distance in metres to the selected or latest
   spot.
 - Optional family mode, off by default: create or join a group with an invite code and
-  see each member's latest parked car on the map. Only the latest coordinates, accuracy,
-  display name and timestamps are uploaded; notes and photos stay local. The backend is
-  self-hostable and the app can point at any HTTPS instance
+  see each member's latest parked car on the map. Every car has a label (model,
+  nickname or registration plate). Only the latest coordinates, accuracy, car label and
+  timestamps are uploaded; notes and photos stay local. The public server works out of
+  the box; the backend is also self-hostable and the app can point at any HTTPS instance
   (see [backend/README.md](backend/README.md)).
 - History export to **JSON**, **CSV** and **GPX** via the system file picker.
 - Diagnostics screen: service state, permissions, GPS test and local logs (max 300
@@ -164,14 +165,28 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - No ads, analytics, Crashlytics, telemetry or user accounts.
 - Without family mode the app does not send coordinates to any server.
 - Family mode is opt-in. When enabled, the app sends the latest coordinates, accuracy,
-  display name and timestamps to the configured family server so other group members can
+  car label and timestamps to the configured family server so other group members can
   see the car. Notes, photos and spot history are never uploaded. Leaving the group
-  deletes the member's cloud data.
+  deletes the member's cloud data. The default is the public Parked server; you can
+  enter a self-hosted HTTPS server in **Settings → Family → Server**.
 - Otherwise the only network traffic is downloading map tiles from OpenStreetMap servers
   while the map screen is open (the server sees the IP address and tile area, like any
   website).
 - Export creates a file only where you point the system file picker.
 - Android backup is disabled; data does not reach the cloud through system backup.
+
+## Family server
+
+Family mode uses the public instance
+`https://parked.bartixxx.workers.dev` by default, so there is nothing to set up.
+If you want to control the data yourself, the backend is open source and can be
+deployed to your own Cloudflare Workers + Supabase project. The complete
+step-by-step guide, security model and API documentation are in
+[backend/README.md](backend/README.md).
+
+In the app, open **Settings → Family → Server → Change** before creating or
+joining a group and enter your own HTTPS server URL. The setting is locked while
+the device is in a group; leave the group first to change it.
 
 ## Export
 
@@ -230,6 +245,12 @@ JVM unit tests cover, among others:
 - a fix acquired at disconnect saved later without moving the coordinates,
 - JSON/CSV/GPX export (XML validity and quoting),
 - invite-code normalization and validation (Crockford base32).
+
+The backend has its own Node tests for input validation, token/code helpers,
+constant-time comparison, security headers, CORS removal, body limits and rate
+limiting (`cd backend/worker && npm test`). A Python end-to-end script checks the
+deployed API, group isolation and cleanup of test data
+(`python3 backend/tests/e2e.py`).
 
 Scenarios that require a physical phone (reboot, process killed by ColorOS, a real radio
 connection) are described in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) as a manual

@@ -3,8 +3,6 @@ package com.bartixxx.parked.ui.components
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.os.Build
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +16,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Refresh
@@ -49,6 +48,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.bartixxx.parked.R
+import com.bartixxx.parked.family.DEFAULT_FAMILY_SERVER
 import com.bartixxx.parked.family.FamilyError
 import com.bartixxx.parked.family.FamilyPalette
 import com.bartixxx.parked.family.FamilyState
@@ -63,25 +63,32 @@ import com.bartixxx.parked.util.AppIntents
 @Composable
 fun FamilySection(
     state: FamilyState,
+    pairedCarName: String,
     onCreate: (String) -> Unit,
     onJoin: (String, String) -> Unit,
     onLeave: () -> Unit,
     onRefresh: () -> Unit,
     onRotate: () -> Unit,
     onSetEnabled: (Boolean) -> Unit,
-    onSetDisplayName: (String) -> Unit,
+    onSetCarLabel: (String) -> Unit,
     onSetServerUrl: (String) -> Unit,
 ) {
     val context = LocalContext.current
     val credentials = state.credentials
-    val defaultName = rememberDefaultName(credentials.displayName)
+    val defaultCarLabel = rememberDefaultCarLabel(credentials.carLabel, pairedCarName)
+    val unnamedCar = stringResource(R.string.family_unnamed_car)
+    val joinedCarLabel = when {
+        credentials.carLabel.isNotBlank() -> credentials.carLabel
+        defaultCarLabel.isNotBlank() -> defaultCarLabel
+        else -> unnamedCar
+    }
+    val isDefaultServer = credentials.serverUrl == DEFAULT_FAMILY_SERVER
     var showCreate by rememberSaveable { mutableStateOf(false) }
     var showJoin by rememberSaveable { mutableStateOf(false) }
     var showName by rememberSaveable { mutableStateOf(false) }
     var showServer by rememberSaveable { mutableStateOf(false) }
     var showLeave by rememberSaveable { mutableStateOf(false) }
     var showRotate by rememberSaveable { mutableStateOf(false) }
-    var showAdvanced by rememberSaveable { mutableStateOf(false) }
     var copied by rememberSaveable { mutableStateOf(false) }
 
     SectionCard(title = stringResource(R.string.family_title)) {
@@ -132,10 +139,7 @@ fun FamilySection(
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = stringResource(
-                            R.string.family_joined_as,
-                            credentials.displayName.ifBlank { defaultName },
-                        ),
+                        text = stringResource(R.string.family_joined_as, joinedCarLabel),
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.SemiBold,
                     )
@@ -248,7 +252,7 @@ fun FamilySection(
             } else {
                 state.members.forEach { member ->
                     FamilyMemberRow(
-                        name = member.displayName,
+                        carLabel = member.carLabel,
                         deviceId = member.deviceId,
                         isYou = member.deviceId == credentials.deviceId,
                         spotAge = member.spot?.savedAtEpochMs
@@ -322,61 +326,81 @@ fun FamilySection(
         }
 
         HorizontalDivider()
-        if (!showAdvanced) {
-            TextButton(onClick = { showAdvanced = true }) {
-                Text(stringResource(R.string.family_advanced))
-            }
-        } else {
+        Text(
+            text = stringResource(R.string.family_server_section),
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Text(
+            text = if (isDefaultServer) {
+                "${stringResource(R.string.family_server_default)} · ${credentials.serverUrl}"
+            } else {
+                credentials.serverUrl
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (state.joined) {
             Text(
-                text = "${stringResource(R.string.family_server_url)}: ${credentials.serverUrl}",
+                text = stringResource(R.string.family_server_locked),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            if (state.joined) {
-                Text(
-                    text = stringResource(R.string.family_server_locked),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else {
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
                 TextButton(onClick = { showServer = true }) {
                     Text(stringResource(R.string.action_change))
                 }
+                if (!isDefaultServer) {
+                    TextButton(onClick = { onSetServerUrl(DEFAULT_FAMILY_SERVER) }) {
+                        Text(stringResource(R.string.family_server_use_default))
+                    }
+                }
             }
+            Text(
+                text = stringResource(R.string.family_server_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 
     if (showCreate) {
         FamilyNameDialog(
             title = stringResource(R.string.family_create_title),
-            initialName = defaultName,
+            description = stringResource(R.string.family_car_label_help),
+            initialName = defaultCarLabel,
             confirmLabel = stringResource(R.string.family_create),
             onDismiss = { showCreate = false },
-            onConfirm = { name ->
+            onConfirm = { label ->
                 showCreate = false
-                onCreate(name)
+                onCreate(label)
             },
         )
     }
     if (showJoin) {
         FamilyJoinDialog(
-            initialName = defaultName,
+            initialName = defaultCarLabel,
             onDismiss = { showJoin = false },
-            onConfirm = { code, name ->
+            onConfirm = { code, label ->
                 showJoin = false
-                onJoin(code, name)
+                onJoin(code, label)
             },
         )
     }
     if (showName) {
         FamilyNameDialog(
             title = stringResource(R.string.family_name_title),
-            initialName = credentials.displayName.ifBlank { defaultName },
+            description = stringResource(R.string.family_car_label_help),
+            initialName = credentials.carLabel.ifBlank { defaultCarLabel },
             confirmLabel = stringResource(R.string.action_save),
             onDismiss = { showName = false },
-            onConfirm = { name ->
+            onConfirm = { label ->
                 showName = false
-                onSetDisplayName(name)
+                onSetCarLabel(label)
             },
         )
     }
@@ -418,14 +442,14 @@ fun FamilySection(
     }
 }
 
+/**
+ * Prefer the label saved on this device; a new member otherwise gets the
+ * connected car radio's Bluetooth name as a starting point. The field stays
+ * editable, so users can type a model or registration plate instead.
+ */
 @Composable
-private fun rememberDefaultName(displayName: String): String =
-    displayName.ifBlank {
-        runCatching { Build.MODEL }.getOrNull()
-            ?.takeIf { it.isNotBlank() }
-            ?.take(60)
-            ?: "Android"
-    }
+private fun rememberDefaultCarLabel(savedLabel: String, pairedCarName: String): String =
+    savedLabel.ifBlank { pairedCarName.trim().take(60) }
 
 @Composable
 private fun FamilySwitchRow(
@@ -453,7 +477,7 @@ private fun FamilySwitchRow(
 
 @Composable
 private fun FamilyMemberRow(
-    name: String,
+    carLabel: String,
     deviceId: String,
     isYou: Boolean,
     spotAge: String?,
@@ -463,13 +487,14 @@ private fun FamilyMemberRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Box(
-            modifier = Modifier
-                .size(10.dp)
-                .background(Color(FamilyPalette.colorFor(deviceId)), CircleShape),
+        Icon(
+            imageVector = Icons.Filled.DirectionsCar,
+            contentDescription = null,
+            tint = Color(FamilyPalette.colorFor(deviceId)),
+            modifier = Modifier.size(20.dp),
         )
         Text(
-            text = name + if (isYou) " (${stringResource(R.string.family_you)})" else "",
+            text = carLabel + if (isYou) " (${stringResource(R.string.family_you)})" else "",
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.weight(1f),
         )
@@ -496,6 +521,7 @@ private fun IconButtonWithLabel(
 @Composable
 private fun FamilyNameDialog(
     title: String,
+    description: String?,
     initialName: String,
     confirmLabel: String,
     onDismiss: () -> Unit,
@@ -507,19 +533,28 @@ private fun FamilyNameDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it.take(60) },
-                label = { Text(stringResource(R.string.family_display_name)) },
-                placeholder = { Text(stringResource(R.string.family_display_name_hint)) },
-                singleLine = true,
-                isError = !valid && name.isNotEmpty(),
-                supportingText = if (!valid) {
-                    { Text(stringResource(R.string.family_name_required)) }
-                } else {
-                    null
-                },
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                description?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it.take(60) },
+                    label = { Text(stringResource(R.string.family_display_name)) },
+                    placeholder = { Text(stringResource(R.string.family_display_name_hint)) },
+                    singleLine = true,
+                    isError = !valid && name.isNotEmpty(),
+                    supportingText = if (!valid) {
+                        { Text(stringResource(R.string.family_name_required)) }
+                    } else {
+                        null
+                    },
+                )
+            }
         },
         confirmButton = {
             TextButton(
@@ -544,9 +579,9 @@ private fun FamilyJoinDialog(
     onConfirm: (String, String) -> Unit,
 ) {
     var code by rememberSaveable { mutableStateOf("") }
-    var name by rememberSaveable { mutableStateOf(initialName) }
+    var carLabel by rememberSaveable { mutableStateOf(initialName) }
     val codeValid = InviteCode.isComplete(code)
-    val nameValid = name.isNotBlank() && name.length <= 60
+    val labelValid = carLabel.isNotBlank() && carLabel.length <= 60
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.family_join_title)) },
@@ -564,20 +599,25 @@ private fun FamilyJoinDialog(
                     ),
                     isError = code.isNotEmpty() && !codeValid,
                 )
+                Text(
+                    text = stringResource(R.string.family_car_label_help),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it.take(60) },
+                    value = carLabel,
+                    onValueChange = { carLabel = it.take(60) },
                     label = { Text(stringResource(R.string.family_display_name)) },
                     placeholder = { Text(stringResource(R.string.family_display_name_hint)) },
                     singleLine = true,
-                    isError = !nameValid && name.isNotEmpty(),
+                    isError = !labelValid && carLabel.isNotEmpty(),
                 )
             }
         },
         confirmButton = {
             TextButton(
-                onClick = { onConfirm(code, name.trim()) },
-                enabled = codeValid && nameValid,
+                onClick = { onConfirm(code, carLabel.trim()) },
+                enabled = codeValid && labelValid,
             ) {
                 Text(stringResource(R.string.family_join))
             }
@@ -602,20 +642,27 @@ private fun FamilyServerDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.family_server_title)) },
         text = {
-            OutlinedTextField(
-                value = url,
-                onValueChange = { url = it },
-                label = { Text(stringResource(R.string.family_server_url)) },
-                placeholder = { Text(stringResource(R.string.family_server_url_hint)) },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                isError = !valid,
-                supportingText = if (!valid) {
-                    { Text(stringResource(R.string.family_error_invalid_url)) }
-                } else {
-                    null
-                },
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = stringResource(R.string.family_server_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(
+                    value = url,
+                    onValueChange = { url = it },
+                    label = { Text(stringResource(R.string.family_server_url)) },
+                    placeholder = { Text(stringResource(R.string.family_server_url_hint)) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                    isError = !valid,
+                    supportingText = if (!valid) {
+                        { Text(stringResource(R.string.family_error_invalid_url)) }
+                    } else {
+                        null
+                    },
+                )
+            }
         },
         confirmButton = {
             TextButton(
@@ -675,6 +722,8 @@ private fun familyErrorText(error: FamilyError): String = stringResource(
         FamilyError.INVALID_NAME -> R.string.family_error_invalid_name
         FamilyError.INVALID_URL -> R.string.family_error_invalid_url
         FamilyError.NOT_CONNECTED -> R.string.family_error_not_connected
+        FamilyError.RATE_LIMITED -> R.string.family_error_rate_limited
+        FamilyError.GROUP_FULL -> R.string.family_error_group_full
         FamilyError.SERVER -> R.string.family_error_server
         FamilyError.UNKNOWN -> R.string.family_error_unknown
     },

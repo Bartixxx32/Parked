@@ -418,9 +418,9 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
-    fun createFamilyGroup(displayName: String) {
+    fun createFamilyGroup(carLabel: String) {
         viewModelScope.launch {
-            val error = container.familyRepository.createGroup(displayName)
+            val error = container.familyRepository.createGroup(carLabel)
             message(
                 if (error == null) {
                     appContext.getString(R.string.msg_family_created)
@@ -431,9 +431,9 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
-    fun joinFamilyGroup(inviteCode: String, displayName: String) {
+    fun joinFamilyGroup(inviteCode: String, carLabel: String) {
         viewModelScope.launch {
-            val error = container.familyRepository.joinGroup(inviteCode, displayName)
+            val error = container.familyRepository.joinGroup(inviteCode, carLabel)
             message(
                 if (error == null) {
                     appContext.getString(R.string.msg_family_joined)
@@ -500,9 +500,9 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
-    fun setFamilyDisplayName(displayName: String) {
+    fun setFamilyCarLabel(carLabel: String) {
         viewModelScope.launch {
-            val error = container.familyRepository.updateDisplayName(displayName)
+            val error = container.familyRepository.updateCarLabel(carLabel)
             message(
                 if (error == null) {
                     appContext.getString(R.string.msg_family_name_updated)
@@ -534,6 +534,8 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
             FamilyError.INVALID_NAME -> R.string.family_error_invalid_name
             FamilyError.INVALID_URL -> R.string.family_error_invalid_url
             FamilyError.NOT_CONNECTED -> R.string.family_error_not_connected
+            FamilyError.RATE_LIMITED -> R.string.family_error_rate_limited
+            FamilyError.GROUP_FULL -> R.string.family_error_group_full
             FamilyError.SERVER -> R.string.family_error_server
             FamilyError.UNKNOWN -> R.string.family_error_unknown
         },

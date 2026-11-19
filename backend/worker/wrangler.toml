@@ -2,3 +2,62 @@ name = "parked"
 main = "src/index.js"
 compatibility_date = "2026-11-18"
 workers_dev = true
+
+[vars]
+# Stale spots/devices/groups are deleted by the daily cron job after this many
+# days. Keep this in sync with the privacy expectations documented in the app.
+RETAIN_DAYS = "30"
+
+[triggers]
+crons = ["17 3 * * *"]
+
+# Cloudflare rate limiting bindings. Limits are approximate and are applied
+# separately in each Cloudflare location. The namespace IDs must be unique
+# within the Cloudflare account; change them if they are already in use.
+[[ratelimits]]
+name = "GLOBAL_LIMITER"
+namespace_id = "7401"
+
+  [ratelimits.simple]
+  limit = 120
+  period = 60
+
+[[ratelimits]]
+name = "CREATE_LIMITER"
+namespace_id = "7402"
+
+  [ratelimits.simple]
+  limit = 5
+  period = 60
+
+[[ratelimits]]
+name = "JOIN_LIMITER"
+namespace_id = "7403"
+
+  [ratelimits.simple]
+  limit = 10
+  period = 60
+
+[[ratelimits]]
+name = "READ_LIMITER"
+namespace_id = "7404"
+
+  [ratelimits.simple]
+  limit = 60
+  period = 60
+
+[[ratelimits]]
+name = "WRITE_LIMITER"
+namespace_id = "7405"
+
+  [ratelimits.simple]
+  limit = 30
+  period = 60
+
+[[ratelimits]]
+name = "ROTATE_LIMITER"
+namespace_id = "7406"
+
+  [ratelimits.simple]
+  limit = 5
+  period = 60

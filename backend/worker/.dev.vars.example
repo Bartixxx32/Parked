@@ -1,0 +1,6 @@
+# Copy to .dev.vars for `wrangler dev` (never commit the copy).
+# For production use `wrangler secret put <NAME>` instead.
+SUPABASE_URL="https://YOUR_PROJECT.supabase.co"
+SUPABASE_SERVICE_ROLE_KEY="sb_secret_REPLACE_ME"
+CODE_PEPPER="REPLACE_WITH_A_RANDOM_32_BYTE_VALUE"
+RETAIN_DAYS="30"

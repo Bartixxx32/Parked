@@ -39,16 +39,16 @@ class FamilyApi(serverUrl: String) {
 
     private val baseUrl = serverUrl.trim().trimEnd('/')
 
-    suspend fun createGroup(displayName: String): FamilySession {
+    suspend fun createGroup(carLabel: String): FamilySession {
         val response = request(
             method = "POST",
             path = "/v1/groups",
-            body = JSONObject().put("displayName", displayName),
+            body = JSONObject().put("displayName", carLabel),
         )
         return sessionFrom(response, requireAdminToken = true)
     }
 
-    suspend fun joinGroup(inviteCode: String, displayName: String): FamilySession {
+    suspend fun joinGroup(inviteCode: String, carLabel: String): FamilySession {
         val code = InviteCode.normalize(inviteCode)
             ?: throw FamilyApiException(FamilyError.INVALID_CODE)
         val response = request(
@@ -56,7 +56,7 @@ class FamilyApi(serverUrl: String) {
             path = "/v1/groups/join",
             body = JSONObject()
                 .put("inviteCode", code)
-                .put("displayName", displayName),
+                .put("displayName", carLabel),
         )
         return sessionFrom(response, requireAdminToken = false)
     }
@@ -72,12 +72,12 @@ class FamilyApi(serverUrl: String) {
         for (index in 0 until array.length()) {
             val member = array.optJSONObject(index) ?: continue
             val deviceId = member.optString("deviceId").takeIf { it.isNotBlank() } ?: continue
-            val displayName = member.optString("displayName").ifBlank { deviceId }
+            val carLabel = member.optString("displayName").ifBlank { deviceId }
             val lastSeen = epoch(member.optString("lastSeenAt"))
             val spotObject = member.optJSONObject("spot")
             members += FamilyMember(
                 deviceId = deviceId,
-                displayName = displayName,
+                carLabel = carLabel,
                 lastSeenAtEpochMs = lastSeen,
                 spot = spotObject?.let { spot ->
                     val latitude = spot.optDouble("latitude")
@@ -87,7 +87,7 @@ class FamilyApi(serverUrl: String) {
                     } else {
                         FamilySpot(
                             deviceId = deviceId,
-                            displayName = displayName,
+                            carLabel = carLabel,
                             latitude = latitude,
                             longitude = longitude,
                             accuracyMeters = spot.accuracyOrNull(),
@@ -118,12 +118,12 @@ class FamilyApi(serverUrl: String) {
         )
     }
 
-    suspend fun updateDisplayName(deviceToken: String, displayName: String) {
+    suspend fun updateCarLabel(deviceToken: String, carLabel: String) {
         request(
             method = "PATCH",
             path = "/v1/device",
             deviceToken = deviceToken,
-            body = JSONObject().put("displayName", displayName),
+            body = JSONObject().put("displayName", carLabel),
         )
     }
 
@@ -222,6 +222,8 @@ class FamilyApi(serverUrl: String) {
     private fun parseError(status: Int, text: String): FamilyError {
         val code = runCatching { JSONObject(text).optString("error") }.getOrNull()
         return when {
+            status == 429 || code == "rate_limited" -> FamilyError.RATE_LIMITED
+            code == "group_full" -> FamilyError.GROUP_FULL
             code == "invalid_code" -> FamilyError.INVALID_CODE
             code == "invalid_name" -> FamilyError.INVALID_NAME
             code == "unauthorized" || code == "forbidden" -> FamilyError.UNAUTHORIZED

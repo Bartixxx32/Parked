@@ -65,7 +65,7 @@ fun SettingsScreen(
     onRefreshFamily: () -> Unit,
     onRotateFamilyCode: () -> Unit,
     onSetFamilyEnabled: (Boolean) -> Unit,
-    onSetFamilyDisplayName: (String) -> Unit,
+    onSetFamilyCarLabel: (String) -> Unit,
     onSetFamilyServerUrl: (String) -> Unit,
 ) {
     LazyColumn(
@@ -241,13 +241,14 @@ fun SettingsScreen(
         item(key = "family") {
             FamilySection(
                 state = familyState,
+                pairedCarName = settings.deviceName.orEmpty(),
                 onCreate = onCreateFamilyGroup,
                 onJoin = onJoinFamilyGroup,
                 onLeave = onLeaveFamilyGroup,
                 onRefresh = onRefreshFamily,
                 onRotate = onRotateFamilyCode,
                 onSetEnabled = onSetFamilyEnabled,
-                onSetDisplayName = onSetFamilyDisplayName,
+                onSetCarLabel = onSetFamilyCarLabel,
                 onSetServerUrl = onSetFamilyServerUrl,
             )
         }

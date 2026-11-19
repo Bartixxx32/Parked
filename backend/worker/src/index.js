@@ -3,6 +3,14 @@
 // Runs on Cloudflare Workers and stores data in the shared Datalog Supabase
 // project, schema `parked`. The Android app only knows about this API; the
 // Supabase service role key never leaves the Worker secrets.
+//
+// Security model:
+// - Native app only: no CORS headers and no OPTIONS handler.
+// - Every non-health route is rate limited per IP before Supabase is touched;
+//   authenticated routes also get a per-device limit.
+// - Groups are capped at MAX_GROUP_MEMBERS here and by a database trigger in
+//   backend/supabase/003_security_hardening.sql.
+// - A scheduled job deletes stale spots, devices and empty groups.
 
 const CODE_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 const CODE_LENGTH = 10;
@@ -11,12 +19,17 @@ const MAX_DISPLAY_NAME = 60;
 const MAX_ACCURACY_M = 10000;
 const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
 const MAX_SPOT_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const MAX_GROUP_MEMBERS = 20;
+const DEFAULT_RETAIN_DAYS = 30;
+const RATE_LIMIT_RETRY_SECONDS = 60;
 
-const CORS_HEADERS = {
-  "access-control-allow-origin": "*",
-  "access-control-allow-methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-  "access-control-allow-headers": "authorization, content-type, x-admin-token",
-  "access-control-max-age": "86400",
+const SECURITY_HEADERS = {
+  "cache-control": "no-store",
+  "content-security-policy": "default-src 'none'; frame-ancestors 'none'",
+  "referrer-policy": "no-referrer",
+  "strict-transport-security": "max-age=31536000",
+  "x-content-type-options": "nosniff",
+  "x-frame-options": "DENY",
 };
 
 const encoder = new TextEncoder();
@@ -39,16 +52,24 @@ export default {
       return errorResponse(new HttpError(500, "server_error"));
     }
   },
+
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(cleanupExpired(env));
+  },
 };
 
 async function route(request, env) {
   const path = new URL(request.url).pathname.replace(/\/+$/, "") || "/";
   const method = request.method;
 
-  if (method === "OPTIONS") return empty(204);
   if (method === "GET" && path === "/v1/health") {
     return json({ ok: true, service: "parked" });
   }
+
+  // Pre-auth protection for every API route, including unknown paths. This
+  // keeps token guessing and junk traffic away from Supabase.
+  await enforceRateLimit(request, env, "GLOBAL_LIMITER", "global");
+
   if (method === "POST" && path === "/v1/groups") {
     return createGroup(request, env);
   }
@@ -74,6 +95,8 @@ async function route(request, env) {
 }
 
 async function createGroup(request, env) {
+  await enforceRateLimit(request, env, "CREATE_LIMITER", "create");
+
   const body = await readJson(request);
   const displayName = cleanDisplayName(body.displayName);
   if (!displayName) throw new HttpError(400, "invalid_name");
@@ -127,6 +150,8 @@ async function createGroup(request, env) {
 }
 
 async function joinGroup(request, env) {
+  await enforceRateLimit(request, env, "JOIN_LIMITER", "join");
+
   const body = await readJson(request);
   const displayName = cleanDisplayName(body.displayName);
   if (!displayName) throw new HttpError(400, "invalid_name");
@@ -141,6 +166,16 @@ async function joinGroup(request, env) {
   );
   const group = groups?.[0];
   if (!group?.id) throw new HttpError(404, "invalid_code");
+
+  // The database trigger is the hard cap; this check avoids a pointless insert
+  // and returns a friendly error in the normal case.
+  const existing = await supabase(
+    env,
+    `devices?group_id=eq.${group.id}&select=id&limit=${MAX_GROUP_MEMBERS}`,
+  );
+  if ((existing?.length || 0) >= MAX_GROUP_MEMBERS) {
+    throw new HttpError(409, "group_full");
+  }
 
   const deviceToken = randomToken();
   const devices = await supabase(env, "devices", {
@@ -165,6 +200,8 @@ async function joinGroup(request, env) {
 
 async function listSpots(request, env) {
   const device = await requireDevice(request, env);
+  await enforceRateLimit(request, env, "READ_LIMITER", "read", device.id);
+
   const now = new Date().toISOString();
 
   await supabase(env, `devices?id=eq.${device.id}`, {
@@ -205,6 +242,7 @@ async function listSpots(request, env) {
 
 async function upsertSpot(request, env) {
   const device = await requireDevice(request, env);
+  await enforceRateLimit(request, env, "WRITE_LIMITER", "write", device.id);
   const body = await readJson(request);
 
   if (!inRange(body.latitude, -90, 90) || !inRange(body.longitude, -180, 180)) {
@@ -244,6 +282,7 @@ async function upsertSpot(request, env) {
 
 async function updateDevice(request, env) {
   const device = await requireDevice(request, env);
+  await enforceRateLimit(request, env, "WRITE_LIMITER", "write", device.id);
   const body = await readJson(request);
   const displayName = cleanDisplayName(body.displayName);
   if (!displayName) throw new HttpError(400, "invalid_name");
@@ -258,6 +297,7 @@ async function updateDevice(request, env) {
 
 async function deleteDevice(request, env) {
   const device = await requireDevice(request, env);
+  await enforceRateLimit(request, env, "WRITE_LIMITER", "write", device.id);
 
   await supabase(env, `devices?id=eq.${device.id}`, {
     method: "DELETE",
@@ -280,6 +320,7 @@ async function deleteDevice(request, env) {
 
 async function rotateInviteCode(request, env) {
   const device = await requireDevice(request, env);
+  await enforceRateLimit(request, env, "ROTATE_LIMITER", "rotate", device.id);
   await requireAdmin(request, env, device);
 
   const inviteCode = generateInviteCode();
@@ -327,14 +368,78 @@ async function requireAdmin(request, env, device) {
   if (!group?.admin_token_hash) throw new HttpError(403, "forbidden");
 
   const candidate = await sha256Hex(adminToken);
-  if (candidate !== group.admin_token_hash) {
+  if (!timingSafeEqual(candidate, group.admin_token_hash)) {
     throw new HttpError(403, "forbidden");
+  }
+}
+
+async function enforceRateLimit(request, env, bindingName, scope, actor) {
+  const limiter = env?.[bindingName];
+  if (!limiter || typeof limiter.limit !== "function") return;
+
+  const key = (actor || request.headers.get("cf-connecting-ip") || "unknown")
+    .toString()
+    .slice(0, 180);
+  let result;
+  try {
+    result = await limiter.limit({ key: `${scope}:${key}` });
+  } catch (error) {
+    // Fail open: a broken limiter must not take the family server down.
+    console.error("rate limiter failed", bindingName, error);
+    return;
+  }
+  if (!result?.success) throw new HttpError(429, "rate_limited");
+}
+
+async function cleanupExpired(env) {
+  const retainDays = clampInt(env.RETAIN_DAYS, 1, 365, DEFAULT_RETAIN_DAYS);
+  const cutoff = new Date(
+    Date.now() - retainDays * 24 * 60 * 60 * 1000,
+  ).toISOString();
+  const encoded = encodeURIComponent(cutoff);
+
+  // Spot rows are the actual location data; remove them first. Deleting stale
+  // devices also cascades to their spots.
+  await supabase(env, `spots?updated_at=lt.${encoded}`, {
+    method: "DELETE",
+    prefer: "return=minimal",
+  });
+  await supabase(env, `devices?last_seen_at=lt.${encoded}`, {
+    method: "DELETE",
+    prefer: "return=minimal",
+  });
+  await supabase(
+    env,
+    `devices?last_seen_at=is.null&created_at=lt.${encoded}`,
+    {
+      method: "DELETE",
+      prefer: "return=minimal",
+    },
+  );
+
+  // Remove old groups that have no members left. Only groups older than the
+  // cutoff are considered, so a group created moments ago cannot be deleted
+  // between the group and device inserts.
+  const groups = await supabase(
+    env,
+    `groups?created_at=lt.${encoded}&select=id`,
+  );
+  if (!groups?.length) return;
+
+  const devices = await supabase(env, "devices?select=group_id");
+  const usedGroupIds = new Set((devices || []).map((item) => item.group_id));
+  for (const group of groups) {
+    if (usedGroupIds.has(group.id)) continue;
+    await supabase(env, `groups?id=eq.${group.id}`, {
+      method: "DELETE",
+      prefer: "return=minimal",
+    });
   }
 }
 
 async function readJson(request) {
   const declaredLength = Number(request.headers.get("content-length") || "0");
-  if (declaredLength > MAX_BODY_BYTES) {
+  if (!Number.isFinite(declaredLength) || declaredLength > MAX_BODY_BYTES) {
     throw new HttpError(413, "body_too_large");
   }
   const text = await request.text();
@@ -384,6 +489,9 @@ async function supabase(env, path, { method = "GET", body, prefer } = {}) {
       response.status,
       detail.slice(0, 300),
     );
+    if (detail.includes("group_full")) {
+      throw new HttpError(409, "group_full");
+    }
     throw new HttpError(500, "server_error");
   }
   if (response.status === 204) return null;
@@ -454,6 +562,16 @@ function toHex(buffer) {
   ).join("");
 }
 
+function timingSafeEqual(left, right) {
+  if (typeof left !== "string" || typeof right !== "string") return false;
+  if (left.length !== right.length) return false;
+  let difference = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    difference |= left.charCodeAt(index) ^ right.charCodeAt(index);
+  }
+  return difference === 0;
+}
+
 function inRange(value, min, max) {
   return (
     typeof value === "number" &&
@@ -477,22 +595,46 @@ function clientTimeOrNow(raw) {
   return new Date(parsed).toISOString();
 }
 
-function json(body, status = 200) {
+function clampInt(value, min, max, fallback) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, parsed));
+}
+
+function json(body, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
-      ...CORS_HEADERS,
+      ...SECURITY_HEADERS,
       "content-type": "application/json; charset=utf-8",
-      "cache-control": "no-store",
-      "x-content-type-options": "nosniff",
+      ...extraHeaders,
     },
   });
 }
 
 function empty(status = 204) {
-  return new Response(null, { status, headers: CORS_HEADERS });
+  return new Response(null, { status, headers: SECURITY_HEADERS });
 }
 
 function errorResponse(error) {
-  return json({ error: error.code }, error.status);
+  const headers =
+    error.status === 429
+      ? { "retry-after": String(RATE_LIMIT_RETRY_SECONDS) }
+      : {};
+  return json({ error: error.code }, error.status, headers);
 }
+
+// Exported for the Node test suite. Cloudflare Workers ignores named exports.
+export {
+  MAX_GROUP_MEMBERS,
+  cleanDisplayName,
+  clientTimeOrNow,
+  generateInviteCode,
+  hashInviteCode,
+  inRange,
+  normalizeInviteCode,
+  randomToken,
+  sha256Hex,
+  timingSafeEqual,
+  toHex,
+};

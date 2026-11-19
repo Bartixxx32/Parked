@@ -11,7 +11,12 @@ data class FamilyCredentials(
     val deviceToken: String? = null,
     val adminToken: String? = null,
     val inviteCode: String? = null,
-    val displayName: String = "",
+    /**
+     * The car label shown to the family (model or registration plate). The API
+     * and database still use the legacy `displayName` / `display_name` field so
+     * that 1.2.0 clients keep working.
+     */
+    val carLabel: String = "",
 ) {
     val joined: Boolean
         get() = !groupId.isNullOrBlank() && !deviceToken.isNullOrBlank()
@@ -22,7 +27,7 @@ data class FamilyCredentials(
 
 data class FamilySpot(
     val deviceId: String,
-    val displayName: String,
+    val carLabel: String,
     val latitude: Double,
     val longitude: Double,
     val accuracyMeters: Double?,
@@ -32,7 +37,7 @@ data class FamilySpot(
 
 data class FamilyMember(
     val deviceId: String,
-    val displayName: String,
+    val carLabel: String,
     val lastSeenAtEpochMs: Long?,
     val spot: FamilySpot?,
 )
@@ -44,6 +49,8 @@ enum class FamilyError {
     INVALID_NAME,
     INVALID_URL,
     NOT_CONNECTED,
+    RATE_LIMITED,
+    GROUP_FULL,
     SERVER,
     UNKNOWN,
 }
