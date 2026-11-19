@@ -49,6 +49,7 @@ import com.bartixxx.parked.R
 import com.bartixxx.parked.location.LocationValidator
 import com.bartixxx.parked.ui.Formatters
 import java.io.File
+import org.osmdroid.api.IGeoPoint
 import org.osmdroid.config.Configuration
 import org.osmdroid.events.MapListener
 import org.osmdroid.events.ScrollEvent
@@ -73,7 +74,7 @@ fun MapPickerDialog(
     val start = remember(initialLatitude, initialLongitude) {
         initialPoint(context, initialLatitude, initialLongitude)
     }
-    var center by remember { mutableStateOf(start) }
+    var center by remember { mutableStateOf<IGeoPoint>(start.point) }
     var myLocation by remember { mutableStateOf(lastKnownLocation(context)) }
 
     val mapView = remember {
