@@ -22,6 +22,13 @@ const MAX_SPOT_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_GROUP_MEMBERS = 20;
 const DEFAULT_RETAIN_DAYS = 30;
 const RATE_LIMIT_RETRY_SECONDS = 60;
+const MAX_ENCRYPTED_PAYLOAD = 2048;
+const MAX_KEY_VERSION = 1_000_000;
+const ENCRYPTED_DISPLAY_NAME = "Encrypted";
+const CRYPTO_KEY_SALT_LENGTH = 22;
+const CRYPTO_WRAPPED_KEY_LENGTH = 64;
+const CRYPTO_KEY_IV_LENGTH = 16;
+const CRYPTO_JOIN_AUTH_KEY_LENGTH = 43;
 
 const SECURITY_HEADERS = {
   "cache-control": "no-store",
@@ -100,17 +107,28 @@ async function createGroup(request, env) {
   const body = await readJson(request);
   const displayName = cleanDisplayName(body.displayName);
   if (!displayName) throw new HttpError(400, "invalid_name");
+  const cryptoPayload = parseCryptoPayload(body.crypto);
 
   const inviteCode = generateInviteCode();
   const deviceToken = randomToken();
   const adminToken = randomToken();
 
+  const groupBody = {
+    code_hash: await hashInviteCode(env, inviteCode),
+    admin_token_hash: await sha256Hex(adminToken),
+  };
+  if (cryptoPayload) {
+    groupBody.crypto_mode = "e2ee";
+    groupBody.key_salt = cryptoPayload.keySalt;
+    groupBody.wrapped_key = cryptoPayload.wrappedKey;
+    groupBody.key_iv = cryptoPayload.keyIv;
+    groupBody.join_auth_hash = await hashJoinAuthKey(env, cryptoPayload.joinAuthKey);
+    groupBody.key_version = 1;
+  }
+
   const groups = await supabase(env, "groups", {
     method: "POST",
-    body: {
-      code_hash: await hashInviteCode(env, inviteCode),
-      admin_token_hash: await sha256Hex(adminToken),
-    },
+    body: groupBody,
     prefer: "return=representation",
   });
   const group = groups?.[0];
@@ -122,7 +140,7 @@ async function createGroup(request, env) {
       method: "POST",
       body: {
         group_id: group.id,
-        display_name: displayName,
+        display_name: cryptoPayload ? ENCRYPTED_DISPLAY_NAME : displayName,
         token_hash: await sha256Hex(deviceToken),
       },
       prefer: "return=representation",
@@ -137,16 +155,22 @@ async function createGroup(request, env) {
   const device = devices?.[0];
   if (!device?.id) throw new HttpError(500, "server_error");
 
-  return json(
-    {
-      groupId: group.id,
-      deviceId: device.id,
-      deviceToken,
-      adminToken,
-      inviteCode,
-    },
-    201,
-  );
+  const response = {
+    groupId: group.id,
+    deviceId: device.id,
+    deviceToken,
+    adminToken,
+    inviteCode,
+  };
+  if (cryptoPayload) {
+    response.crypto = cryptoResponse({
+      key_salt: cryptoPayload.keySalt,
+      wrapped_key: cryptoPayload.wrappedKey,
+      key_iv: cryptoPayload.keyIv,
+      key_version: 1,
+    });
+  }
+  return json(response, 201);
 }
 
 async function joinGroup(request, env) {
@@ -162,10 +186,20 @@ async function joinGroup(request, env) {
   const codeHash = await hashInviteCode(env, code);
   const groups = await supabase(
     env,
-    `groups?code_hash=eq.${codeHash}&select=id`,
+    `groups?code_hash=eq.${codeHash}&select=id,crypto_mode,key_salt,wrapped_key,key_iv,key_version,join_auth_hash`,
   );
   const group = groups?.[0];
   if (!group?.id) throw new HttpError(404, "invalid_code");
+
+  const encrypted = group.crypto_mode === "e2ee";
+  if (encrypted) {
+    const authKey = normalizeJoinAuthKey(body.joinAuthKey);
+    if (!authKey) throw new HttpError(403, "invite_link_required");
+    const candidate = await hashJoinAuthKey(env, authKey);
+    if (!timingSafeEqual(candidate, group.join_auth_hash || "")) {
+      throw new HttpError(403, "invalid_invite");
+    }
+  }
 
   // The database trigger is the hard cap; this check avoids a pointless insert
   // and returns a friendly error in the normal case.
@@ -182,7 +216,7 @@ async function joinGroup(request, env) {
     method: "POST",
     body: {
       group_id: group.id,
-      display_name: displayName,
+      display_name: encrypted ? ENCRYPTED_DISPLAY_NAME : displayName,
       token_hash: await sha256Hex(deviceToken),
     },
     prefer: "return=representation",
@@ -190,12 +224,14 @@ async function joinGroup(request, env) {
   const device = devices?.[0];
   if (!device?.id) throw new HttpError(500, "server_error");
 
-  return json({
+  const response = {
     groupId: group.id,
     deviceId: device.id,
     deviceToken,
     inviteCode: code,
-  });
+  };
+  if (encrypted) response.crypto = cryptoResponse(group);
+  return json(response);
 }
 
 async function listSpots(request, env) {
@@ -210,18 +246,34 @@ async function listSpots(request, env) {
     prefer: "return=minimal",
   });
 
+  const group = await getGroup(env, device.group_id);
+  const encrypted = group?.crypto_mode === "e2ee";
+
   const devices = await supabase(
     env,
     `devices?group_id=eq.${device.group_id}&select=id,display_name,last_seen_at`,
   );
   const spots = await supabase(
     env,
-    `spots?group_id=eq.${device.group_id}&select=device_id,latitude,longitude,accuracy_m,saved_at,updated_at`,
+    `spots?group_id=eq.${device.group_id}&select=device_id,latitude,longitude,accuracy_m,payload,key_version,saved_at,updated_at`,
   );
   const spotByDevice = new Map((spots || []).map((spot) => [spot.device_id, spot]));
 
   const members = (devices || []).map((member) => {
     const spot = spotByDevice.get(member.id);
+    if (encrypted) {
+      return {
+        deviceId: member.id,
+        lastSeenAt: member.last_seen_at,
+        spot: spot
+          ? {
+              payload: spot.payload,
+              keyVersion: spot.key_version,
+              savedAt: spot.saved_at,
+            }
+          : null,
+      };
+    }
     return {
       deviceId: member.id,
       displayName: member.display_name,
@@ -237,40 +289,70 @@ async function listSpots(request, env) {
     };
   });
 
-  return json({ groupId: device.group_id, members });
+  return json({
+    groupId: device.group_id,
+    cryptoMode: encrypted ? "e2ee" : "plaintext",
+    members,
+  });
 }
 
 async function upsertSpot(request, env) {
   const device = await requireDevice(request, env);
   await enforceRateLimit(request, env, "WRITE_LIMITER", "write", device.id);
   const body = await readJson(request);
-
-  if (!inRange(body.latitude, -90, 90) || !inRange(body.longitude, -180, 180)) {
-    throw new HttpError(400, "invalid_coordinates");
-  }
-  const accuracy = body.accuracyM;
-  if (
-    accuracy !== null &&
-    accuracy !== undefined &&
-    !inRange(accuracy, 0, MAX_ACCURACY_M)
-  ) {
-    throw new HttpError(400, "invalid_accuracy");
-  }
-
+  const group = await getGroup(env, device.group_id);
   const now = new Date().toISOString();
-  await supabase(env, "spots?on_conflict=device_id", {
-    method: "POST",
-    body: {
-      group_id: device.group_id,
-      device_id: device.id,
-      latitude: body.latitude,
-      longitude: body.longitude,
-      accuracy_m: accuracy ?? null,
-      saved_at: clientTimeOrNow(body.savedAt),
-      updated_at: now,
-    },
-    prefer: "resolution=merge-duplicates,return=minimal",
-  });
+
+  if (group?.crypto_mode === "e2ee") {
+    const payload = cleanEncryptedPayload(body.payload);
+    const keyVersion = cleanKeyVersion(body.keyVersion);
+    if (!payload || keyVersion === null) {
+      throw new HttpError(400, "invalid_crypto");
+    }
+    if (keyVersion !== group.key_version) {
+      throw new HttpError(409, "key_version_mismatch");
+    }
+    await supabase(env, "spots?on_conflict=device_id", {
+      method: "POST",
+      body: {
+        group_id: device.group_id,
+        device_id: device.id,
+        latitude: null,
+        longitude: null,
+        accuracy_m: null,
+        payload,
+        key_version: keyVersion,
+        saved_at: clientTimeOrNow(body.savedAt),
+        updated_at: now,
+      },
+      prefer: "resolution=merge-duplicates,return=minimal",
+    });
+  } else {
+    if (!inRange(body.latitude, -90, 90) || !inRange(body.longitude, -180, 180)) {
+      throw new HttpError(400, "invalid_coordinates");
+    }
+    const accuracy = body.accuracyM;
+    if (
+      accuracy !== null &&
+      accuracy !== undefined &&
+      !inRange(accuracy, 0, MAX_ACCURACY_M)
+    ) {
+      throw new HttpError(400, "invalid_accuracy");
+    }
+    await supabase(env, "spots?on_conflict=device_id", {
+      method: "POST",
+      body: {
+        group_id: device.group_id,
+        device_id: device.id,
+        latitude: body.latitude,
+        longitude: body.longitude,
+        accuracy_m: accuracy ?? null,
+        saved_at: clientTimeOrNow(body.savedAt),
+        updated_at: now,
+      },
+      prefer: "resolution=merge-duplicates,return=minimal",
+    });
+  }
   await supabase(env, `devices?id=eq.${device.id}`, {
     method: "PATCH",
     body: { last_seen_at: now },
@@ -286,6 +368,13 @@ async function updateDevice(request, env) {
   const body = await readJson(request);
   const displayName = cleanDisplayName(body.displayName);
   if (!displayName) throw new HttpError(400, "invalid_name");
+
+  const group = await getGroup(env, device.group_id);
+  if (group?.crypto_mode === "e2ee") {
+    // The label is encrypted inside the spot payload; the server must not
+    // learn it. The phone re-uploads the latest spot with the new label.
+    return empty(204);
+  }
 
   await supabase(env, `devices?id=eq.${device.id}`, {
     method: "PATCH",
@@ -323,13 +412,26 @@ async function rotateInviteCode(request, env) {
   await enforceRateLimit(request, env, "ROTATE_LIMITER", "rotate", device.id);
   await requireAdmin(request, env, device);
 
+  const group = await getGroup(env, device.group_id);
+  const body = await readJson(request, { allowEmpty: true });
   const inviteCode = generateInviteCode();
+  const patch = {
+    code_hash: await hashInviteCode(env, inviteCode),
+    rotated_at: new Date().toISOString(),
+  };
+
+  if (group?.crypto_mode === "e2ee") {
+    const cryptoPayload = parseCryptoPayload(body.crypto);
+    if (!cryptoPayload) throw new HttpError(400, "crypto_required");
+    patch.key_salt = cryptoPayload.keySalt;
+    patch.wrapped_key = cryptoPayload.wrappedKey;
+    patch.key_iv = cryptoPayload.keyIv;
+    patch.join_auth_hash = await hashJoinAuthKey(env, cryptoPayload.joinAuthKey);
+  }
+
   await supabase(env, `groups?id=eq.${device.group_id}`, {
     method: "PATCH",
-    body: {
-      code_hash: await hashInviteCode(env, inviteCode),
-      rotated_at: new Date().toISOString(),
-    },
+    body: patch,
     prefer: "return=minimal",
   });
 
@@ -437,7 +539,7 @@ async function cleanupExpired(env) {
   }
 }
 
-async function readJson(request) {
+async function readJson(request, { allowEmpty = false } = {}) {
   const declaredLength = Number(request.headers.get("content-length") || "0");
   if (!Number.isFinite(declaredLength) || declaredLength > MAX_BODY_BYTES) {
     throw new HttpError(413, "body_too_large");
@@ -446,6 +548,7 @@ async function readJson(request) {
   if (text.length > MAX_BODY_BYTES) {
     throw new HttpError(413, "body_too_large");
   }
+  if (allowEmpty && text.trim() === "") return {};
   let value;
   try {
     value = JSON.parse(text);
@@ -456,6 +559,102 @@ async function readJson(request) {
     throw new HttpError(400, "invalid_json");
   }
   return value;
+}
+
+async function getGroup(env, groupId) {
+  const groups = await supabase(
+    env,
+    `groups?id=eq.${groupId}&select=crypto_mode,key_salt,wrapped_key,key_iv,key_version,join_auth_hash`,
+  );
+  return groups?.[0] || null;
+}
+
+function cryptoResponse(group) {
+  return {
+    mode: "e2ee",
+    keySalt: group.key_salt,
+    wrappedKey: group.wrapped_key,
+    keyIv: group.key_iv,
+    keyVersion: group.key_version,
+  };
+}
+
+/**
+ * Validates the client-generated key material. The Worker cannot read any of
+ * it; exact lengths keep junk data out of the database and the response.
+ */
+function parseCryptoPayload(raw) {
+  if (raw === undefined || raw === null) return null;
+  if (typeof raw !== "object" || Array.isArray(raw)) {
+    throw new HttpError(400, "invalid_crypto");
+  }
+  const keySalt = cleanBase64Url(raw.keySalt, CRYPTO_KEY_SALT_LENGTH);
+  const wrappedKey = cleanBase64Url(raw.wrappedKey, CRYPTO_WRAPPED_KEY_LENGTH);
+  const keyIv = cleanBase64Url(raw.keyIv, CRYPTO_KEY_IV_LENGTH);
+  // The phone sends the HKDF-derived join auth key, never the invite secret.
+  // The Worker hashes it with the private pepper before storing it.
+  const joinAuthKey = normalizeJoinAuthKey(raw.joinAuthHash);
+  if (!keySalt || !wrappedKey || !keyIv || !joinAuthKey) {
+    throw new HttpError(400, "invalid_crypto");
+  }
+  return { keySalt, wrappedKey, keyIv, joinAuthKey };
+}
+
+function cleanBase64Url(raw, expectedLength) {
+  if (
+    typeof raw !== "string" ||
+    raw.length !== expectedLength ||
+    !/^[A-Za-z0-9_-]+$/.test(raw)
+  ) {
+    return null;
+  }
+  return raw;
+}
+
+function normalizeJoinAuthKey(raw) {
+  if (typeof raw !== "string") return null;
+  const value = raw.trim();
+  if (
+    value.length !== CRYPTO_JOIN_AUTH_KEY_LENGTH ||
+    !/^[A-Za-z0-9_-]+$/.test(value)
+  ) {
+    return null;
+  }
+  return value;
+}
+
+async function hashJoinAuthKey(env, authKey) {
+  if (!env.CODE_PEPPER) throw new HttpError(500, "server_error");
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(env.CODE_PEPPER),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    encoder.encode(`join:${authKey}`),
+  );
+  return toHex(signature);
+}
+
+function cleanEncryptedPayload(raw) {
+  if (
+    typeof raw !== "string" ||
+    raw.length < 64 ||
+    raw.length > MAX_ENCRYPTED_PAYLOAD ||
+    !/^[A-Za-z0-9_-]+$/.test(raw)
+  ) {
+    return null;
+  }
+  return raw;
+}
+
+function cleanKeyVersion(raw) {
+  if (!Number.isInteger(raw) || raw < 1 || raw > MAX_KEY_VERSION) return null;
+  return raw;
 }
 
 async function supabase(env, path, { method = "GET", body, prefer } = {}) {
@@ -627,12 +826,19 @@ function errorResponse(error) {
 // Exported for the Node test suite. Cloudflare Workers ignores named exports.
 export {
   MAX_GROUP_MEMBERS,
+  cleanBase64Url,
   cleanDisplayName,
+  cleanEncryptedPayload,
+  cleanKeyVersion,
   clientTimeOrNow,
+  cryptoResponse,
   generateInviteCode,
   hashInviteCode,
+  hashJoinAuthKey,
   inRange,
   normalizeInviteCode,
+  normalizeJoinAuthKey,
+  parseCryptoPayload,
   randomToken,
   sha256Hex,
   timingSafeEqual,

@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import java.io.IOException
@@ -21,6 +22,9 @@ private val Context.familyDataStore: DataStore<Preferences> by preferencesDataSt
 /**
  * Family credentials live in a separate DataStore so tokens never end up in the
  * regular settings snapshot. The file is private to the app sandbox.
+ *
+ * For E2EE groups the raw group key is never stored here: [wrappedGroupKey]
+ * contains ciphertext from [FamilyKeyVault], bound to the Android Keystore.
  */
 class FamilyStore(private val context: Context) {
 
@@ -40,6 +44,10 @@ class FamilyStore(private val context: Context) {
         adminToken: String?,
         inviteCode: String?,
         carLabel: String,
+        cryptoMode: FamilyCryptoMode,
+        keyVersion: Int,
+        wrappedGroupKey: String?,
+        inviteSecret: String?,
     ) {
         context.familyDataStore.edit { preferences ->
             preferences[Keys.ENABLED] = true
@@ -49,10 +57,18 @@ class FamilyStore(private val context: Context) {
             preferences[Keys.DEVICE_TOKEN] = deviceToken
             preferences[Keys.INVITE_CODE] = inviteCode.orEmpty()
             preferences[Keys.CAR_LABEL] = carLabel
+            preferences[Keys.CRYPTO_MODE] = cryptoMode.wireValue
+            preferences[Keys.KEY_VERSION] = keyVersion
+            preferences[Keys.INVITE_SECRET] = inviteSecret.orEmpty()
             if (adminToken.isNullOrBlank()) {
                 preferences.remove(Keys.ADMIN_TOKEN)
             } else {
                 preferences[Keys.ADMIN_TOKEN] = adminToken
+            }
+            if (wrappedGroupKey.isNullOrBlank()) {
+                preferences.remove(Keys.WRAPPED_GROUP_KEY)
+            } else {
+                preferences[Keys.WRAPPED_GROUP_KEY] = wrappedGroupKey
             }
         }
     }
@@ -69,8 +85,11 @@ class FamilyStore(private val context: Context) {
         context.familyDataStore.edit { it[Keys.CAR_LABEL] = label }
     }
 
-    suspend fun setInviteCode(code: String) {
-        context.familyDataStore.edit { it[Keys.INVITE_CODE] = code }
+    suspend fun setInvite(code: String, secret: String?) {
+        context.familyDataStore.edit { preferences ->
+            preferences[Keys.INVITE_CODE] = code
+            preferences[Keys.INVITE_SECRET] = secret.orEmpty()
+        }
     }
 
     /**
@@ -98,6 +117,10 @@ class FamilyStore(private val context: Context) {
         adminToken = this[Keys.ADMIN_TOKEN]?.takeIf { it.isNotBlank() },
         inviteCode = this[Keys.INVITE_CODE]?.takeIf { it.isNotBlank() },
         carLabel = this[Keys.CAR_LABEL].orEmpty(),
+        cryptoMode = FamilyCryptoMode.fromWire(this[Keys.CRYPTO_MODE]),
+        keyVersion = this[Keys.KEY_VERSION]?.takeIf { it > 0 } ?: FamilyCrypto.KEY_VERSION,
+        wrappedGroupKey = this[Keys.WRAPPED_GROUP_KEY]?.takeIf { it.isNotBlank() },
+        inviteSecret = this[Keys.INVITE_SECRET]?.takeIf { it.isNotBlank() },
     )
 
     private object Keys {
@@ -110,5 +133,9 @@ class FamilyStore(private val context: Context) {
         val INVITE_CODE = stringPreferencesKey("family_invite_code")
         // Keep the legacy key name so upgrades from 1.2.0 keep the saved label.
         val CAR_LABEL = stringPreferencesKey("family_display_name")
+        val CRYPTO_MODE = stringPreferencesKey("family_crypto_mode")
+        val KEY_VERSION = intPreferencesKey("family_key_version")
+        val WRAPPED_GROUP_KEY = stringPreferencesKey("family_wrapped_group_key")
+        val INVITE_SECRET = stringPreferencesKey("family_invite_secret")
     }
 }

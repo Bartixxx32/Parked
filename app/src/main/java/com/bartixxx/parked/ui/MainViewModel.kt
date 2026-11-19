@@ -530,12 +530,14 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
         when (error) {
             FamilyError.NETWORK -> R.string.family_error_network
             FamilyError.INVALID_CODE -> R.string.family_error_invalid_code
+            FamilyError.INVALID_INVITE -> R.string.family_error_invalid_invite
             FamilyError.UNAUTHORIZED -> R.string.family_error_unauthorized
             FamilyError.INVALID_NAME -> R.string.family_error_invalid_name
             FamilyError.INVALID_URL -> R.string.family_error_invalid_url
             FamilyError.NOT_CONNECTED -> R.string.family_error_not_connected
             FamilyError.RATE_LIMITED -> R.string.family_error_rate_limited
             FamilyError.GROUP_FULL -> R.string.family_error_group_full
+            FamilyError.CRYPTO -> R.string.family_error_crypto
             FamilyError.SERVER -> R.string.family_error_server
             FamilyError.UNKNOWN -> R.string.family_error_unknown
         },

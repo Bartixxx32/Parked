@@ -73,6 +73,8 @@
     <string name="saving">Saving…</string>
     <string name="save_current_location">Save current location</string>
     <string name="manual_save_requires_location">A manual save requires location permission.</string>
+    <string name="manual_save_no_bluetooth_title">No Bluetooth car radio?</string>
+    <string name="manual_save_no_bluetooth_desc">You can still use Parked: save the current GPS position or type the coordinates manually.</string>
     <string name="full_history">Full history</string>
     <string name="section_reliability">Reliability on Android</string>
     <string name="reliability_intro">Android and vendor overlays (for example ColorOS) may limit background work and kill services. To increase the chance of an automatic save:</string>
@@ -298,7 +300,7 @@
 
     <!-- Family mode -->
     <string name="family_title">Family</string>
-    <string name="family_intro">Share your latest parking spot with family members. Optional and off by default. Only coordinates, accuracy, car label and timestamps are sent; notes and photos stay on this phone.</string>
+    <string name="family_intro">Share your latest parking spot with family members. Optional and off by default. New groups are end-to-end encrypted: only family phones can read the car label and location, while notes and photos stay on this phone.</string>
     <string name="family_create">Create group</string>
     <string name="family_join">Join group</string>
     <string name="family_joined_as">Your car: %1$s</string>
@@ -312,10 +314,24 @@
     <string name="family_code_copied">Code copied</string>
     <string name="family_share_code">Share</string>
     <string name="family_rotate_code">New code</string>
+    <string name="family_encrypted_badge">End-to-end encrypted</string>
+    <string name="family_encrypted_help">The server stores only encrypted labels and locations.</string>
+    <string name="family_invite_link">Invite link</string>
+    <string name="family_invite_link_hint">Paste the full invite link from another member</string>
+    <string name="family_copy_link">Copy link</string>
+    <string name="family_link_copied">Link copied</string>
+    <string name="family_share_link">Share link</string>
+    <string name="family_share_link_text">Join my Parked family group: %1$s</string>
+    <string name="family_encrypted_warning">Anyone with this link can join and see the family map. Share it only with people you trust.</string>
+    <string name="family_join_link_help">Paste the full invite link. Encrypted groups cannot be joined with the code alone.</string>
+    <string name="family_rotate_link">New link</string>
+    <string name="family_rotate_link_title">Generate a new invite link?</string>
+    <string name="family_rotate_link_message">The old invite link will stop working. Members who already joined keep access.</string>
     <string name="family_members">Cars</string>
     <string name="family_no_members">No cars yet.</string>
     <string name="family_you">you</string>
     <string name="family_no_spot">no spot yet</string>
+    <string name="family_encrypted_car">Encrypted car</string>
     <string name="family_last_sync">Last sync: %1$s</string>
     <string name="family_never_synced">not synced yet</string>
     <string name="family_pending_upload">The latest spot could not be uploaded. It will retry on the next refresh.</string>
@@ -345,13 +361,15 @@
     <string name="msg_family_joined">Joined the family group</string>
     <string name="msg_family_left">Left the family group</string>
     <string name="msg_family_refreshed">Family spots refreshed</string>
-    <string name="msg_family_rotated">New invite code generated</string>
+    <string name="msg_family_rotated">New invite generated</string>
     <string name="msg_family_name_updated">Car label updated</string>
     <string name="msg_family_server_updated">Server URL saved</string>
     <string name="msg_family_enabled">Family sharing enabled</string>
     <string name="msg_family_disabled">Family sharing disabled</string>
     <string name="family_error_network">No connection to the family server. Check the internet and try again.</string>
     <string name="family_error_invalid_code">That invite code is not valid.</string>
+    <string name="family_error_invalid_invite">This invite link is invalid or has expired. Ask for a new link.</string>
+    <string name="family_error_crypto">Could not decrypt the family data. Leave the group and join again with a fresh invite link.</string>
     <string name="family_error_unauthorized">The family server rejected this device. Leave the group and join again.</string>
     <string name="family_error_invalid_name">Enter a car label (1–60 characters).</string>
     <string name="family_error_invalid_url">Enter a valid HTTPS server URL.</string>

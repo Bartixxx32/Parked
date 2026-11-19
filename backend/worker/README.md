@@ -49,7 +49,7 @@ npx wrangler login
 npx wrangler deploy
 ```
 
-Before the first deploy, apply all three SQL files in `backend/supabase/` in
-order. Then point the app at the Worker URL in
+Before the first deploy, apply all four SQL files in `backend/supabase/` in
+order (including `004_e2ee.sql` for encrypted family groups). Then point the app at the Worker URL in
 **Settings → Family → Server → Change**. If you leave the default, the app uses
 the public instance and needs no configuration.

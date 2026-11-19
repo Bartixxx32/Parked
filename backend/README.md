@@ -5,6 +5,11 @@ directly; it calls a Cloudflare Worker, and the Worker uses the Supabase service
 role key. Family mode is optional and disabled by default. The app works fully
 without this backend.
 
+New groups are end-to-end encrypted (E2EE). The Worker stores only ciphertext
+for the car label and latest coordinates; it never receives the group key or the
+invite-link secret. Groups created by 1.2.0/1.3.0 clients stay plaintext and
+remain supported for compatibility.
+
 - **Public instance (default):** <https://parked.bartixxx.workers.dev>
   (health check: `GET /v1/health`). Users do not need to configure anything.
 - **Self-hosted instance:** users can enter their own HTTPS URL in
@@ -21,21 +26,32 @@ and anyone can run an equivalent instance.
   the schema is exposed through PostgREST.
 - The latest spot per device is stored in `parked.spots` (`device_id` is
   unique). There is no cloud history. Notes and photos never leave the phone.
-- The `display_name` column is the **car label** shown on the family map. It can
-  be a model, a nickname or a registration plate. The JSON field is still
-  `displayName` so 1.2.0 clients remain compatible.
+- For E2EE groups, `parked.spots.payload` holds an AES-256-GCM ciphertext of
+  the car label, coordinates, accuracy and save time. `latitude`, `longitude`
+  and `accuracy_m` are `NULL`. The payload is bound with AAD to the group,
+  device and key version.
+- The 256-bit group key is generated on the creating phone. It is stored there
+  wrapped by a non-exportable Android Keystore key. The server stores a copy
+  wrapped with a 128-bit secret that lives only in the invite-link fragment
+  (`parked://join/<CODE>#<SECRET>`), plus an HMAC of the HKDF-derived join
+  auth key. The Worker never sees the secret, group key or plaintext.
+- The `display_name` column is the **car label** for legacy plaintext groups.
+  E2EE groups store the placeholder `Encrypted`; the real label is inside the
+  encrypted payload. The JSON field is still `displayName` so 1.2.0 clients
+  remain compatible.
 
 | Table | Purpose |
 |---|---|
-| `parked.groups` | Group id, HMAC of the invite code and hash of the admin token. |
-| `parked.devices` | Group members, car label and hash of the device token. |
-| `parked.spots` | Latest latitude/longitude/accuracy per device. |
+| `parked.groups` | Group id, HMAC of the invite code, hash of the admin token and optional E2EE key material. |
+| `parked.devices` | Group members, legacy car label and hash of the device token. |
+| `parked.spots` | Latest plaintext coordinates/accuracy or encrypted payload per device. |
 
 Apply the DDL in order through the Supabase SQL editor or the Management API:
 
 1. [`supabase/001_parked_schema.sql`](supabase/001_parked_schema.sql)
 2. [`supabase/002_group_admin.sql`](supabase/002_group_admin.sql)
 3. [`supabase/003_security_hardening.sql`](supabase/003_security_hardening.sql)
+4. [`supabase/004_e2ee.sql`](supabase/004_e2ee.sql)
 
 The files are written to be idempotent for the schema, tables, columns and
 indexes. Review them before re-running after manual changes.
@@ -45,12 +61,12 @@ indexes. Review them before re-running after manual changes.
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | `GET` | `/v1/health` | none | Liveness check. |
-| `POST` | `/v1/groups` | none | Create a group. Returns IDs, device token, admin token and invite code once. |
-| `POST` | `/v1/groups/join` | invite code | Join a group. Returns a new device token. |
-| `POST` | `/v1/groups/rotate` | device + admin token | Replace the invite code; existing device tokens stay valid. |
-| `GET` | `/v1/spots` | device token | List cars and their latest spots. |
+| `POST` | `/v1/groups` | none | Create a group. Returns IDs, device token, admin token, invite code and E2EE key material once. |
+| `POST` | `/v1/groups/join` | invite code + link secret | Join a group. Returns a new device token and, for E2EE, the wrapped group key. |
+| `POST` | `/v1/groups/rotate` | device + admin token | Replace the invite code and E2EE link secret; existing device tokens stay valid. |
+| `GET` | `/v1/spots` | device token | List cars and their latest spots (ciphertext for E2EE). |
 | `PUT` | `/v1/spot` | device token | Insert or replace the caller's latest spot. |
-| `PATCH` | `/v1/device` | device token | Change the caller's car label. |
+| `PATCH` | `/v1/device` | device token | Change the caller's car label (no-op on the server for E2EE). |
 | `DELETE` | `/v1/device` | device token | Leave; deletes the device and its spot, and the group when empty. |
 
 Device tokens are random 256-bit values sent as
@@ -59,19 +75,26 @@ is only needed for invite-code rotation. Only SHA-256 hashes of tokens are
 stored. Invite codes are 10 characters of Crockford base32 (50 bits) and are
 stored as HMAC-SHA-256 with `CODE_PEPPER`.
 
-The Worker validates coordinates, accuracy, car labels and body size, and
-applies server-side timestamps, so a client cannot upload a spot with an
-arbitrary future date.
+For E2EE groups, a request to create or rotate must include a `crypto` object
+with `keySalt`, `wrappedKey`, `keyIv` and `joinAuthHash`. The last field is the
+base64url HKDF-derived join auth key, not the invite secret; the Worker hashes
+it with `CODE_PEPPER` before storing. Joining requires `joinAuthKey` from the
+link fragment. Encrypted spot uploads send `payload` (base64url ciphertext) and
+`keyVersion` instead of coordinates.
+
+The Worker validates coordinates, accuracy, car labels, ciphertext shape,
+key versions and body size, and applies server-side timestamps, so a client
+cannot upload a spot with an arbitrary future date.
 
 ### Errors
 
 | Status | `error` | Meaning |
 |---|---|---|
-| `400` | `invalid_json`, `invalid_name`, `invalid_code`, `invalid_coordinates`, `invalid_accuracy` | Invalid request. |
+| `400` | `invalid_json`, `invalid_name`, `invalid_code`, `invalid_coordinates`, `invalid_accuracy`, `invalid_crypto`, `crypto_required` | Invalid request. |
 | `401` | `unauthorized` | Missing or unknown device token. |
-| `403` | `forbidden` | Wrong or missing admin token. |
+| `403` | `forbidden`, `invite_link_required`, `invalid_invite` | Wrong admin token, or the encrypted group needs a valid invite link. |
 | `404` | `not_found`, `invalid_code` | Unknown route or invite code. |
-| `409` | `group_full` | The group already has 20 cars. |
+| `409` | `group_full`, `key_version_mismatch` | The group already has 20 cars, or the client key version is stale. |
 | `413` | `body_too_large` | Request body above 4 KB. |
 | `429` | `rate_limited` | Per-IP or per-device limit exceeded. |
 | `500` | `server_error` | Backend or Supabase failure. |
@@ -84,7 +107,8 @@ You need a Supabase project, a Cloudflare account and Node.js 20 or newer.
 
 1. Create a Supabase project (any region close to your users).
 2. Open the SQL editor and run `backend/supabase/001_parked_schema.sql`,
-   then `002_group_admin.sql`, then `003_security_hardening.sql`.
+   then `002_group_admin.sql`, `003_security_hardening.sql` and
+   `004_e2ee.sql`.
 3. Copy the project URL (for example
    `https://YOUR_PROJECT.supabase.co`) and the `service_role` key from
    **Project Settings → API**. Keep the service role key private; it bypasses
@@ -146,8 +170,9 @@ node --check src/index.js
 ```
 
 The end-to-end script creates temporary groups and devices on a deployed
-instance, checks create/join/spot/rename/rotate/leave/isolation behaviour and
-security headers, then removes its data:
+instance. It checks encrypted create/join/upload/list/rotate/leave, verifies
+that ciphertext cannot be read without the group key, exercises the legacy
+plaintext API, checks validation and security headers, then removes its data:
 
 ```bash
 python3 backend/tests/e2e.py
@@ -178,8 +203,16 @@ large or aged data set; those are enforced by the SQL trigger and the cron job.
   constant-time loop rather than `!==`.
 - **RLS.** No policies exist for `anon` or `authenticated`; the Worker uses the
   service role only.
-- **Invite codes.** 50 bits of entropy plus HMAC with `CODE_PEPPER`. Rotate the
-  code if it leaks. Members who already joined keep access.
+- **Invite links.** 50 bits of code entropy plus HMAC with `CODE_PEPPER`.
+  Encrypted groups also require a 128-bit secret in the link fragment; it is
+  never sent to the server. Rotate the link if it leaks. Members who already
+  joined keep access.
+- **E2EE key handling.** The raw group key exists only on family phones, wrapped
+  by the Android Keystore. The Worker stores a copy wrapped by the invite
+  secret and cannot unwrap it. There is no automatic key rotation in v1;
+  rotating the invite link changes the secret but not the group key, so a
+  removed member who kept the group key could still decrypt future spots.
+  Recreate the group if you need to revoke access cryptographically.
 - **Tokens on the phone.** Device and admin tokens live in the app-private
   DataStore. Android backup is disabled (`allowBackup="false"` and
   `fullBackupContent="false"`), so they are not copied to cloud backup.
@@ -188,11 +221,18 @@ large or aged data set; those are enforced by the SQL trigger and the cron job.
 
 ### What the server operator can see
 
-Family mode is not end-to-end encrypted. The Worker and the Supabase project
-operator can technically read the latest coordinates, car labels and timestamps
-stored in the database. This is why self-hosting exists. Group members can, by
-design, see each other's latest spot. Do not use family mode for sensitive
-location tracking.
+For E2EE groups created by the current app, the Worker and the Supabase project
+operator can see group/device identifiers, timestamps, key versions, ciphertext
+lengths and request metadata, but **not** the car labels, coordinates or
+accuracy. The invite secret and raw group key never reach the server.
+
+Groups created by 1.2.0/1.3.0 clients are plaintext for compatibility. Their
+Worker and Supabase operator can read the latest coordinates, car labels and
+timestamps. Recreate such a group with the current app to get E2EE.
+
+Group members can, by design, see each other's latest spot. Metadata and the
+timing of updates are still visible to the server operator, so do not use
+family mode for high-risk location tracking.
 
 ### Secrets checklist
 
@@ -201,6 +241,8 @@ location tracking.
 | `SUPABASE_SERVICE_ROLE_KEY` | Cloudflare secret | Commit, put in the APK, paste in issues. |
 | `CODE_PEPPER` | Cloudflare secret | Commit or share; losing it breaks invite-code lookup. |
 | Device/admin tokens | Phone DataStore | Log, commit or share. |
+| Invite link / secret | Phone DataStore and shared link | Post publicly or send to the server. |
+| Wrapped group key | Phone DataStore | Log or share; it is useless without the Keystore. |
 | `.dev.vars` / `.env` | Local machine only | Commit. |
 
 The Worker logs request paths without query strings and never logs tokens,

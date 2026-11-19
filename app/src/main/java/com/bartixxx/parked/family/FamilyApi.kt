@@ -11,17 +11,51 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 
+/** Values sent to the server when creating or rotating an encrypted group. */
+data class FamilyCryptoRequest(
+    val keySalt: String,
+    val wrappedKey: String,
+    val keyIv: String,
+    val joinAuthHash: String,
+)
+
+/** Public key material returned by the server after create or join. */
+data class FamilyCryptoInfo(
+    val mode: FamilyCryptoMode,
+    val keySalt: String? = null,
+    val wrappedKey: String? = null,
+    val keyIv: String? = null,
+    val keyVersion: Int = FamilyCrypto.KEY_VERSION,
+)
+
 data class FamilySession(
     val groupId: String,
     val deviceId: String,
     val deviceToken: String,
     val adminToken: String?,
     val inviteCode: String?,
+    val crypto: FamilyCryptoInfo,
 )
 
-data class FamilySnapshot(
+data class RemoteFamilySpot(
+    val latitude: Double?,
+    val longitude: Double?,
+    val accuracyMeters: Double?,
+    val savedAtEpochMs: Long?,
+    val payload: String?,
+    val keyVersion: Int?,
+)
+
+data class RemoteFamilyMember(
+    val deviceId: String,
+    val carLabel: String,
+    val lastSeenAtEpochMs: Long?,
+    val spot: RemoteFamilySpot?,
+)
+
+data class RemoteFamilySnapshot(
     val groupId: String?,
-    val members: List<FamilyMember>,
+    val members: List<RemoteFamilyMember>,
 )
 
 class FamilyApiException(
@@ -39,67 +73,66 @@ class FamilyApi(serverUrl: String) {
 
     private val baseUrl = serverUrl.trim().trimEnd('/')
 
-    suspend fun createGroup(carLabel: String): FamilySession {
+    suspend fun createGroup(carLabel: String, crypto: FamilyCryptoRequest?): FamilySession {
+        // For encrypted groups the real car label never leaves the phone, not
+        // even during creation. The server stores only this placeholder.
+        val body = JSONObject().put(
+            "displayName",
+            if (crypto == null) carLabel else ENCRYPTED_PLACEHOLDER,
+        )
+        if (crypto != null) body.put("crypto", crypto.toJson())
         val response = request(
             method = "POST",
             path = "/v1/groups",
-            body = JSONObject().put("displayName", carLabel),
+            body = body,
         )
         return sessionFrom(response, requireAdminToken = true)
     }
 
-    suspend fun joinGroup(inviteCode: String, carLabel: String): FamilySession {
+    suspend fun joinGroup(
+        inviteCode: String,
+        carLabel: String,
+        joinAuthKey: String?,
+    ): FamilySession {
         val code = InviteCode.normalize(inviteCode)
             ?: throw FamilyApiException(FamilyError.INVALID_CODE)
+        // A secret in the invite means the group is encrypted. Send only the
+        // placeholder so the server never receives the real car label.
+        val body = JSONObject()
+            .put("inviteCode", code)
+            .put(
+                "displayName",
+                if (joinAuthKey == null) carLabel else ENCRYPTED_PLACEHOLDER,
+            )
+        if (joinAuthKey != null) body.put("joinAuthKey", joinAuthKey)
         val response = request(
             method = "POST",
             path = "/v1/groups/join",
-            body = JSONObject()
-                .put("inviteCode", code)
-                .put("displayName", carLabel),
+            body = body,
         )
         return sessionFrom(response, requireAdminToken = false)
     }
 
-    suspend fun fetchSpots(deviceToken: String): FamilySnapshot {
+    suspend fun fetchSpots(deviceToken: String): RemoteFamilySnapshot {
         val response = request(
             method = "GET",
             path = "/v1/spots",
             deviceToken = deviceToken,
         )
-        val members = mutableListOf<FamilyMember>()
+        val members = mutableListOf<RemoteFamilyMember>()
         val array = response?.optJSONArray("members") ?: JSONArray()
         for (index in 0 until array.length()) {
             val member = array.optJSONObject(index) ?: continue
             val deviceId = member.optString("deviceId").takeIf { it.isNotBlank() } ?: continue
-            val carLabel = member.optString("displayName").ifBlank { deviceId }
-            val lastSeen = epoch(member.optString("lastSeenAt"))
             val spotObject = member.optJSONObject("spot")
-            members += FamilyMember(
+            members += RemoteFamilyMember(
                 deviceId = deviceId,
-                carLabel = carLabel,
-                lastSeenAtEpochMs = lastSeen,
-                spot = spotObject?.let { spot ->
-                    val latitude = spot.optDouble("latitude")
-                    val longitude = spot.optDouble("longitude")
-                    if (latitude.isNaN() || longitude.isNaN()) {
-                        null
-                    } else {
-                        FamilySpot(
-                            deviceId = deviceId,
-                            carLabel = carLabel,
-                            latitude = latitude,
-                            longitude = longitude,
-                            accuracyMeters = spot.accuracyOrNull(),
-                            savedAtEpochMs = epoch(spot.optString("savedAt"))
-                                ?: System.currentTimeMillis(),
-                            lastSeenAtEpochMs = lastSeen,
-                        )
-                    }
-                },
+                carLabel = member.optString("displayName"),
+                lastSeenAtEpochMs = epoch(member.optString("lastSeenAt")),
+                spot = spotObject?.let(::parseRemoteSpot),
             )
         }
-        return FamilySnapshot(
+        return RemoteFamilySnapshot(
             groupId = response?.optString("groupId")?.takeIf { it.isNotBlank() },
             members = members,
         )
@@ -118,6 +151,23 @@ class FamilyApi(serverUrl: String) {
         )
     }
 
+    suspend fun uploadEncryptedSpot(
+        deviceToken: String,
+        payload: String,
+        keyVersion: Int,
+        savedAtEpochMs: Long,
+    ) {
+        request(
+            method = "PUT",
+            path = "/v1/spot",
+            deviceToken = deviceToken,
+            body = JSONObject()
+                .put("payload", payload)
+                .put("keyVersion", keyVersion)
+                .put("savedAt", Instant.ofEpochMilli(savedAtEpochMs).toString()),
+        )
+    }
+
     suspend fun updateCarLabel(deviceToken: String, carLabel: String) {
         request(
             method = "PATCH",
@@ -131,12 +181,17 @@ class FamilyApi(serverUrl: String) {
         request(method = "DELETE", path = "/v1/device", deviceToken = deviceToken)
     }
 
-    suspend fun rotateInviteCode(deviceToken: String, adminToken: String): String {
+    suspend fun rotateInviteCode(
+        deviceToken: String,
+        adminToken: String,
+        crypto: FamilyCryptoRequest?,
+    ): String {
         val response = request(
             method = "POST",
             path = "/v1/groups/rotate",
             deviceToken = deviceToken,
             adminToken = adminToken,
+            body = crypto?.let { JSONObject().put("crypto", it.toJson()) },
         )
         return response?.optString("inviteCode")?.takeIf { it.isNotBlank() }
             ?: throw FamilyApiException(FamilyError.SERVER)
@@ -159,8 +214,63 @@ class FamilyApi(serverUrl: String) {
             deviceToken = deviceToken,
             adminToken = adminToken,
             inviteCode = response?.optString("inviteCode")?.takeIf { it.isNotBlank() },
+            crypto = parseCryptoInfo(response?.optJSONObject("crypto")),
         )
     }
+
+    private fun parseCryptoInfo(value: JSONObject?): FamilyCryptoInfo {
+        if (value == null) return FamilyCryptoInfo(FamilyCryptoMode.PLAINTEXT)
+        val mode = FamilyCryptoMode.fromWire(value.optString("mode"))
+        if (mode == FamilyCryptoMode.PLAINTEXT) return FamilyCryptoInfo(mode)
+        return FamilyCryptoInfo(
+            mode = mode,
+            keySalt = value.optString("keySalt").takeIf { it.isNotBlank() },
+            wrappedKey = value.optString("wrappedKey").takeIf { it.isNotBlank() },
+            keyIv = value.optString("keyIv").takeIf { it.isNotBlank() },
+            keyVersion = value.optInt("keyVersion", FamilyCrypto.KEY_VERSION),
+        )
+    }
+
+    private fun parseRemoteSpot(value: JSONObject): RemoteFamilySpot? {
+        val payload = if (value.has("payload") && !value.isNull("payload")) {
+            value.optString("payload").takeIf { it.isNotBlank() }
+        } else {
+            null
+        }
+        val latitude = if (value.has("latitude") && !value.isNull("latitude")) {
+            value.optDouble("latitude").takeUnless { it.isNaN() }
+        } else {
+            null
+        }
+        val longitude = if (value.has("longitude") && !value.isNull("longitude")) {
+            value.optDouble("longitude").takeUnless { it.isNaN() }
+        } else {
+            null
+        }
+        if (payload == null && (latitude == null || longitude == null)) return null
+        return RemoteFamilySpot(
+            latitude = latitude,
+            longitude = longitude,
+            accuracyMeters = if (value.has("accuracyM") && !value.isNull("accuracyM")) {
+                value.optDouble("accuracyM").takeUnless { it.isNaN() }
+            } else {
+                null
+            },
+            savedAtEpochMs = epoch(value.optString("savedAt")),
+            payload = payload,
+            keyVersion = if (value.has("keyVersion") && !value.isNull("keyVersion")) {
+                value.optInt("keyVersion").takeIf { it > 0 }
+            } else {
+                null
+            },
+        )
+    }
+
+    private fun FamilyCryptoRequest.toJson(): JSONObject = JSONObject()
+        .put("keySalt", keySalt)
+        .put("wrappedKey", wrappedKey)
+        .put("keyIv", keyIv)
+        .put("joinAuthHash", joinAuthHash)
 
     private suspend fun request(
         method: String,
@@ -225,6 +335,10 @@ class FamilyApi(serverUrl: String) {
             status == 429 || code == "rate_limited" -> FamilyError.RATE_LIMITED
             code == "group_full" -> FamilyError.GROUP_FULL
             code == "invalid_code" -> FamilyError.INVALID_CODE
+            code == "invite_link_required" || code == "invalid_invite" ->
+                FamilyError.INVALID_INVITE
+            code == "invalid_crypto" || code == "crypto_required" ||
+                code == "key_version_mismatch" -> FamilyError.CRYPTO
             code == "invalid_name" -> FamilyError.INVALID_NAME
             code == "unauthorized" || code == "forbidden" -> FamilyError.UNAUTHORIZED
             code == "not_found" -> FamilyError.NOT_CONNECTED
@@ -238,14 +352,9 @@ class FamilyApi(serverUrl: String) {
             runCatching { Instant.parse(it).toEpochMilli() }.getOrNull()
         }
 
-    private fun JSONObject.accuracyOrNull(): Double? {
-        if (isNull("accuracyM")) return null
-        val value = optDouble("accuracyM")
-        return value.takeIf { !it.isNaN() }
-    }
-
     private companion object {
         const val CONNECT_TIMEOUT_MS = 10_000
         const val READ_TIMEOUT_MS = 15_000
+        const val ENCRYPTED_PLACEHOLDER = "Encrypted"
     }
 }

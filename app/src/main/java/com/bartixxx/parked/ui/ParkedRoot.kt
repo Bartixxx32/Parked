@@ -216,6 +216,7 @@ fun ParkedRoot(viewModel: MainViewModel) {
                     saving = uiState.saving,
                     onToggleMonitoring = viewModel::setMonitoringEnabled,
                     onSaveNow = viewModel::saveCurrentLocation,
+                    onAddManual = viewModel::addManualSpot,
                     onCancelPending = viewModel::cancelPendingSave,
                     onOpenHistory = { tabName = ParkedTab.HISTORY.name },
                     onOpenMap = openMap,

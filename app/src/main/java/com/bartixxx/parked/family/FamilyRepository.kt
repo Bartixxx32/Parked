@@ -18,6 +18,9 @@ import kotlinx.coroutines.sync.withLock
  * Coordinates family mode between the settings store, the API and the local
  * parking database. Only the latest local spot is uploaded; notes and photos
  * never leave the phone.
+ *
+ * New groups are end-to-end encrypted: [FamilyCrypto] encrypts the car label
+ * and coordinates on this phone, and the server only stores ciphertext.
  */
 class FamilyRepository(
     private val store: FamilyStore,
@@ -36,6 +39,7 @@ class FamilyRepository(
 
     private val runtime = MutableStateFlow(Runtime())
     private val mutex = Mutex()
+    private val keyVault = FamilyKeyVault()
 
     val state: StateFlow<FamilyState> = combine(store.credentials, runtime) { credentials, value ->
         FamilyState(
@@ -55,15 +59,25 @@ class FamilyRepository(
         runtime.update { it.copy(loading = true, error = null) }
         try {
             val api = apiFor(current)
-            val session = api.createGroup(label)
-            store.saveSession(
-                serverUrl = current.serverUrl,
-                groupId = session.groupId,
-                deviceId = session.deviceId,
-                deviceToken = session.deviceToken,
-                adminToken = session.adminToken,
-                inviteCode = session.inviteCode,
-                carLabel = label,
+            val material = crypto { FamilyCrypto.newGroupKeyMaterial() }
+            val wrapped = keyVault.wrap(material.groupKey)
+            val request = FamilyCryptoRequest(
+                keySalt = material.keySalt,
+                wrappedKey = material.wrappedKey,
+                keyIv = material.keyIv,
+                joinAuthHash = cryptoHash(material.inviteSecret),
+            )
+            val session = api.createGroup(label, request)
+            saveSession(
+                current = current,
+                session = session,
+                label = label,
+                inviteSecret = material.inviteSecret.takeIf {
+                    session.crypto.mode == FamilyCryptoMode.E2EE
+                },
+                wrappedGroupKey = wrapped.takeIf {
+                    session.crypto.mode == FamilyCryptoMode.E2EE
+                },
             )
             val updated = store.current()
             refreshLocked(api, updated)
@@ -76,28 +90,52 @@ class FamilyRepository(
         }
     }
 
-    suspend fun joinGroup(inviteCode: String, carLabel: String): FamilyError? = mutex.withLock {
+    suspend fun joinGroup(inviteInput: String, carLabel: String): FamilyError? = mutex.withLock {
         val current = store.current()
         val label = cleanCarLabel(carLabel) ?: return@withLock FamilyError.INVALID_NAME
-        val code = InviteCode.normalize(inviteCode) ?: return@withLock FamilyError.INVALID_CODE
+        val invite = FamilyCrypto.parseInvite(inviteInput)
+            ?: return@withLock FamilyError.INVALID_CODE
         runtime.update { it.copy(loading = true, error = null) }
+        var api: FamilyApi? = null
+        var joinedToken: String? = null
         try {
-            val api = apiFor(current)
-            val session = api.joinGroup(code, label)
-            store.saveSession(
-                serverUrl = current.serverUrl,
-                groupId = session.groupId,
-                deviceId = session.deviceId,
-                deviceToken = session.deviceToken,
-                adminToken = null,
-                inviteCode = session.inviteCode ?: code,
-                carLabel = label,
-            )
+            api = apiFor(current)
+            val authKey = invite.secret?.let { crypto { FamilyCrypto.joinAuthKey(it) } }
+            val session = api.joinGroup(invite.code, label, authKey)
+            if (session.crypto.mode == FamilyCryptoMode.E2EE) {
+                joinedToken = session.deviceToken
+                val secret = invite.secret
+                    ?: throw FamilyApiException(FamilyError.INVALID_INVITE)
+                val groupKey = unwrapGroupKey(secret, session.crypto)
+                    ?: throw FamilyApiException(FamilyError.INVALID_INVITE)
+                val wrapped = keyVault.wrap(groupKey)
+                saveSession(
+                    current = current,
+                    session = session,
+                    label = label,
+                    inviteSecret = secret,
+                    wrappedGroupKey = wrapped,
+                )
+            } else {
+                saveSession(
+                    current = current,
+                    session = session,
+                    label = label,
+                    inviteSecret = null,
+                    wrappedGroupKey = null,
+                )
+            }
+            joinedToken = null
             val updated = store.current()
             refreshLocked(api, updated)
             syncLatestLocked(api, updated)
             null
         } catch (error: Exception) {
+            // The server may have created a device before local key unwrapping
+            // failed. Remove it so a failed join does not take a group slot.
+            if (joinedToken != null && api != null) {
+                runCatching { api.leave(joinedToken) }
+            }
             fail(error)
         } finally {
             runtime.update { it.copy(loading = false) }
@@ -150,26 +188,35 @@ class FamilyRepository(
         }
     }
 
-    suspend fun updateCarLabel(carLabel: String): FamilyError? {
+    suspend fun updateCarLabel(carLabel: String): FamilyError? = mutex.withLock {
         val current = store.current()
-        val label = cleanCarLabel(carLabel) ?: return FamilyError.INVALID_NAME
-        if (!current.joined) return FamilyError.NOT_CONNECTED
-        return try {
-            apiFor(current).updateCarLabel(current.deviceToken!!, label)
-            store.setCarLabel(label)
-            runtime.update { value ->
-                value.copy(
-                    members = value.members.map { member ->
-                        if (member.deviceId == current.deviceId) {
-                            member.copy(carLabel = label)
-                        } else {
-                            member
-                        }
-                    },
-                    error = null,
-                )
+        val label = cleanCarLabel(carLabel) ?: return@withLock FamilyError.INVALID_NAME
+        if (!current.joined) return@withLock FamilyError.NOT_CONNECTED
+        store.setCarLabel(label)
+        runtime.update { value ->
+            value.copy(
+                members = value.members.map { member ->
+                    if (member.deviceId == current.deviceId) {
+                        member.copy(carLabel = label)
+                    } else {
+                        member
+                    }
+                },
+                error = null,
+            )
+        }
+        try {
+            if (current.encrypted) {
+                // The server cannot store a label for an encrypted group, so a
+                // changed label reaches the family on the next spot upload.
+                val updated = store.current()
+                val spot = parkingRepository.latestSpot()
+                if (spot != null) syncSpotLocked(apiFor(updated), updated, spot)
+                null
+            } else {
+                apiFor(current).updateCarLabel(current.deviceToken!!, label)
+                null
             }
-            null
         } catch (error: Exception) {
             fail(error)
         }
@@ -184,14 +231,28 @@ class FamilyRepository(
         return null
     }
 
-    suspend fun rotateInviteCode(): FamilyError? {
+    suspend fun rotateInviteCode(): FamilyError? = mutex.withLock {
         val current = store.current()
-        if (!current.joined) return FamilyError.NOT_CONNECTED
-        val adminToken = current.adminToken ?: return FamilyError.UNAUTHORIZED
-        return try {
-            val code = apiFor(current)
-                .rotateInviteCode(current.deviceToken!!, adminToken)
-            store.setInviteCode(code)
+        if (!current.joined) return@withLock FamilyError.NOT_CONNECTED
+        val adminToken = current.adminToken ?: return@withLock FamilyError.UNAUTHORIZED
+        return@withLock try {
+            val api = apiFor(current)
+            if (current.encrypted) {
+                val groupKey = groupKeyFor(current)
+                val secret = FamilyCrypto.newInviteSecret()
+                val wrapped = crypto { FamilyCrypto.wrapGroupKey(groupKey, secret) }
+                val request = FamilyCryptoRequest(
+                    keySalt = wrapped.keySalt,
+                    wrappedKey = wrapped.wrappedKey,
+                    keyIv = wrapped.keyIv,
+                    joinAuthHash = cryptoHash(secret),
+                )
+                val code = api.rotateInviteCode(current.deviceToken!!, adminToken, request)
+                store.setInvite(code, secret)
+            } else {
+                val code = api.rotateInviteCode(current.deviceToken!!, adminToken, null)
+                store.setInvite(code, null)
+            }
             runtime.update { it.copy(error = null) }
             null
         } catch (error: Exception) {
@@ -199,13 +260,13 @@ class FamilyRepository(
         }
     }
 
-    suspend fun leaveGroup(): FamilyError? {
+    suspend fun leaveGroup(): FamilyError? = mutex.withLock {
         val current = store.current()
         if (!current.joined) {
             clearLocalSession()
-            return null
+            return@withLock null
         }
-        return try {
+        return@withLock try {
             apiFor(current).leave(current.deviceToken!!)
             clearLocalSession()
             null
@@ -221,10 +282,44 @@ class FamilyRepository(
     private suspend fun refreshLocked(api: FamilyApi, current: FamilyCredentials): FamilyError? {
         val token = current.deviceToken ?: return FamilyError.NOT_CONNECTED
         return try {
+            val groupKey = if (current.encrypted) groupKeyFor(current) else null
             val snapshot = api.fetchSpots(token)
+            val members = snapshot.members.map { remote ->
+                val decrypted = remote.spot?.let { spot ->
+                    decryptSpot(current, remote.deviceId, remote.carLabel, spot, groupKey)
+                }
+                if (
+                    current.encrypted &&
+                    remote.deviceId == current.deviceId &&
+                    remote.spot?.payload != null &&
+                    decrypted == null
+                ) {
+                    throw FamilyApiException(FamilyError.CRYPTO)
+                }
+                val label = decrypted?.carLabel
+                    ?: remote.carLabel.takeIf { !current.encrypted }
+                    ?: current.carLabel.takeIf { remote.deviceId == current.deviceId }
+                    .orEmpty()
+                FamilyMember(
+                    deviceId = remote.deviceId,
+                    carLabel = label,
+                    lastSeenAtEpochMs = remote.lastSeenAtEpochMs,
+                    spot = decrypted?.let { payload ->
+                        FamilySpot(
+                            deviceId = remote.deviceId,
+                            carLabel = payload.carLabel,
+                            latitude = payload.latitude,
+                            longitude = payload.longitude,
+                            accuracyMeters = payload.accuracyMeters,
+                            savedAtEpochMs = payload.savedAtEpochMs,
+                            lastSeenAtEpochMs = remote.lastSeenAtEpochMs,
+                        )
+                    },
+                )
+            }
             runtime.update {
                 it.copy(
-                    members = snapshot.members,
+                    members = members,
                     lastSyncEpochMs = System.currentTimeMillis(),
                     error = null,
                 )
@@ -251,7 +346,32 @@ class FamilyRepository(
         val token = current.deviceToken ?: return FamilyError.NOT_CONNECTED
         runtime.update { it.copy(syncing = true) }
         return try {
-            api.uploadSpot(token, spot)
+            if (current.encrypted) {
+                val groupKey = groupKeyFor(current)
+                val payload = crypto {
+                    FamilyCrypto.encryptSpot(
+                        groupKey = groupKey,
+                        groupId = current.groupId!!,
+                        deviceId = current.deviceId!!,
+                        keyVersion = current.keyVersion,
+                        payload = FamilySpotPayload(
+                            carLabel = current.carLabel,
+                            latitude = spot.latitude,
+                            longitude = spot.longitude,
+                            accuracyMeters = spot.accuracyMeters?.toDouble(),
+                            savedAtEpochMs = spot.savedAtEpochMs,
+                        ),
+                    )
+                }
+                api.uploadEncryptedSpot(
+                    deviceToken = token,
+                    payload = payload,
+                    keyVersion = current.keyVersion,
+                    savedAtEpochMs = spot.savedAtEpochMs,
+                )
+            } else {
+                api.uploadSpot(token, spot)
+            }
             runtime.update {
                 it.copy(
                     syncing = false,
@@ -274,6 +394,99 @@ class FamilyRepository(
         }
     }
 
+    private fun decryptSpot(
+        current: FamilyCredentials,
+        deviceId: String,
+        remoteLabel: String,
+        spot: RemoteFamilySpot,
+        groupKey: ByteArray?,
+    ): FamilySpotPayload? {
+        if (!current.encrypted) {
+            val latitude = spot.latitude ?: return null
+            val longitude = spot.longitude ?: return null
+            val label = remoteLabel.ifBlank {
+                if (deviceId == current.deviceId) current.carLabel else ""
+            }
+            return FamilySpotPayload(
+                carLabel = label,
+                latitude = latitude,
+                longitude = longitude,
+                accuracyMeters = spot.accuracyMeters,
+                savedAtEpochMs = spot.savedAtEpochMs ?: System.currentTimeMillis(),
+            )
+        }
+        val payload = spot.payload ?: return null
+        val key = groupKey ?: return null
+        val version = spot.keyVersion ?: current.keyVersion
+        return crypto {
+            FamilyCrypto.decryptSpot(
+                groupKey = key,
+                groupId = current.groupId!!,
+                deviceId = deviceId,
+                keyVersion = version,
+                encoded = payload,
+            )
+        }
+    }
+
+    private fun saveSession(
+        current: FamilyCredentials,
+        session: FamilySession,
+        label: String,
+        inviteSecret: String?,
+        wrappedGroupKey: String?,
+    ) {
+        val mode = session.crypto.mode
+        store.saveSession(
+            serverUrl = current.serverUrl,
+            groupId = session.groupId,
+            deviceId = session.deviceId,
+            deviceToken = session.deviceToken,
+            adminToken = session.adminToken,
+            inviteCode = session.inviteCode,
+            carLabel = label,
+            cryptoMode = mode,
+            keyVersion = if (mode == FamilyCryptoMode.E2EE) {
+                session.crypto.keyVersion
+            } else {
+                FamilyCrypto.KEY_VERSION
+            },
+            wrappedGroupKey = wrappedGroupKey,
+            inviteSecret = inviteSecret,
+        )
+    }
+
+    private fun unwrapGroupKey(secret: String, crypto: FamilyCryptoInfo): ByteArray? {
+        val salt = crypto.keySalt ?: return null
+        val iv = crypto.keyIv ?: return null
+        val wrapped = crypto.wrappedKey ?: return null
+        return crypto {
+            FamilyCrypto.unwrapGroupKey(secret, salt, iv, wrapped)
+        }
+    }
+
+    private fun cryptoHash(secret: String): String = crypto {
+        FamilyCrypto.joinAuthKey(secret)
+    }
+
+    private fun groupKeyFor(current: FamilyCredentials): ByteArray {
+        if (!current.encrypted) throw FamilyApiException(FamilyError.CRYPTO)
+        val wrapped = current.wrappedGroupKey ?: throw FamilyApiException(FamilyError.CRYPTO)
+        return try {
+            keyVault.unwrap(wrapped)
+        } catch (error: Exception) {
+            throw FamilyApiException(FamilyError.CRYPTO, cause = error)
+        }
+    }
+
+    private inline fun <T> crypto(block: () -> T): T = try {
+        block()
+    } catch (error: FamilyCryptoException) {
+        throw error
+    } catch (error: Exception) {
+        throw FamilyCryptoException("Family crypto failed", error)
+    }
+
     private fun fail(error: Exception): FamilyError {
         if (error is CancellationException) throw error
         val mapped = mapError(error)
@@ -281,8 +494,11 @@ class FamilyRepository(
         return mapped
     }
 
-    private fun mapError(error: Exception): FamilyError =
-        (error as? FamilyApiException)?.error ?: FamilyError.UNKNOWN
+    private fun mapError(error: Exception): FamilyError = when (error) {
+        is FamilyApiException -> error.error
+        is FamilyCryptoException -> FamilyError.CRYPTO
+        else -> FamilyError.UNKNOWN
+    }
 
     private fun apiFor(current: FamilyCredentials): FamilyApi {
         val normalized = normalizeServerUrl(current.serverUrl)

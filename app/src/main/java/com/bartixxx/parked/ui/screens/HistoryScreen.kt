@@ -441,7 +441,7 @@ private fun SpotCard(
 }
 
 @Composable
-private fun ManualAddDialog(
+fun ManualAddDialog(
     onDismiss: () -> Unit,
     onConfirm: (String, String, String) -> Unit,
 ) {

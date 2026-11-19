@@ -22,8 +22,9 @@ Right now a spot photo can only be picked from the gallery
 
 ## Family mode follow-ups
 
-Status: v1 released in 1.2.0 (app + Worker + schema); still needs broader
-on-device testing. See [backend/README.md](backend/README.md).
+Status: v1 released in 1.2.0; car labels and server selection in 1.3.0;
+end-to-end encryption is in the next release. Still needs broader on-device
+testing. See [backend/README.md](backend/README.md).
 
 Implemented in v1:
 
@@ -39,6 +40,10 @@ Implemented in v1:
   deletes the group.
 - Worker and schema are in [`backend/`](backend/); the server URL is
   configurable, so family mode does not depend on the public instance.
+- E2EE for new groups: AES-256-GCM spot payloads, invite links with a secret in
+  the URL fragment, the group key wrapped by the Android Keystore, and no
+  plaintext label or coordinates sent to the server. Legacy plaintext groups
+  still work.
 
 Follow-ups:
 
@@ -47,6 +52,7 @@ Follow-ups:
   but the public endpoint is currently unthrottled.
 - Decide whether the group owner can kick members in addition to rotating the
   code.
-- Evaluate end-to-end encryption of uploaded coordinates (postponed).
+- Add automatic group-key rotation when a member leaves, so a member who kept
+  the old key cannot decrypt future spots.
 - Test family mode on two physical devices and fix any issues found after the
-  1.2.0 release.
+  next release.
