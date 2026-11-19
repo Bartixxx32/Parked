@@ -14,6 +14,11 @@ RETAIN_DAYS = "30"
 PHOTO_RETENTION_HOURS = "24"
 # Private Supabase Storage bucket. Create it before deploying the Worker.
 PHOTO_BUCKET = "parked-photos"
+# Emergency switch for new encrypted photo uploads. Set to "false" and
+# redeploy to stop accepting new ciphertext when the free Storage tier is
+# under pressure. Family map sharing keeps working, and pending photos can
+# still be downloaded and are deleted as usual.
+PHOTO_UPLOAD_ENABLED = "true"
 
 [triggers]
 # The hourly run enforces the photo TTL; the daily run also removes stale

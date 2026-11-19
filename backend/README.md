@@ -85,7 +85,7 @@ indexes. Review them before re-running after manual changes.
 | `PATCH` | `/v1/device` | device token | Change the caller's car label (no-op on the server for E2EE). |
 | `DELETE` | `/v1/device` | device token | Leave; deletes the device and its spot, and the group when empty. |
 | `POST` | `/v1/photos` | device token | Upload one encrypted photo. Headers: `X-Photo-Id` (UUID), `X-Photo-Iv` (12-byte base64url), `X-Key-Version`. Body is raw ciphertext. E2EE groups only. |
-| `GET` | `/v1/photos` | device token | List photos this device still has to download and acknowledge. |
+| `GET` | `/v1/photos` | device token | List photos this device still has to download and acknowledge. Also reports `uploadEnabled`. |
 | `GET` | `/v1/photos/{id}` | device token | Download the ciphertext. Returns `X-Photo-Iv` and `X-Key-Version` headers. |
 | `POST` | `/v1/photos/{id}/ack` | device token | Confirm download; the Worker deletes the photo once every recipient has acknowledged. |
 | `DELETE` | `/v1/photos/{id}` | sender only | Remove a pending photo early. |
@@ -125,6 +125,7 @@ cannot upload a spot with an arbitrary future date.
 | `413` | `body_too_large`, `photo_too_large` | JSON body above 4 KB or photo ciphertext above 2 MB. |
 | `429` | `rate_limited` | Per-IP or per-device limit exceeded. |
 | `500` | `server_error` | Backend or Supabase failure. |
+| `503` | `photos_disabled` | The operator has temporarily turned off new photo uploads. Spot sharing still works. |
 
 ## Self-hosting step by step
 
@@ -234,6 +235,22 @@ large or aged data set; those are enforced by the SQL trigger and the cron job.
   recipient acknowledges, so the free Storage tier is not used as an archive.
   Deleting a device also removes its pending uploads; leaving a group removes
   the last recipients' copies.
+- **Photo kill switch.** Set `PHOTO_UPLOAD_ENABLED = "false"` in the Worker
+  environment and deploy to stop accepting new photo uploads. Family map
+  sharing, joining and the rest of the API keep working. Already uploaded
+  photos can still be downloaded and acknowledged, and expire after
+  `PHOTO_RETENTION_HOURS`, so nothing is stranded. `GET /v1/photos` reports the
+  flag to current clients, which hide the send action instead of showing an
+  error; older clients receive a clear `503 photos_disabled` response. To turn
+  uploads back on, set the value to `"true"` (or remove it) and deploy again.
+  The same flag can be changed in the Cloudflare dashboard under
+  **Workers & Pages → parked → Settings → Variables**. From `backend/worker`
+  the quickest toggle is:
+
+  ```bash
+  npx wrangler deploy --var PHOTO_UPLOAD_ENABLED:false   # stop new photos
+  npx wrangler deploy                                     # restore wrangler.toml
+  ```
 - **Constant-time admin check.** The admin-token hash is compared with a
   constant-time loop rather than `!==`.
 - **RLS.** No policies exist for `anon` or `authenticated`; the Worker uses the

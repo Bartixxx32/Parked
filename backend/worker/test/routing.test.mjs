@@ -97,6 +97,59 @@ test("an empty car label is rejected before Supabase", async () => {
   assert.deepEqual(await response.json(), { error: "invalid_name" });
 });
 
+test("photo uploads can be disabled without breaking the rest of the API", async () => {
+  const originalFetch = globalThis.fetch;
+  const device = { id: "11111111-1111-4111-8111-111111111111", group_id: "22222222-2222-4222-8222-222222222222" };
+  globalThis.fetch = async (url) => {
+    const target = String(url);
+    if (target.includes("/rest/v1/devices?")) {
+      return new Response(JSON.stringify([device]), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    if (target.includes("/rest/v1/photo_deliveries?")) {
+      return new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    throw new Error(`unexpected fetch: ${target}`);
+  };
+  const env = {
+    SUPABASE_URL: "https://supabase.example",
+    SUPABASE_SERVICE_ROLE_KEY: "service-role",
+    PHOTO_UPLOAD_ENABLED: "false",
+  };
+  const auth = "Bearer " + "a".repeat(43);
+  try {
+    const upload = await worker.fetch(
+      request("/v1/photos", {
+        method: "POST",
+        headers: {
+          authorization: auth,
+          "x-photo-id": "123e4567-e89b-42d3-a456-426614174000",
+          "x-photo-iv": "AAAAAAAAAAAAAAAA",
+          "x-key-version": "1",
+        },
+        body: new Uint8Array(32),
+      }),
+      env,
+    );
+    assert.equal(upload.status, 503);
+    assert.deepEqual(await upload.json(), { error: "photos_disabled" });
+
+    const list = await worker.fetch(
+      request("/v1/photos", { headers: { authorization: auth } }),
+      env,
+    );
+    assert.equal(list.status, 200);
+    assert.deepEqual(await list.json(), { photos: [], uploadEnabled: false });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("rate limited requests return 429 and Retry-After", async () => {
   const env = {
     GLOBAL_LIMITER: {

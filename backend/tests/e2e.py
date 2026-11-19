@@ -585,6 +585,11 @@ def main() -> int:
             and pending[0]["iv"] == photo_iv,
             f"{status} {listed}",
         )
+        check(
+            "photo list reports uploads enabled",
+            listed.get("uploadEnabled") is True,
+            repr(listed),
+        )
         status, listed_a = request("GET", "/v1/photos", token=a["deviceToken"])
         check(
             "sender is not a photo recipient",

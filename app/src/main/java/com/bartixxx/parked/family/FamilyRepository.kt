@@ -51,6 +51,7 @@ class FamilyRepository(
         val sendingPhoto: Boolean = false,
         val pendingUpload: Boolean = false,
         val pendingDelete: Boolean = false,
+        val photoUploadEnabled: Boolean = true,
         val error: FamilyError? = null,
         val lastSyncEpochMs: Long? = null,
     )
@@ -75,6 +76,7 @@ class FamilyRepository(
                     syncing = value.syncing,
                     sendingPhoto = value.sendingPhoto,
                     pendingUpload = value.pendingUpload,
+                    photoUploadEnabled = value.photoUploadEnabled,
                     error = value.error,
                     lastSyncEpochMs = value.lastSyncEpochMs,
                     photos = storedPhotos,
@@ -214,6 +216,9 @@ class FamilyRepository(
         if (!current.encrypted) return@withLock FamilyError.CRYPTO
         val token = current.deviceToken ?: return@withLock FamilyError.NOT_CONNECTED
         val path = spot.photoPath ?: return@withLock FamilyError.NO_PHOTO
+        if (!runtime.value.photoUploadEnabled) {
+            return@withLock FamilyError.PHOTO_DISABLED
+        }
 
         runtime.update { it.copy(sendingPhoto = true, error = null) }
         try {
@@ -571,7 +576,9 @@ class FamilyRepository(
         val token = current.deviceToken ?: return FamilyError.NOT_CONNECTED
         val groupId = current.groupId ?: return FamilyError.NOT_CONNECTED
         val groupKey = groupKeyFor(current)
-        val remotePhotos = api.listPhotos(token)
+        val listing = api.listPhotos(token)
+        runtime.update { it.copy(photoUploadEnabled = listing.uploadEnabled) }
+        val remotePhotos = listing.photos
         if (remotePhotos.isEmpty()) return null
 
         val labels = runtime.value.members.associate { it.deviceId to it.carLabel }

@@ -69,6 +69,15 @@ data class RemoteFamilyPhoto(
     val expiresAtEpochMs: Long,
 )
 
+data class RemoteFamilyPhotoList(
+    val photos: List<RemoteFamilyPhoto>,
+    /**
+     * The server reports whether it still accepts new photo uploads. Older
+     * servers do not send the field and default to enabled.
+     */
+    val uploadEnabled: Boolean,
+)
+
 class FamilyApiException(
     val error: FamilyError,
     val status: Int? = null,
@@ -183,7 +192,7 @@ class FamilyApi(serverUrl: String) {
         request(method = "DELETE", path = "/v1/spot", deviceToken = deviceToken)
     }
 
-    suspend fun listPhotos(deviceToken: String): List<RemoteFamilyPhoto> {
+    suspend fun listPhotos(deviceToken: String): RemoteFamilyPhotoList {
         val response = request(
             method = "GET",
             path = "/v1/photos",
@@ -208,7 +217,10 @@ class FamilyApi(serverUrl: String) {
                 expiresAtEpochMs = epoch(item.optString("expiresAt")) ?: 0L,
             )
         }
-        return photos
+        return RemoteFamilyPhotoList(
+            photos = photos,
+            uploadEnabled = response?.optBoolean("uploadEnabled", true) ?: true,
+        )
     }
 
     suspend fun downloadPhoto(deviceToken: String, photoId: String): ByteArray =
@@ -484,6 +496,7 @@ class FamilyApi(serverUrl: String) {
             code == "invalid_crypto" || code == "crypto_required" ||
                 code == "key_version_mismatch" -> FamilyError.CRYPTO
             code == "photo_limit" -> FamilyError.PHOTO_LIMIT
+            code == "photos_disabled" -> FamilyError.PHOTO_DISABLED
             code == "photo_too_large" -> FamilyError.PHOTO_TOO_LARGE
             code == "no_recipients" -> FamilyError.NO_RECIPIENTS
             code == "invalid_name" -> FamilyError.INVALID_NAME

@@ -1,0 +1,4 @@
+• Serwer rodziny może teraz tymczasowo wyłączyć wysyłanie nowych zdjęć, gdy jego darmowa pamięć jest przeciążona. Udostępnianie lokalizacji działa dalej.
+• Gdy wysyłanie zdjęć jest wyłączone, aplikacja wyjaśnia to w Ustawieniach → Rodzina i ukrywa przycisk wysyłania zamiast pokazywać błąd.
+• Wysłane już zdjęcia nadal docierają i są usuwane z serwera jak zwykle.
+• Ten sam pakiet i klucz podpisywania — zwykła aktualizacja z 1.5.0.

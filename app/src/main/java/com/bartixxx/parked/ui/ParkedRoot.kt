@@ -251,7 +251,8 @@ fun ParkedRoot(viewModel: MainViewModel) {
                     onOpenMap = openMap,
                     canSendToFamily = family.joined &&
                         family.enabled &&
-                        family.credentials.encrypted,
+                        family.credentials.encrypted &&
+                        family.photoUploadEnabled,
                     familyPhotoSending = family.sendingPhoto,
                     onSendToFamily = viewModel::sendFamilyPhoto,
                 )

@@ -429,6 +429,13 @@ fun FamilySection(
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                 )
+                if (!state.photoUploadEnabled) {
+                    Text(
+                        text = stringResource(R.string.family_photos_disabled),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 if (state.photos.isEmpty()) {
                     Text(
                         text = stringResource(R.string.family_photos_empty),
@@ -961,6 +968,7 @@ private fun familyErrorText(error: FamilyError): String = stringResource(
         FamilyError.GROUP_FULL -> R.string.family_error_group_full
         FamilyError.CRYPTO -> R.string.family_error_crypto
         FamilyError.PHOTO_LIMIT -> R.string.family_error_photo_limit
+        FamilyError.PHOTO_DISABLED -> R.string.family_error_photo_disabled
         FamilyError.PHOTO_TOO_LARGE -> R.string.family_error_photo_too_large
         FamilyError.PHOTO_FAILED -> R.string.family_error_photo_failed
         FamilyError.NO_PHOTO -> R.string.family_error_no_photo

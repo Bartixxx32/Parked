@@ -14,6 +14,7 @@ import {
   normalizeInviteCode,
   photoBucket,
   photoRetentionHours,
+  photoUploadEnabled,
   randomToken,
   sha256Hex,
   timingSafeEqual,
@@ -131,5 +132,15 @@ test("photo bucket and retention use safe defaults", () => {
   assert.equal(photoRetentionHours({ PHOTO_RETENTION_HOURS: "48" }), 48);
   assert.equal(photoRetentionHours({ PHOTO_RETENTION_HOURS: "0" }), 1);
   assert.equal(photoRetentionHours({ PHOTO_RETENTION_HOURS: "9999" }), 168);
+  assert.equal(photoUploadEnabled({}), true);
+  assert.equal(photoUploadEnabled({ PHOTO_UPLOAD_ENABLED: "true" }), true);
+  assert.equal(photoUploadEnabled({ PHOTO_UPLOAD_ENABLED: "1" }), true);
+  for (const disabled of ["false", "FALSE", "0", "no", "off", "disabled"]) {
+    assert.equal(
+      photoUploadEnabled({ PHOTO_UPLOAD_ENABLED: disabled }),
+      false,
+      disabled,
+    );
+  }
   assert.equal(MAX_PHOTO_BYTES, 2_000_000);
 });

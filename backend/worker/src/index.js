@@ -419,6 +419,11 @@ async function deleteSpot(request, env) {
 
 async function uploadPhoto(request, env) {
   const device = await requireDevice(request, env);
+  if (!photoUploadEnabled(env)) {
+    // The operator can switch off new uploads when the free Storage tier is
+    // under pressure. Spot sharing and the rest of the API keep working.
+    throw new HttpError(503, "photos_disabled");
+  }
   await enforceRateLimit(request, env, "WRITE_LIMITER", "photo-upload", device.id);
 
   const group = await getGroup(env, device.group_id);
@@ -528,6 +533,9 @@ async function listPhotos(request, env) {
   const device = await requireDevice(request, env);
   await enforceRateLimit(request, env, "READ_LIMITER", "photo-list", device.id);
 
+  // Clients use this capability flag to hide the "Send to family" action
+  // instead of attempting an upload that the server would reject.
+  const uploadEnabled = photoUploadEnabled(env);
   const deliveries = await supabase(
     env,
     `photo_deliveries?device_id=eq.${device.id}&acked_at=is.null&select=photo_id&limit=20`,
@@ -539,7 +547,7 @@ async function listPhotos(request, env) {
         .filter(Boolean),
     ),
   ];
-  if (ids.length === 0) return json({ photos: [] });
+  if (ids.length === 0) return json({ photos: [], uploadEnabled });
 
   const photos = await supabase(
     env,
@@ -555,6 +563,7 @@ async function listPhotos(request, env) {
       createdAt: photo.created_at,
       expiresAt: photo.expires_at,
     })),
+    uploadEnabled,
   });
 }
 
@@ -1104,6 +1113,20 @@ function photoRetentionHours(env) {
   );
 }
 
+/**
+ * Emergency switch for new encrypted photo uploads. Set
+ * PHOTO_UPLOAD_ENABLED=false in the Worker environment to stop accepting new
+ * ciphertext without breaking family map sharing. Pending photos can still be
+ * downloaded, acknowledged and deleted, so no upload is left stranded.
+ */
+function photoUploadEnabled(env) {
+  const raw = env?.PHOTO_UPLOAD_ENABLED;
+  if (typeof raw !== "string") return true;
+  return !["0", "false", "no", "off", "disabled"].includes(
+    raw.trim().toLowerCase(),
+  );
+}
+
 function storageObjectUrl(env, path) {
   if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
     throw new HttpError(500, "server_error");
@@ -1364,6 +1387,7 @@ export {
   parseCryptoPayload,
   photoBucket,
   photoRetentionHours,
+  photoUploadEnabled,
   randomToken,
   sha256Hex,
   timingSafeEqual,

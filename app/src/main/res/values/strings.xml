@@ -345,6 +345,7 @@
     <string name="family_photos">Family photos</string>
     <string name="family_photos_empty">Photos sent by family members will appear here after they are downloaded.</string>
     <string name="family_photos_help">Encrypted on the sender’s phone and deleted from the server once every family phone has downloaded them.</string>
+    <string name="family_photos_disabled">The family server has temporarily turned off new photos. Location sharing keeps working and photos already sent will still arrive.</string>
     <string name="family_photo_sending">Sending photo…</string>
     <string name="family_send_photo">Send to family</string>
     <string name="family_send_photo_title">Send this photo to your family?</string>
@@ -393,6 +394,7 @@
     <string name="family_error_rate_limited">Too many attempts. Wait a moment and try again.</string>
     <string name="family_error_group_full">This family group is full (20 cars).</string>
     <string name="family_error_photo_limit">There are already several photos waiting for the family. Try again after they are downloaded or after 24 hours.</string>
+    <string name="family_error_photo_disabled">Photo sending is temporarily disabled by the family server. Location sharing still works.</string>
     <string name="family_error_photo_too_large">This photo is too large to send. Try a smaller photo.</string>
     <string name="family_error_photo_failed">Could not prepare this photo for sending. Try another photo.</string>
     <string name="family_error_no_photo">This spot has no photo to send.</string>

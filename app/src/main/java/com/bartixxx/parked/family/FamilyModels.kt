@@ -72,6 +72,7 @@ enum class FamilyError {
     GROUP_FULL,
     CRYPTO,
     PHOTO_LIMIT,
+    PHOTO_DISABLED,
     PHOTO_TOO_LARGE,
     PHOTO_FAILED,
     NO_PHOTO,
@@ -87,6 +88,11 @@ data class FamilyState(
     val syncing: Boolean = false,
     val sendingPhoto: Boolean = false,
     val pendingUpload: Boolean = false,
+    /**
+     * False when the family server has temporarily disabled new photo uploads.
+     * The UI hides the send action; existing photos still download normally.
+     */
+    val photoUploadEnabled: Boolean = true,
     val error: FamilyError? = null,
     val lastSyncEpochMs: Long? = null,
     /** Family photos already downloaded and decrypted on this phone. */

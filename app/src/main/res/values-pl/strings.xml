@@ -347,6 +347,7 @@
     <string name="family_photos">Zdjęcia rodziny</string>
     <string name="family_photos_empty">Zdjęcia wysłane przez rodzinę pojawią się tutaj po pobraniu.</string>
     <string name="family_photos_help">Szyfrowane na telefonie nadawcy i usuwane z serwera, gdy wszystkie telefony rodziny je pobiorą.</string>
+    <string name="family_photos_disabled">Serwer rodziny tymczasowo wyłączył wysyłanie nowych zdjęć. Udostępnianie lokalizacji działa dalej, a wysłane już zdjęcia nadal dotrą.</string>
     <string name="family_photo_sending">Wysyłanie zdjęcia…</string>
     <string name="family_send_photo">Wyślij rodzinie</string>
     <string name="family_send_photo_title">Wysłać to zdjęcie rodzinie?</string>
@@ -395,6 +396,7 @@
     <string name="family_error_rate_limited">Zbyt wiele prób. Odczekaj chwilę i spróbuj ponownie.</string>
     <string name="family_error_group_full">Ta grupa rodzinna jest pełna (20 aut).</string>
     <string name="family_error_photo_limit">Na rodzinę czeka już kilka zdjęć. Spróbuj ponownie po ich pobraniu lub po 24 godzinach.</string>
+    <string name="family_error_photo_disabled">Wysyłanie zdjęć jest tymczasowo wyłączone przez serwer rodziny. Udostępnianie lokalizacji nadal działa.</string>
     <string name="family_error_photo_too_large">To zdjęcie jest za duże do wysłania. Spróbuj mniejszego zdjęcia.</string>
     <string name="family_error_photo_failed">Nie udało się przygotować zdjęcia do wysłania. Spróbuj innego zdjęcia.</string>
     <string name="family_error_no_photo">To miejsce nie ma zdjęcia do wysłania.</string>
