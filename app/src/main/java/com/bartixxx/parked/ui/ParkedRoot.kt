@@ -254,6 +254,7 @@ fun ParkedRoot(viewModel: MainViewModel) {
                         family.credentials.encrypted &&
                         family.photoUploadEnabled,
                     familyPhotoSending = family.sendingPhoto,
+                    familySentSpotIds = family.sentPhotoSpotIds,
                     onSendToFamily = viewModel::sendFamilyPhoto,
                 )
 

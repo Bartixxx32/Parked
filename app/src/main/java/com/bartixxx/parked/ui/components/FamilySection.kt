@@ -402,6 +402,7 @@ fun FamilySection(
                         isYou = member.deviceId == credentials.deviceId,
                         spotAge = member.spot?.savedAtEpochMs
                             ?.let { Formatters.age(it) },
+                        note = member.spot?.note.orEmpty(),
                     )
                 }
             }
@@ -727,28 +728,40 @@ private fun FamilyMemberRow(
     deviceId: String,
     isYou: Boolean,
     spotAge: String?,
+    note: String,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Icon(
-            imageVector = Icons.Filled.DirectionsCar,
-            contentDescription = null,
-            tint = Color(FamilyPalette.colorFor(deviceId)),
-            modifier = Modifier.size(20.dp),
-        )
-        Text(
-            text = carLabel + if (isYou) " (${stringResource(R.string.family_you)})" else "",
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.weight(1f),
-        )
-        Text(
-            text = spotAge ?: stringResource(R.string.family_no_spot),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Filled.DirectionsCar,
+                contentDescription = null,
+                tint = Color(FamilyPalette.colorFor(deviceId)),
+                modifier = Modifier.size(20.dp),
+            )
+            Text(
+                text = carLabel + if (isYou) " (${stringResource(R.string.family_you)})" else "",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = spotAge ?: stringResource(R.string.family_no_spot),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (note.isNotBlank()) {
+            Text(
+                text = note,
+                style = MaterialTheme.typography.bodySmall,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(start = 30.dp),
+            )
+        }
     }
 }
 
@@ -981,6 +994,7 @@ private fun familyErrorText(error: FamilyError): String = stringResource(
         FamilyError.PHOTO_DISABLED -> R.string.family_error_photo_disabled
         FamilyError.PHOTO_TOO_LARGE -> R.string.family_error_photo_too_large
         FamilyError.PHOTO_FAILED -> R.string.family_error_photo_failed
+        FamilyError.PHOTO_ALREADY_SENT -> R.string.family_error_photo_already_sent
         FamilyError.NO_PHOTO -> R.string.family_error_no_photo
         FamilyError.NO_RECIPIENTS -> R.string.family_error_no_recipients
         FamilyError.SERVER -> R.string.family_error_server

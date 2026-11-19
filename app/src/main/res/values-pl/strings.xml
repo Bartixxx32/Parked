@@ -354,6 +354,7 @@
     <string name="family_photos_help">Szyfrowane na telefonie nadawcy i usuwane z serwera, gdy wszystkie telefony rodziny je pobiorą. Jeśli nadawca usunie oryginał, zdjęcie znika także z telefonów rodziny.</string>
     <string name="family_photos_disabled">Serwer rodziny tymczasowo wyłączył wysyłanie nowych zdjęć. Udostępnianie lokalizacji działa dalej, a wysłane już zdjęcia nadal dotrą.</string>
     <string name="family_photo_sending">Wysyłanie zdjęcia…</string>
+    <string name="family_photo_sent">Wysłano rodzinie</string>
     <string name="family_send_photo">Wyślij rodzinie</string>
     <string name="family_send_photo_title">Wysłać to zdjęcie rodzinie?</string>
     <string name="family_send_photo_message">Zdjęcie jest szyfrowane end-to-end i tymczasowo przechowywane na serwerze rodziny. Zostanie usunięte, gdy wszystkie telefony rodziny je pobiorą, najpóźniej po 24 godzinach. Jeśli później usuniesz zdjęcie tutaj, zostanie wycofane z serwera i z telefonów rodziny.</string>
@@ -404,6 +405,7 @@
     <string name="family_error_photo_disabled">Wysyłanie zdjęć jest tymczasowo wyłączone przez serwer rodziny. Udostępnianie lokalizacji nadal działa.</string>
     <string name="family_error_photo_too_large">To zdjęcie jest za duże do wysłania. Spróbuj mniejszego zdjęcia.</string>
     <string name="family_error_photo_failed">Nie udało się przygotować zdjęcia do wysłania. Spróbuj innego zdjęcia.</string>
+    <string name="family_error_photo_already_sent">To zdjęcie już czeka na rodzinę lub zostało dostarczone. Zmień zdjęcie, aby wysłać nowe.</string>
     <string name="family_error_no_photo">To miejsce nie ma zdjęcia do wysłania.</string>
     <string name="family_error_no_recipients">Żaden inny członek rodziny jeszcze nie dołączył, więc nie ma komu wysłać zdjęcia.</string>
     <string name="family_error_server">Serwer rodziny zwrócił błąd. Spróbuj później.</string>

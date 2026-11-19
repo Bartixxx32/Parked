@@ -272,7 +272,14 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
     fun attachPhoto(spotId: Long, uri: Uri) {
         viewModelScope.launch {
             container.parkingRepository.attachPhoto(spotId, uri)
-                .onSuccess { message(appContext.getString(R.string.msg_photo_added)) }
+                .onSuccess {
+                    message(appContext.getString(R.string.msg_photo_added))
+                    // Replacing a photo makes the previous family copy stale.
+                    // Retract it so the family sees only the new image.
+                    container.familyRepository.revokePhotosForSpot(spotId)?.let { error ->
+                        message(familyErrorMessage(error))
+                    }
+                }
                 .onFailure {
                     message(
                         appContext.getString(
@@ -604,6 +611,7 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
             FamilyError.PHOTO_DISABLED -> R.string.family_error_photo_disabled
             FamilyError.PHOTO_TOO_LARGE -> R.string.family_error_photo_too_large
             FamilyError.PHOTO_FAILED -> R.string.family_error_photo_failed
+            FamilyError.PHOTO_ALREADY_SENT -> R.string.family_error_photo_already_sent
             FamilyError.NO_PHOTO -> R.string.family_error_no_photo
             FamilyError.NO_RECIPIENTS -> R.string.family_error_no_recipients
             FamilyError.SERVER -> R.string.family_error_server

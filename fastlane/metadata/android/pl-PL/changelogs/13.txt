@@ -1,0 +1,4 @@
+• Wysłane zdjęcie ma teraz oznaczenie „Wysłano rodzinie” i nie da się go przypadkowo wysłać drugi raz. Zmień zdjęcie, aby wysłać nowe.
+• Notatki rodziny są widoczne na liście Samochody w ustawieniach Rodziny, obok nazwy auta.
+• Notatki nadal są opcjonalne i szyfrowane end-to-end; włącz „Udostępniaj ostatnią notatkę” na telefonie nadawcy.
+• Zwykła aktualizacja z 1.5.1.

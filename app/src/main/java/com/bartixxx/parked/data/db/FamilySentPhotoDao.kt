@@ -4,12 +4,25 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface FamilySentPhotoDao {
 
     @Query("SELECT * FROM family_sent_photos WHERE spotId = :spotId")
     suspend fun forSpot(spotId: Long): List<FamilySentPhotoEntity>
+
+    @Query(
+        "SELECT * FROM family_sent_photos " +
+            "WHERE groupId = :groupId AND revokeRequested = 0",
+    )
+    fun observeActiveForGroup(groupId: String): Flow<List<FamilySentPhotoEntity>>
+
+    @Query(
+        "SELECT COUNT(*) FROM family_sent_photos " +
+            "WHERE spotId = :spotId AND revokeRequested = 0",
+    )
+    suspend fun activeCountForSpot(spotId: Long): Int
 
     @Query(
         "SELECT * FROM family_sent_photos " +

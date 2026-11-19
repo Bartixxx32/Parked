@@ -1,0 +1,4 @@
+• A sent photo is now marked “Sent to family” and cannot be uploaded twice by accident. Change the photo to send a new one.
+• Family notes are shown on the Cars list in Family settings, next to the car label.
+• Notes remain optional and end-to-end encrypted; enable “Share the latest note” on the sender’s phone.
+• Normal update over 1.5.1.

@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Edit
@@ -86,6 +87,7 @@ fun HistoryScreen(
     onOpenMap: (ParkingSpot) -> Unit,
     canSendToFamily: Boolean,
     familyPhotoSending: Boolean,
+    familySentSpotIds: Set<Long>,
     onSendToFamily: (ParkingSpot) -> Unit,
 ) {
     val context = LocalContext.current
@@ -235,6 +237,7 @@ fun HistoryScreen(
                     onUpdateNote = { note -> onUpdateNote(spot.id, note) },
                     canSendToFamily = canSendToFamily,
                     familyPhotoSending = familyPhotoSending,
+                    photoSent = spot.id in familySentSpotIds,
                     onSendPhoto = { sendTarget = spot },
                 )
             }
@@ -411,6 +414,7 @@ private fun SpotCard(
     onUpdateNote: (String) -> Unit,
     canSendToFamily: Boolean,
     familyPhotoSending: Boolean,
+    photoSent: Boolean,
     onSendPhoto: () -> Unit,
 ) {
     var editing by remember(spot.id) { mutableStateOf(false) }
@@ -564,20 +568,20 @@ private fun SpotCard(
                     FilledTonalButton(
                         onClick = onSendPhoto,
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = !familyPhotoSending,
+                        enabled = !familyPhotoSending && !photoSent,
                     ) {
                         Icon(
-                            Icons.Filled.Send,
+                            if (photoSent) Icons.Filled.Check else Icons.Filled.Send,
                             contentDescription = null,
                             modifier = Modifier.size(16.dp),
                         )
                         Spacer(Modifier.size(4.dp))
                         Text(
                             stringResource(
-                                if (familyPhotoSending) {
-                                    R.string.family_photo_sending
-                                } else {
-                                    R.string.family_send_photo
+                                when {
+                                    photoSent -> R.string.family_photo_sent
+                                    familyPhotoSending -> R.string.family_photo_sending
+                                    else -> R.string.family_send_photo
                                 },
                             ),
                         )

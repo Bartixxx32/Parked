@@ -75,7 +75,10 @@ class FamilyRepository(
         .flatMapLatest { (credentials, value) ->
             val photos = credentials.groupId?.let(photoDao::observeForGroup)
                 ?: flowOf(emptyList())
-            photos.map { storedPhotos ->
+            val sentPhotos = credentials.groupId
+                ?.let(sentPhotoDao::observeActiveForGroup)
+                ?: flowOf(emptyList())
+            combine(photos, sentPhotos) { storedPhotos, activeSentPhotos ->
                 FamilyState(
                     credentials = credentials,
                     members = value.members,
@@ -87,6 +90,7 @@ class FamilyRepository(
                     error = value.error,
                     lastSyncEpochMs = value.lastSyncEpochMs,
                     photos = storedPhotos,
+                    sentPhotoSpotIds = activeSentPhotos.map { it.spotId }.toSet(),
                 )
             }
         }
@@ -225,6 +229,11 @@ class FamilyRepository(
         val path = spot.photoPath ?: return@withLock FamilyError.NO_PHOTO
         if (!runtime.value.photoUploadEnabled) {
             return@withLock FamilyError.PHOTO_DISABLED
+        }
+        // One family copy per spot photo. The History screen also disables the
+        // button, but a quick double tap can still queue two calls.
+        if (sentPhotoDao.activeCountForSpot(spot.id) > 0) {
+            return@withLock FamilyError.PHOTO_ALREADY_SENT
         }
 
         runtime.update { it.copy(sendingPhoto = true, error = null) }

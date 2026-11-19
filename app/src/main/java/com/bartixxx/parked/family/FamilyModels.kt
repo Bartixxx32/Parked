@@ -79,6 +79,7 @@ enum class FamilyError {
     PHOTO_DISABLED,
     PHOTO_TOO_LARGE,
     PHOTO_FAILED,
+    PHOTO_ALREADY_SENT,
     NO_PHOTO,
     NO_RECIPIENTS,
     SERVER,
@@ -101,6 +102,11 @@ data class FamilyState(
     val lastSyncEpochMs: Long? = null,
     /** Family photos already downloaded and decrypted on this phone. */
     val photos: List<FamilyPhotoEntity> = emptyList(),
+    /**
+     * Spots whose current photo was already sent to the family. The History
+     * screen disables the send action until the photo is changed or removed.
+     */
+    val sentPhotoSpotIds: Set<Long> = emptySet(),
 ) {
     val joined: Boolean
         get() = credentials.joined
