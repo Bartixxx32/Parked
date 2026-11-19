@@ -81,11 +81,11 @@ commit the PNGs under `phoneScreenshots/` for both locales before tagging a rele
 
 The complete recipe is kept in
 [`docs/fdroiddata/com.bartixxx.parked.yml`](fdroiddata/com.bartixxx.parked.yml).
-The newest `Builds` entry points at the `v1.5.1` tag commit, plus the follow-up
-commit that added `backend/worker/package-lock.json` (F-Droid rejects a
-`package.json` without a lockfile and the tag was cut before that fix). For
-later releases, add a new entry with the full SHA of the new tag before
-submitting. F-Droid builds from that commit, never from a moving branch.
+The newest `Builds` entry points at the `v1.5.2` tag commit, which already
+contains `backend/worker/package-lock.json` (F-Droid rejects a `package.json`
+without a lockfile). For later releases, add a new entry with the full SHA of
+the new tag before submitting. F-Droid builds from that commit, never from a
+moving branch.
 
 Checklist before opening the merge request:
 
