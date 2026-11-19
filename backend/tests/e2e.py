@@ -642,6 +642,41 @@ def main() -> int:
             f"{status} {body}",
         )
 
+        # The sender can still retract a photo that was already downloaded and
+        # deleted on the server. The recipient learns the id through the list
+        # and removes its local copy.
+        status, _, _ = binary_request(
+            "DELETE", f"/v1/photos/{photo_id}", token=b["deviceToken"]
+        )
+        check(
+            "recipient cannot retract an acknowledged photo",
+            status == 403,
+            f"{status}",
+        )
+        status, _, body = binary_request(
+            "DELETE", f"/v1/photos/{photo_id}", token=a["deviceToken"]
+        )
+        check(
+            "sender can retract a delivered photo",
+            status == 204,
+            f"{status} {body}",
+        )
+        status, listed = request("GET", "/v1/photos", token=b["deviceToken"])
+        revoked = (listed or {}).get("revokedPhotoIds") or []
+        check(
+            "recipient is told which delivered photo was retracted",
+            status == 200 and photo_id in revoked,
+            f"{status} {listed}",
+        )
+        status, _, body = binary_request(
+            "DELETE", f"/v1/photos/{photo_id}", token=a["deviceToken"]
+        )
+        check(
+            "repeating a retraction is idempotent",
+            status == 204,
+            f"{status} {body}",
+        )
+
         early_photo_id = str(uuid.uuid4())
         early_iv, early_ciphertext = encrypt_photo(
             group_key,
@@ -674,6 +709,11 @@ def main() -> int:
         check(
             "sender deletion removes the photo from the recipient",
             status == 200 and not ((listed or {}).get("photos") or []),
+            repr(listed),
+        )
+        check(
+            "pending deletion is also reported as a retraction",
+            early_photo_id in ((listed or {}).get("revokedPhotoIds") or []),
             repr(listed),
         )
 

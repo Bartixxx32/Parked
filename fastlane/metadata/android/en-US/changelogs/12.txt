@@ -1,3 +1,6 @@
+• Deleting a spot photo now withdraws it from the family: the server copy is removed and family phones delete their downloaded copy, even if the photo was already delivered.
+• Tap a pin on the map to preview its photo, then tap the preview for a full-screen pinch-zoom view.
+• Optional: share the note on your latest spot inside the encrypted family update. Off by default, and older notes stay on this phone.
 • The family server can now temporarily turn off new photo uploads when its free storage is under pressure. Location sharing keeps working.
 • When photo sending is disabled, the app explains it in Settings → Family and hides the send action instead of showing an error.
 • Photos already sent are still delivered and removed from the server as usual.

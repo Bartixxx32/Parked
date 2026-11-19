@@ -77,6 +77,10 @@ class FamilyStore(private val context: Context) {
         context.familyDataStore.edit { it[Keys.ENABLED] = enabled }
     }
 
+    suspend fun setShareNote(enabled: Boolean) {
+        context.familyDataStore.edit { it[Keys.SHARE_NOTE] = enabled }
+    }
+
     suspend fun setServerUrl(url: String) {
         context.familyDataStore.edit { it[Keys.SERVER_URL] = url }
     }
@@ -109,6 +113,7 @@ class FamilyStore(private val context: Context) {
 
     private fun Preferences.toCredentials(): FamilyCredentials = FamilyCredentials(
         enabled = this[Keys.ENABLED] ?: false,
+        shareNote = this[Keys.SHARE_NOTE] ?: false,
         serverUrl = this[Keys.SERVER_URL]?.takeIf { it.isNotBlank() }
             ?: DEFAULT_FAMILY_SERVER,
         groupId = this[Keys.GROUP_ID]?.takeIf { it.isNotBlank() },
@@ -125,6 +130,7 @@ class FamilyStore(private val context: Context) {
 
     private object Keys {
         val ENABLED = booleanPreferencesKey("family_enabled")
+        val SHARE_NOTE = booleanPreferencesKey("family_share_note")
         val SERVER_URL = stringPreferencesKey("family_server_url")
         val GROUP_ID = stringPreferencesKey("family_group_id")
         val DEVICE_ID = stringPreferencesKey("family_device_id")

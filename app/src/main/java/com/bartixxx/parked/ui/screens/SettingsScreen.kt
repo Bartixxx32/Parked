@@ -65,6 +65,7 @@ fun SettingsScreen(
     onRefreshFamily: () -> Unit,
     onRotateFamilyCode: () -> Unit,
     onSetFamilyEnabled: (Boolean) -> Unit,
+    onSetFamilyShareNote: (Boolean) -> Unit,
     onSetFamilyCarLabel: (String) -> Unit,
     onSetFamilyServerUrl: (String) -> Unit,
 ) {
@@ -248,6 +249,7 @@ fun SettingsScreen(
                 onRefresh = onRefreshFamily,
                 onRotate = onRotateFamilyCode,
                 onSetEnabled = onSetFamilyEnabled,
+                onSetShareNote = onSetFamilyShareNote,
                 onSetCarLabel = onSetFamilyCarLabel,
                 onSetServerUrl = onSetFamilyServerUrl,
             )

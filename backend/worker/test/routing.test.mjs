@@ -114,6 +114,12 @@ test("photo uploads can be disabled without breaking the rest of the API", async
         headers: { "content-type": "application/json" },
       });
     }
+    if (target.includes("/rest/v1/photo_records?")) {
+      return new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
     throw new Error(`unexpected fetch: ${target}`);
   };
   const env = {
@@ -144,7 +150,211 @@ test("photo uploads can be disabled without breaking the rest of the API", async
       env,
     );
     assert.equal(list.status, 200);
-    assert.deepEqual(await list.json(), { photos: [], uploadEnabled: false });
+    assert.deepEqual(await list.json(), {
+      photos: [],
+      uploadEnabled: false,
+      revokedPhotoIds: [],
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("photo listing reports retracted ids to family phones", async () => {
+  const originalFetch = globalThis.fetch;
+  const device = { id: "11111111-1111-4111-8111-111111111111", group_id: "22222222-2222-4222-8222-222222222222" };
+  const revokedId = "33333333-3333-4333-8333-333333333333";
+  globalThis.fetch = async (url) => {
+    const target = String(url);
+    if (target.includes("/rest/v1/devices?")) {
+      return new Response(JSON.stringify([device]), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    if (target.includes("/rest/v1/photo_deliveries?")) {
+      return new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    if (target.includes("/rest/v1/photo_records?")) {
+      return new Response(JSON.stringify([{ photo_id: revokedId }]), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    throw new Error(`unexpected fetch: ${target}`);
+  };
+  try {
+    const response = await worker.fetch(
+      request("/v1/photos", {
+        headers: { authorization: "Bearer " + "a".repeat(43) },
+      }),
+      {
+        SUPABASE_URL: "https://supabase.example",
+        SUPABASE_SERVICE_ROLE_KEY: "service-role",
+      },
+    );
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      photos: [],
+      uploadEnabled: true,
+      revokedPhotoIds: [revokedId],
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("a sender can retract a delivered photo through its ownership record", async () => {
+  const originalFetch = globalThis.fetch;
+  const device = { id: "11111111-1111-4111-8111-111111111111", group_id: "22222222-2222-4222-8222-222222222222" };
+  const photoId = "33333333-3333-4333-8333-333333333333";
+  let revokedPatch = null;
+  globalThis.fetch = async (url, init = {}) => {
+    const target = String(url);
+    if (target.includes("/rest/v1/devices?")) {
+      return new Response(JSON.stringify([device]), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    if (target.includes(`/rest/v1/photos?`)) {
+      return new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    if (target.includes(`/rest/v1/photo_records?photo_id=eq.${photoId}`)) {
+      if (init.method === "PATCH") {
+        revokedPatch = JSON.parse(init.body);
+        return new Response(null, { status: 204 });
+      }
+      return new Response(
+        JSON.stringify([{ photo_id: photoId, sender_device_id: device.id }]),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    throw new Error(`unexpected fetch: ${target}`);
+  };
+  try {
+    const response = await worker.fetch(
+      request(`/v1/photos/${photoId}`, {
+        method: "DELETE",
+        headers: { authorization: "Bearer " + "a".repeat(43) },
+      }),
+      {
+        SUPABASE_URL: "https://supabase.example",
+        SUPABASE_SERVICE_ROLE_KEY: "service-role",
+      },
+    );
+    assert.equal(response.status, 204);
+    assert.ok(revokedPatch?.revoked_at);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("another family member cannot retract someone else's photo", async () => {
+  const originalFetch = globalThis.fetch;
+  const device = { id: "11111111-1111-4111-8111-111111111111", group_id: "22222222-2222-4222-8222-222222222222" };
+  const photoId = "33333333-3333-4333-8333-333333333333";
+  let patched = false;
+  globalThis.fetch = async (url, init = {}) => {
+    const target = String(url);
+    if (target.includes("/rest/v1/devices?")) {
+      return new Response(JSON.stringify([device]), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    if (target.includes(`/rest/v1/photos?`)) {
+      return new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    if (target.includes(`/rest/v1/photo_records?photo_id=eq.${photoId}`)) {
+      if (init.method === "PATCH") {
+        patched = true;
+        return new Response(null, { status: 204 });
+      }
+      return new Response(
+        JSON.stringify([
+          {
+            photo_id: photoId,
+            sender_device_id: "44444444-4444-4444-8444-444444444444",
+          },
+        ]),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    throw new Error(`unexpected fetch: ${target}`);
+  };
+  try {
+    const response = await worker.fetch(
+      request(`/v1/photos/${photoId}`, {
+        method: "DELETE",
+        headers: { authorization: "Bearer " + "a".repeat(43) },
+      }),
+      {
+        SUPABASE_URL: "https://supabase.example",
+        SUPABASE_SERVICE_ROLE_KEY: "service-role",
+      },
+    );
+    assert.equal(response.status, 403);
+    assert.deepEqual(await response.json(), { error: "forbidden" });
+    assert.equal(patched, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("leaving a group retracts the member's photo records", async () => {
+  const originalFetch = globalThis.fetch;
+  const device = { id: "11111111-1111-4111-8111-111111111111", group_id: "22222222-2222-4222-8222-222222222222" };
+  let revokedPatch = null;
+  globalThis.fetch = async (url, init = {}) => {
+    const target = String(url);
+    if (target.includes("/rest/v1/devices?")) {
+      if (init.method === "DELETE") return new Response(null, { status: 204 });
+      if (target.includes("id=neq.")) {
+        return new Response(JSON.stringify([{ id: "other" }]), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify([device]), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    if (target.includes("/rest/v1/photo_records?")) {
+      revokedPatch = JSON.parse(init.body);
+      return new Response(null, { status: 204 });
+    }
+    if (target.includes("/rest/v1/photos?")) {
+      return new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    throw new Error(`unexpected fetch: ${target}`);
+  };
+  try {
+    const response = await worker.fetch(
+      request("/v1/device", {
+        method: "DELETE",
+        headers: { authorization: "Bearer " + "a".repeat(43) },
+      }),
+      {
+        SUPABASE_URL: "https://supabase.example",
+        SUPABASE_SERVICE_ROLE_KEY: "service-role",
+      },
+    );
+    assert.equal(response.status, 204);
+    assert.ok(revokedPatch?.revoked_at);
   } finally {
     globalThis.fetch = originalFetch;
   }

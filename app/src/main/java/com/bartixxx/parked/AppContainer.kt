@@ -27,7 +27,7 @@ class AppContainer(context: Context) {
 
     val database: AppDatabase by lazy {
         Room.databaseBuilder(appContext, AppDatabase::class.java, "parked.db")
-            .addMigrations(AppDatabase.MIGRATION_1_2)
+            .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3)
             .build()
     }
 
@@ -51,6 +51,7 @@ class AppContainer(context: Context) {
             store = familyStore,
             parkingRepository = parkingRepository,
             photoDao = database.familyPhotoDao(),
+            sentPhotoDao = database.familySentPhotoDao(),
             scope = applicationScope,
         )
     }

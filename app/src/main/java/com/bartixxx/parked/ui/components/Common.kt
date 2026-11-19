@@ -96,7 +96,12 @@ fun StatusDot(color: Color, size: Int = 10) {
 }
 
 @Composable
-fun SpotPhoto(path: String, modifier: Modifier = Modifier, maxSize: Int = 1400) {
+fun SpotPhoto(
+    path: String,
+    modifier: Modifier = Modifier,
+    maxSize: Int = 1400,
+    contentScale: ContentScale = ContentScale.Crop,
+) {
     val bitmap by produceState<ImageBitmap?>(initialValue = null, key1 = path) {
         value = withContext(Dispatchers.IO) {
             decodeSampledBitmap(path, maxSize = maxSize)?.asImageBitmap()
@@ -108,7 +113,7 @@ fun SpotPhoto(path: String, modifier: Modifier = Modifier, maxSize: Int = 1400) 
             bitmap = image,
             contentDescription = stringResource(R.string.photo_content_description),
             modifier = modifier,
-            contentScale = ContentScale.Crop,
+            contentScale = contentScale,
         )
     } else {
         Box(

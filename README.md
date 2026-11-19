@@ -42,12 +42,15 @@ dependencies — no Google Play Services.
 - Optional family mode, off by default: create or join a group with an invite link and
   see each member's latest parked car on the map. Every car has a label (model,
   nickname or registration plate). New groups are end-to-end encrypted: the single
-  latest spot is uploaded as ciphertext and only family phones can read the label and
-  coordinates; notes stay local. A spot photo can be sent explicitly to the family;
-  it is encrypted on the phone, stored temporarily and deleted from the server once
-  every family phone downloads it (or after 24 hours). The public server works out of
-  the box; the backend is also self-hostable and the app can point at any HTTPS
-  instance (see [backend/README.md](backend/README.md)).
+  latest spot is uploaded as ciphertext and only family phones can read the label,
+  coordinates and an optionally shared note. A spot photo can be sent explicitly to
+  the family; it is encrypted on the phone, stored temporarily and deleted from the
+  server once every family phone downloads it (or after 24 hours). Deleting the
+  original photo on the sender's phone retracts it from the server and from family
+  phones even after delivery. Tapping a pin previews the spot photo and opens a
+  full-screen pinch-zoom view. The public server works out of the box; the backend is
+  also self-hostable and the app can point at any HTTPS instance (see
+  [backend/README.md](backend/README.md)).
 - History export to **JSON**, **CSV** and **GPX** via the system file picker.
 - Diagnostics screen: service state, permissions, GPS test and local logs (max 300
   entries).

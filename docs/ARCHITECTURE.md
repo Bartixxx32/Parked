@@ -198,9 +198,11 @@ canvas (fixed size, colour depending on fallback, halo for the selected point), 
 do not depend on osmdroid's default balloons. The selected point also gets a subtle
 accuracy circle: its centre is the exact coordinate (the pin tip), and the radius comes
 from `accuracyMeters`, corrected for latitude. Tapping a pin selects the spot, and the
-bottom card shows the date, coordinates, accuracy, fix source, note and a navigation
-button. Map position and zoom are stored in `rememberSaveable`, so switching tabs does
-not reset them.
+bottom card shows the date, coordinates, accuracy, fix source, note, a photo preview
+and a navigation button. Tapping the preview opens a full-screen pinch-zoom view.
+Family pins show the photo the sender attached to that exact spot, if it is still
+available. Map position and zoom are stored in `rememberSaveable`, so switching tabs
+does not reset them.
 
 The compass (`TargetCompass`) draws a dial rotated by the current device azimuth and a
 needle pointing at the target bearing. The azimuth comes from `TYPE_ROTATION_VECTOR`, or
@@ -233,12 +235,14 @@ has no permission to access all storage.
 ## Security and privacy
 
 - No `INTERNET` use except OpenStreetMap tiles and the optional, opt-in family
-  sync. Notes are never uploaded; family mode shares only the latest
-  spot, and new groups encrypt its car label, coordinates, accuracy and
-  timestamps before upload. A spot photo is uploaded only when the user
-  explicitly chooses **Send to family**; it is encrypted on the phone and
-  deleted from the server once every family phone confirms the download. The
-  default family server works without configuration; a self-hosted HTTPS
+  sync. Family mode shares only the latest spot, and new groups encrypt its car
+  label, coordinates, accuracy, timestamps and an optionally shared note before
+  upload; notes stay local unless the user enables note sharing. A spot photo is
+  uploaded only when the user explicitly chooses **Send to family**; it is
+  encrypted on the phone and deleted from the server once every family phone
+  confirms the download. Deleting the local original retracts the photo from the
+  server and from family phones, including copies that were already downloaded.
+  The default family server works without configuration; a self-hosted HTTPS
   server can be set in **Settings → Family → Server**.
 - `android:usesCleartextTraffic="false"`.
 - Backup disabled, no system data export.

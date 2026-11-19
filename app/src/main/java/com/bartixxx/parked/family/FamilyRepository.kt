@@ -4,6 +4,8 @@ import android.content.Context
 import com.bartixxx.parked.data.ParkingRepository
 import com.bartixxx.parked.data.db.FamilyPhotoDao
 import com.bartixxx.parked.data.db.FamilyPhotoEntity
+import com.bartixxx.parked.data.db.FamilySentPhotoDao
+import com.bartixxx.parked.data.db.FamilySentPhotoEntity
 import com.bartixxx.parked.data.db.ParkingSpot
 import java.io.File
 import java.net.URL
@@ -29,9 +31,13 @@ import kotlinx.coroutines.withContext
  * Coordinates family mode between the settings store, the API and the local
  * parking database. Only the latest local spot is uploaded.
  *
- * Notes never leave the phone. Photos leave only when the user explicitly sends
- * one, only as ciphertext encrypted with the group key, and the server deletes
- * the ciphertext as soon as every family phone confirms the download.
+ * Notes stay on the phone unless the user opts in to sharing the latest one;
+ * then the note travels inside the encrypted spot payload. Photos leave only
+ * when the user explicitly sends one, only as ciphertext encrypted with the
+ * group key, and the server deletes the ciphertext as soon as every family
+ * phone confirms the download. A photo the sender deletes locally is revoked
+ * on the server and removed from family phones on their next refresh, even if
+ * the server copy was already deleted after delivery.
  *
  * New groups are end-to-end encrypted: [FamilyCrypto] encrypts the car label,
  * coordinates and photos on this phone, and the server only stores ciphertext.
@@ -41,6 +47,7 @@ class FamilyRepository(
     private val store: FamilyStore,
     private val parkingRepository: ParkingRepository,
     private val photoDao: FamilyPhotoDao,
+    private val sentPhotoDao: FamilySentPhotoDao,
     private val scope: CoroutineScope,
 ) {
 
@@ -244,12 +251,107 @@ class FamilyRepository(
                 keyVersion = current.keyVersion,
                 ciphertext = encrypted.ciphertext,
             )
+            try {
+                val now = System.currentTimeMillis()
+                sentPhotoDao.insert(
+                    FamilySentPhotoEntity(
+                        photoId = photoId,
+                        spotId = spot.id,
+                        groupId = current.groupId!!,
+                        sentAtEpochMs = now,
+                    ),
+                )
+                sentPhotoDao.deleteOlderThan(
+                    current.groupId,
+                    now - SENT_PHOTO_RETENTION_MS,
+                )
+            } catch (error: Exception) {
+                // Without the local id the sender could never retract this
+                // photo. Remove the server copy instead of leaving an
+                // untracked ciphertext behind.
+                runCatching { apiFor(current).deletePhoto(token, photoId) }
+                throw error
+            }
             runtime.update { it.copy(error = null) }
             null
         } catch (error: Exception) {
             fail(error)
         } finally {
             runtime.update { it.copy(sendingPhoto = false) }
+        }
+    }
+
+    /**
+     * Opts the latest note in or out of family sharing. Enabling uploads the
+     * latest spot again; disabling re-uploads it without the note so the old
+     * note does not stay on the server.
+     */
+    suspend fun setShareNote(enabled: Boolean): FamilyError? = mutex.withLock {
+        val before = store.current()
+        if (enabled && before.joined && !before.encrypted) {
+            // Notes are only ever shared inside the encrypted spot payload.
+            runtime.update { it.copy(error = null) }
+            return@withLock null
+        }
+        store.setShareNote(enabled)
+        val current = store.current()
+        if (!current.joined || !current.enabled) {
+            runtime.update { it.copy(error = null) }
+            return@withLock null
+        }
+        val spot = parkingRepository.latestSpot() ?: return@withLock null
+        try {
+            syncSpotLocked(apiFor(current), current, spot)
+        } catch (error: Exception) {
+            fail(error)
+        }
+    }
+
+    /** Re-uploads the latest spot after its note changed, if sharing is on. */
+    suspend fun onLocalNoteChanged(): FamilyError? = mutex.withLock {
+        val current = store.current()
+        if (!current.joined || !current.enabled || !current.shareNote) {
+            return@withLock null
+        }
+        val spot = parkingRepository.latestSpot() ?: return@withLock null
+        try {
+            syncSpotLocked(apiFor(current), current, spot)
+        } catch (error: Exception) {
+            fail(error)
+        }
+    }
+
+    /**
+     * Marks every photo sent for a spot for revocation and tries to remove it
+     * from the server now. Already downloaded family copies disappear on the
+     * recipients' next refresh through the revocation list.
+     */
+    suspend fun revokePhotosForSpot(spotId: Long): FamilyError? = mutex.withLock {
+        sentPhotoDao.markRevocationRequested(spotId)
+        val current = store.current()
+        if (!current.joined) {
+            sentPhotoDao.deleteForSpot(spotId)
+            return@withLock null
+        }
+        try {
+            revokePendingPhotosLocked(apiFor(current), current)
+        } catch (error: Exception) {
+            fail(error)
+        }
+    }
+
+    /** Marks all sent photos for revocation, used when the whole history goes. */
+    suspend fun revokeAllSentPhotos(): FamilyError? = mutex.withLock {
+        sentPhotoDao.markAllRevocationRequested()
+        val current = store.current()
+        if (!current.joined) {
+            current.groupId?.let { sentPhotoDao.deleteForGroup(it) }
+            return@withLock null
+        }
+        try {
+            revokePendingPhotosLocked(apiFor(current), current)
+        } catch (error: Exception) {
+            fail(error)
         }
     }
 
@@ -371,7 +473,12 @@ class FamilyRepository(
             return@withLock null
         }
         return@withLock try {
-            apiFor(current).leave(current.deviceToken!!)
+            val api = apiFor(current)
+            // Best effort: retract sent photos before the device disappears.
+            // Leaving still proceeds if the network cannot deliver the request.
+            sentPhotoDao.markAllRevocationRequested()
+            runCatching { revokePendingPhotosLocked(api, current) }
+            api.leave(current.deviceToken!!)
             clearLocalSession()
             null
         } catch (error: Exception) {
@@ -417,6 +524,7 @@ class FamilyRepository(
                             accuracyMeters = payload.accuracyMeters,
                             savedAtEpochMs = payload.savedAtEpochMs,
                             lastSeenAtEpochMs = remote.lastSeenAtEpochMs,
+                            note = payload.note,
                         )
                     },
                 )
@@ -442,12 +550,21 @@ class FamilyRepository(
             // Photo errors must not hide the fresh spot list, so handle them
             // separately from the spots request above.
             var photoError: FamilyError? = null
-            if (current.enabled && current.encrypted) {
+            if (current.encrypted) {
                 try {
-                    photoError = syncPhotosLocked(api, current)
+                    // Retry a local photo deletion that happened while offline.
+                    revokePendingPhotosLocked(api, current)?.let { photoError = it }
+                    // Even with sharing switched off, fetch the revocation list
+                    // so a photo the sender withdrew disappears here too. New
+                    // photos are only downloaded while sharing is enabled.
+                    syncPhotosLocked(api, current, downloadPhotos = current.enabled)
+                        ?.let { error ->
+                            if (photoError == null) photoError = error
+                        }
                 } catch (error: Exception) {
                     if (error is CancellationException) throw error
-                    photoError = fail(error)
+                    val mapped = fail(error)
+                    if (photoError == null) photoError = mapped
                 }
             }
             photoError
@@ -525,6 +642,7 @@ class FamilyRepository(
                             longitude = spot.longitude,
                             accuracyMeters = spot.accuracyMeters?.toDouble(),
                             savedAtEpochMs = spot.savedAtEpochMs,
+                            note = if (current.shareNote && current.encrypted) spot.note else "",
                         ),
                     )
                 }
@@ -572,15 +690,25 @@ class FamilyRepository(
     private suspend fun syncPhotosLocked(
         api: FamilyApi,
         current: FamilyCredentials,
+        downloadPhotos: Boolean,
     ): FamilyError? {
         val token = current.deviceToken ?: return FamilyError.NOT_CONNECTED
         val groupId = current.groupId ?: return FamilyError.NOT_CONNECTED
-        val groupKey = groupKeyFor(current)
         val listing = api.listPhotos(token)
         runtime.update { it.copy(photoUploadEnabled = listing.uploadEnabled) }
-        val remotePhotos = listing.photos
-        if (remotePhotos.isEmpty()) return null
 
+        // A sender may retract a wrong photo after this phone downloaded it.
+        // Remove the local copy even though the server no longer has the image.
+        // This runs even when sharing is off, so retractions are always applied.
+        for (photoId in listing.revokedPhotoIds) {
+            if (!isSafePhotoId(photoId)) continue
+            photoDao.byId(photoId)?.let { deleteReceivedPhoto(it) }
+        }
+
+        val remotePhotos = listing.photos
+        if (!downloadPhotos || remotePhotos.isEmpty()) return null
+
+        val groupKey = groupKeyFor(current)
         val labels = runtime.value.members.associate { it.deviceId to it.carLabel }
         var firstError: FamilyError? = null
         for (remote in remotePhotos) {
@@ -640,6 +768,56 @@ class FamilyRepository(
             }
         }
         return firstError
+    }
+
+    private suspend fun revokePendingPhotosLocked(
+        api: FamilyApi,
+        current: FamilyCredentials,
+    ): FamilyError? {
+        val token = current.deviceToken ?: return FamilyError.NOT_CONNECTED
+        val groupId = current.groupId ?: return FamilyError.NOT_CONNECTED
+        val pending = sentPhotoDao.pendingRevocations(groupId)
+        if (pending.isEmpty()) return null
+
+        var firstError: FamilyError? = null
+        for (photo in pending) {
+            try {
+                api.deletePhoto(token, photo.photoId)
+                sentPhotoDao.delete(photo.photoId)
+            } catch (error: Exception) {
+                if (error is CancellationException) throw error
+                val status = (error as? FamilyApiException)?.status
+                if (status == 404 || status == 403) {
+                    // The server no longer knows the photo, or it belongs to a
+                    // previous group. Nothing useful left to retry.
+                    sentPhotoDao.delete(photo.photoId)
+                    continue
+                }
+                val mapped = mapError(error)
+                if (firstError == null) firstError = mapped
+                if (
+                    mapped == FamilyError.NETWORK ||
+                    mapped == FamilyError.UNAUTHORIZED ||
+                    mapped == FamilyError.RATE_LIMITED
+                ) {
+                    break
+                }
+            }
+        }
+        return firstError
+    }
+
+    private suspend fun deleteReceivedPhoto(photo: FamilyPhotoEntity) {
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val root = familyPhotosDir().canonicalFile
+                val file = File(photo.filePath).canonicalFile
+                if (file.path.startsWith(root.path + File.separator)) {
+                    file.delete()
+                }
+            }
+        }
+        photoDao.delete(photo.id)
     }
 
     private suspend fun saveReceivedPhoto(
@@ -809,7 +987,10 @@ class FamilyRepository(
     private suspend fun clearLocalSession() {
         val current = store.current()
         store.clear()
-        current.groupId?.let { clearReceivedPhotos(it) }
+        current.groupId?.let { groupId ->
+            clearReceivedPhotos(groupId)
+            sentPhotoDao.deleteForGroup(groupId)
+        }
         runtime.value = Runtime()
     }
 
@@ -830,5 +1011,6 @@ class FamilyRepository(
     private companion object {
         const val MAX_CAR_LABEL_LENGTH = 60
         const val MAX_RECEIVED_PHOTO_BYTES = 2_100_000
+        const val SENT_PHOTO_RETENTION_MS = 30L * 24 * 60 * 60 * 1000
     }
 }

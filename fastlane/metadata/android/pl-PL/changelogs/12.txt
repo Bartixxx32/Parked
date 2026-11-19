@@ -1,3 +1,6 @@
+• Usunięcie zdjęcia miejsca wycofuje je z rodziny: kopia na serwerze jest usuwana, a telefony rodziny usuwają pobrane zdjęcie, nawet jeśli zostało już dostarczone.
+• Dotknij pinezki na mapie, aby zobaczyć zdjęcie miejsca, a potem dotknij podglądu, aby otworzyć je pełnoekranowo z powiększaniem.
+• Opcjonalnie: udostępniaj notatkę z najnowszego miejsca w zaszyfrowanej aktualizacji rodzinnej. Domyślnie wyłączone, starsze notatki zostają na tym telefonie.
 • Serwer rodziny może teraz tymczasowo wyłączyć wysyłanie nowych zdjęć, gdy jego darmowa pamięć jest przeciążona. Udostępnianie lokalizacji działa dalej.
 • Gdy wysyłanie zdjęć jest wyłączone, aplikacja wyjaśnia to w Ustawieniach → Rodzina i ukrywa przycisk wysyłania zamiast pokazywać błąd.
 • Wysłane już zdjęcia nadal docierają i są usuwane z serwera jak zwykle.

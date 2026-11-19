@@ -21,6 +21,9 @@ interface FamilyPhotoDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(photo: FamilyPhotoEntity)
 
+    @Query("DELETE FROM family_photos WHERE id = :id")
+    suspend fun delete(id: String)
+
     @Query("DELETE FROM family_photos WHERE groupId = :groupId")
     suspend fun deleteForGroup(groupId: String)
 }

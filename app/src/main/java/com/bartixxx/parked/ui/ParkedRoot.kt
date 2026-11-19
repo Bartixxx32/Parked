@@ -264,6 +264,7 @@ fun ParkedRoot(viewModel: MainViewModel) {
                     } else {
                         emptyList()
                     },
+                    familyPhotos = if (family.joined) family.photos else emptyList(),
                     permissions = permissions,
                     focusSpotId = focusSpotId.takeIf { it > 0L },
                     initialCamera = mapCamera,
@@ -300,6 +301,7 @@ fun ParkedRoot(viewModel: MainViewModel) {
                     onRefreshFamily = { viewModel.refreshFamily() },
                     onRotateFamilyCode = viewModel::rotateFamilyCode,
                     onSetFamilyEnabled = viewModel::setFamilyEnabled,
+                    onSetFamilyShareNote = viewModel::setFamilyShareNote,
                     onSetFamilyCarLabel = viewModel::setFamilyCarLabel,
                     onSetFamilyServerUrl = viewModel::setFamilyServerUrl,
                 )

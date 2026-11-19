@@ -150,6 +150,9 @@
     <string name="cd_clear_selection">Odznacz miejsce</string>
     <string name="compass_description">Kompas do celu: %1$s, %2$d stopni</string>
     <string name="photo_content_description">Zdjęcie miejsca parkingowego</string>
+    <string name="map_photo_title">Zdjęcie miejsca</string>
+    <string name="map_photo_hint">Dotknij, aby powiększyć</string>
+    <string name="cd_close_photo">Zamknij zdjęcie</string>
     <string name="map_attribution">© OpenStreetMap contributors</string>
 
     <!-- Ustawienia -->
@@ -193,7 +196,7 @@
     <string name="about_title">O aplikacji</string>
     <string name="app_version">Parked %1$s (%2$d)</string>
     <string name="license_text">Licencja GPL-3.0. Kod źródłowy rozwijany jest w publicznym repozytorium.</string>
-    <string name="privacy_text">Prywatność: brak reklam, analityki, telemetrii i konta. Współrzędne, notatki i zdjęcia pozostają na tym urządzeniu, chyba że włączysz tryb rodzinny lub świadomie wyślesz zdjęcie rodzinie. Bez trybu rodzinnego aplikacja nie wysyła lokalizacji; kafelki mapy pobiera bezpośrednio z serwerów OpenStreetMap. Tryb rodzinny jest opcjonalny, szyfrowany end-to-end i udostępnia tylko najnowsze miejsce.</string>
+    <string name="privacy_text">Prywatność: brak reklam, analityki, telemetrii i konta. Współrzędne, notatki i zdjęcia pozostają na tym urządzeniu, chyba że włączysz tryb rodzinny, włączysz udostępnianie najnowszej notatki lub świadomie wyślesz zdjęcie rodzinie. Bez trybu rodzinnego aplikacja nie wysyła lokalizacji; kafelki mapy pobiera bezpośrednio z serwerów OpenStreetMap. Tryb rodzinny jest opcjonalny, szyfrowany end-to-end i udostępnia tylko najnowsze miejsce. Usunięcie wysłanego zdjęcia wycofuje je z serwera i z telefonów rodziny.</string>
     <string name="map_legal">Mapa: © OpenStreetMap contributors, dane na licencji ODbL. Kafelki: OpenStreetMap Standard.</string>
 
     <!-- Diagnostyka -->
@@ -307,7 +310,7 @@
 
     <!-- Tryb rodzinny -->
     <string name="family_title">Rodzina</string>
-    <string name="family_intro">Udostępniaj najnowsze miejsce parkowania członkom rodziny. Funkcja opcjonalna i domyślnie wyłączona. Nowe grupy są szyfrowane end-to-end: tylko telefony rodziny mogą odczytać nazwę auta i lokalizację, notatki zostają na tym telefonie, a zdjęcia opuszczają go tylko wtedy, gdy wyślesz je rodzinie.</string>
+    <string name="family_intro">Udostępniaj najnowsze miejsce parkowania członkom rodziny. Funkcja opcjonalna i domyślnie wyłączona. Nowe grupy są szyfrowane end-to-end: tylko telefony rodziny mogą odczytać nazwę auta i lokalizację, notatki zostają na tym telefonie, chyba że włączysz udostępnianie najnowszej, a zdjęcia opuszczają go tylko wtedy, gdy wyślesz je rodzinie.</string>
     <string name="family_create">Utwórz grupę</string>
     <string name="family_join">Dołącz do grupy</string>
     <string name="family_joined_as">Twoje auto: %1$s</string>
@@ -315,6 +318,8 @@
     <string name="family_car_label_help">Ta nazwa jest widoczna dla rodziny na mapie.</string>
     <string name="family_share_title">Udostępniaj moje miejsce</string>
     <string name="family_share_desc">Po wyłączeniu członkostwo zostaje, ale nic nie jest wysyłane.</string>
+    <string name="family_share_note_title">Udostępniaj ostatnią notatkę</string>
+    <string name="family_share_note_desc">Notatka z ostatniego miejsca jest dołączana do zaszyfrowanej aktualizacji. Starsze notatki i notatki innych miejsc zostają na tym telefonie.</string>
     <string name="family_invite_code">Kod zaproszenia</string>
     <string name="family_invite_code_hint">Wpisz kod od innego członka</string>
     <string name="family_copy_code">Kopiuj</string>
@@ -322,7 +327,7 @@
     <string name="family_share_code">Udostępnij</string>
     <string name="family_rotate_code">Nowy kod</string>
     <string name="family_encrypted_badge">Szyfrowanie end-to-end</string>
-    <string name="family_encrypted_help">Serwer przechowuje tylko zaszyfrowane nazwy, lokalizacje i zdjęcia. Zdjęcia są usuwane po pobraniu przez wszystkie telefony rodziny.</string>
+    <string name="family_encrypted_help">Serwer przechowuje tylko zaszyfrowane nazwy, lokalizacje, notatki i zdjęcia. Zdjęcia są usuwane po pobraniu przez wszystkie telefony rodziny, a wysłane zdjęcie możesz w każdej chwili wycofać.</string>
     <string name="family_plaintext_badge">Brak szyfrowania end-to-end</string>
     <string name="family_plaintext_help">Ta grupa została utworzona przez starszą wersję aplikacji. Opuść ją i utwórz nową grupę, aby szyfrować nazwy i lokalizacje.</string>
     <string name="family_invite_link">Link zaproszenia</string>
@@ -346,12 +351,12 @@
     <string name="family_pending_upload">Nie udało się wysłać najnowszego miejsca. Ponowna próba przy następnym odświeżeniu.</string>
     <string name="family_photos">Zdjęcia rodziny</string>
     <string name="family_photos_empty">Zdjęcia wysłane przez rodzinę pojawią się tutaj po pobraniu.</string>
-    <string name="family_photos_help">Szyfrowane na telefonie nadawcy i usuwane z serwera, gdy wszystkie telefony rodziny je pobiorą.</string>
+    <string name="family_photos_help">Szyfrowane na telefonie nadawcy i usuwane z serwera, gdy wszystkie telefony rodziny je pobiorą. Jeśli nadawca usunie oryginał, zdjęcie znika także z telefonów rodziny.</string>
     <string name="family_photos_disabled">Serwer rodziny tymczasowo wyłączył wysyłanie nowych zdjęć. Udostępnianie lokalizacji działa dalej, a wysłane już zdjęcia nadal dotrą.</string>
     <string name="family_photo_sending">Wysyłanie zdjęcia…</string>
     <string name="family_send_photo">Wyślij rodzinie</string>
     <string name="family_send_photo_title">Wysłać to zdjęcie rodzinie?</string>
-    <string name="family_send_photo_message">Zdjęcie jest szyfrowane end-to-end i tymczasowo przechowywane na serwerze rodziny. Zostanie usunięte, gdy wszystkie telefony rodziny je pobiorą, najpóźniej po 24 godzinach. Notatki nigdy nie opuszczają tego telefonu.</string>
+    <string name="family_send_photo_message">Zdjęcie jest szyfrowane end-to-end i tymczasowo przechowywane na serwerze rodziny. Zostanie usunięte, gdy wszystkie telefony rodziny je pobiorą, najpóźniej po 24 godzinach. Jeśli później usuniesz zdjęcie tutaj, zostanie wycofane z serwera i z telefonów rodziny.</string>
     <string name="family_send_photo_confirm">Wyślij zdjęcie</string>
     <string name="family_refresh">Odśwież</string>
     <string name="family_change_name">Zmień auto</string>

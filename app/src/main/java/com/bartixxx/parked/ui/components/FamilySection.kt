@@ -78,6 +78,7 @@ fun FamilySection(
     onRefresh: () -> Unit,
     onRotate: () -> Unit,
     onSetEnabled: (Boolean) -> Unit,
+    onSetShareNote: (Boolean) -> Unit,
     onSetCarLabel: (String) -> Unit,
     onSetServerUrl: (String) -> Unit,
 ) {
@@ -231,6 +232,15 @@ fun FamilySection(
                 checked = state.enabled,
                 onCheckedChange = onSetEnabled,
             )
+
+            if (credentials.encrypted) {
+                FamilySwitchRow(
+                    title = stringResource(R.string.family_share_note_title),
+                    subtitle = stringResource(R.string.family_share_note_desc),
+                    checked = credentials.shareNote,
+                    onCheckedChange = onSetShareNote,
+                )
+            }
 
             HorizontalDivider()
 

@@ -72,6 +72,11 @@ data class RemoteFamilyPhoto(
 data class RemoteFamilyPhotoList(
     val photos: List<RemoteFamilyPhoto>,
     /**
+     * Photos the sender retracted after this phone may have downloaded them.
+     * The app deletes its local copy even though the server image is gone.
+     */
+    val revokedPhotoIds: List<String>,
+    /**
      * The server reports whether it still accepts new photo uploads. Older
      * servers do not send the field and default to enabled.
      */
@@ -217,8 +222,17 @@ class FamilyApi(serverUrl: String) {
                 expiresAtEpochMs = epoch(item.optString("expiresAt")) ?: 0L,
             )
         }
+        val revokedArray = response?.optJSONArray("revokedPhotoIds") ?: JSONArray()
+        val revoked = buildList {
+            for (index in 0 until revokedArray.length()) {
+                revokedArray.optString(index)
+                    .takeIf { it.isNotBlank() }
+                    ?.let(::add)
+            }
+        }
         return RemoteFamilyPhotoList(
             photos = photos,
+            revokedPhotoIds = revoked,
             uploadEnabled = response?.optBoolean("uploadEnabled", true) ?: true,
         )
     }
@@ -254,6 +268,14 @@ class FamilyApi(serverUrl: String) {
         request(
             method = "POST",
             path = "/v1/photos/$photoId/ack",
+            deviceToken = deviceToken,
+        )
+    }
+
+    suspend fun deletePhoto(deviceToken: String, photoId: String) {
+        request(
+            method = "DELETE",
+            path = "/v1/photos/$photoId",
             deviceToken = deviceToken,
         )
     }

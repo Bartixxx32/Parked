@@ -9,6 +9,9 @@ import android.graphics.Typeface
 import android.location.Location
 import android.os.SystemClock
 import android.view.MotionEvent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -49,21 +52,30 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.bartixxx.parked.R
+import com.bartixxx.parked.data.db.FamilyPhotoEntity
 import com.bartixxx.parked.data.db.ParkingSpot
 import com.bartixxx.parked.data.db.SpotSource
 import com.bartixxx.parked.family.FamilyPalette
 import com.bartixxx.parked.family.FamilySpot
 import com.bartixxx.parked.ui.Formatters
 import com.bartixxx.parked.ui.PermissionSnapshot
+import com.bartixxx.parked.ui.components.SpotPhoto
 import com.bartixxx.parked.ui.components.TargetCompass
 import com.bartixxx.parked.ui.components.cardinalDirection
 import com.bartixxx.parked.ui.components.rememberDeviceAzimuth
@@ -115,6 +127,7 @@ val MapCameraSaver = listSaver<MapCamera?, Any>(
 fun MapScreen(
     spots: List<ParkingSpot>,
     familySpots: List<FamilySpot>,
+    familyPhotos: List<FamilyPhotoEntity>,
     permissions: PermissionSnapshot,
     focusSpotId: Long?,
     initialCamera: MapCamera?,
@@ -127,6 +140,7 @@ fun MapScreen(
     val context = LocalContext.current
     var selectedSpotId by rememberSaveable { mutableStateOf<Long?>(null) }
     var selectedFamilyDeviceId by rememberSaveable { mutableStateOf<String?>(null) }
+    var enlargedPhotoPath by rememberSaveable { mutableStateOf<String?>(null) }
     var userLocation by remember { mutableStateOf<GeoPoint?>(null) }
     var locationOverlay by remember { mutableStateOf<MyLocationNewOverlay?>(null) }
     var didInitialCenter by remember { mutableStateOf(false) }
@@ -137,6 +151,16 @@ fun MapScreen(
     }
     val selectedFamilySpot = remember(familySpots, selectedFamilyDeviceId) {
         familySpots.firstOrNull { it.deviceId == selectedFamilyDeviceId }
+    }
+    val selectedFamilyPhoto = remember(familyPhotos, selectedFamilySpot) {
+        selectedFamilySpot?.let { spot ->
+            // The family map shows only each car's latest spot, so the newest
+            // shared photo from that sender is the closest match. Older photos
+            // stay in Family photos and can be withdrawn by the sender.
+            familyPhotos
+                .filter { it.senderDeviceId == spot.deviceId }
+                .maxByOrNull { it.receivedAtEpochMs }
+        }
     }
     val target = selectedSpot ?: latest
 
@@ -461,22 +485,30 @@ fun MapScreen(
             if (familySpot != null) {
                 FamilySpotCard(
                     spot = familySpot,
+                    photoPath = selectedFamilyPhoto?.filePath,
                     distanceBearing = familyDistanceBearing,
                     hasLocationAccess = permissions.locationOk,
                     onNavigate = { spot -> onNavigateFamily(spot) },
+                    onOpenPhoto = { path -> enlargedPhotoPath = path },
                     onClearSelection = { selectedFamilyDeviceId = null },
                 )
             } else {
                 SpotCard(
                     spot = target,
                     isSelected = selectedSpot != null,
+                    photoPath = target?.photoPath,
                     distanceBearing = distanceBearing,
                     hasLocationAccess = permissions.locationOk,
                     onNavigate = { spot -> onNavigate(spot) },
+                    onOpenPhoto = { path -> enlargedPhotoPath = path },
                     onClearSelection = { selectedSpotId = null },
                     onOpenSettings = onOpenSettings,
                 )
             }
+        }
+
+        enlargedPhotoPath?.let { path ->
+            PhotoViewerDialog(path = path, onDismiss = { enlargedPhotoPath = null })
         }
     }
 }
@@ -515,9 +547,11 @@ private fun MapControlButton(
 private fun SpotCard(
     spot: ParkingSpot?,
     isSelected: Boolean,
+    photoPath: String?,
     distanceBearing: DistanceBearing?,
     hasLocationAccess: Boolean,
     onNavigate: (ParkingSpot) -> Unit,
+    onOpenPhoto: (String) -> Unit,
     onClearSelection: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
@@ -684,6 +718,10 @@ private fun SpotCard(
                     )
                 }
 
+                if (photoPath != null) {
+                    MapPhotoPreview(path = photoPath, onOpen = { onOpenPhoto(photoPath) })
+                }
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -729,9 +767,11 @@ private fun SpotCard(
 @Composable
 private fun FamilySpotCard(
     spot: FamilySpot,
+    photoPath: String?,
     distanceBearing: DistanceBearing?,
     hasLocationAccess: Boolean,
     onNavigate: (FamilySpot) -> Unit,
+    onOpenPhoto: (String) -> Unit,
     onClearSelection: () -> Unit,
 ) {
     val azimuthDegrees = rememberDeviceAzimuth()
@@ -843,6 +883,19 @@ private fun FamilySpotCard(
                 )
             }
 
+            if (spot.note.isNotBlank()) {
+                Text(
+                    text = spot.note,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+
+            if (photoPath != null) {
+                MapPhotoPreview(path = photoPath, onOpen = { onOpenPhoto(photoPath) })
+            }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -878,6 +931,86 @@ private fun FamilySpotCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.align(Alignment.CenterHorizontally),
             )
+        }
+    }
+}
+
+@Composable
+private fun MapPhotoPreview(path: String, onOpen: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onOpen),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        SpotPhoto(
+            path = path,
+            modifier = Modifier
+                .size(72.dp)
+                .clip(RoundedCornerShape(14.dp)),
+            maxSize = 480,
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = stringResource(R.string.map_photo_title),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = stringResource(R.string.map_photo_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun PhotoViewerDialog(path: String, onDismiss: () -> Unit) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        var scale by remember { mutableStateOf(1f) }
+        var offset by remember { mutableStateOf(Offset.Zero) }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+                .pointerInput(Unit) {
+                    detectTransformGestures { _, pan, zoom, _ ->
+                        scale = (scale * zoom).coerceIn(1f, 6f)
+                        offset = if (scale <= 1f) Offset.Zero else offset + pan
+                    }
+                },
+        ) {
+            SpotPhoto(
+                path = path,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer(
+                        scaleX = scale,
+                        scaleY = scale,
+                        translationX = offset.x,
+                        translationY = offset.y,
+                    ),
+                maxSize = 2048,
+                contentScale = ContentScale.Fit,
+            )
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Close,
+                    contentDescription = stringResource(R.string.cd_close_photo),
+                    tint = Color.White,
+                )
+            }
         }
     }
 }

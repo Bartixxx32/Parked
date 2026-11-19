@@ -148,6 +148,9 @@
     <string name="cd_clear_selection">Clear selection</string>
     <string name="compass_description">Compass to target: %1$s, %2$d degrees</string>
     <string name="photo_content_description">Parking spot photo</string>
+    <string name="map_photo_title">Spot photo</string>
+    <string name="map_photo_hint">Tap to enlarge</string>
+    <string name="cd_close_photo">Close photo</string>
     <string name="map_attribution">© OpenStreetMap contributors</string>
 
     <!-- Settings -->
@@ -191,7 +194,7 @@
     <string name="about_title">About</string>
     <string name="app_version">Parked %1$s (%2$d)</string>
     <string name="license_text">GPL-3.0 license. The source code is developed in a public repository.</string>
-    <string name="privacy_text">Privacy: no ads, analytics, telemetry or account. Coordinates, notes and photos stay on this device unless you enable family mode or explicitly send a photo to your family. Without family mode the app sends no location; map tiles come directly from OpenStreetMap servers. Family mode is opt-in, end-to-end encrypted and shares only your latest spot.</string>
+    <string name="privacy_text">Privacy: no ads, analytics, telemetry or account. Coordinates, notes and photos stay on this device unless you enable family mode, opt in to sharing the latest note, or explicitly send a photo to your family. Without family mode the app sends no location; map tiles come directly from OpenStreetMap servers. Family mode is opt-in, end-to-end encrypted and shares only your latest spot. Deleting a sent photo withdraws it from the server and from family phones.</string>
     <string name="map_legal">Map: © OpenStreetMap contributors, data under the ODbL license. Tiles: OpenStreetMap Standard.</string>
 
     <!-- Diagnostics -->
@@ -305,7 +308,7 @@
 
     <!-- Family mode -->
     <string name="family_title">Family</string>
-    <string name="family_intro">Share your latest parking spot with family members. Optional and off by default. New groups are end-to-end encrypted: only family phones can read the car label and location, notes stay on this phone, and photos leave only when you send them to the family.</string>
+    <string name="family_intro">Share your latest parking spot with family members. Optional and off by default. New groups are end-to-end encrypted: only family phones can read the car label and location, notes stay on this phone unless you choose to share the latest one, and photos leave only when you send them to the family.</string>
     <string name="family_create">Create group</string>
     <string name="family_join">Join group</string>
     <string name="family_joined_as">Your car: %1$s</string>
@@ -313,6 +316,8 @@
     <string name="family_car_label_help">This label is visible to your family on the map.</string>
     <string name="family_share_title">Share my parking spot</string>
     <string name="family_share_desc">When off, the group membership is kept but nothing is uploaded.</string>
+    <string name="family_share_note_title">Share the latest note</string>
+    <string name="family_share_note_desc">The note on your latest spot is included inside the encrypted update. Older notes and notes on other spots stay on this phone.</string>
     <string name="family_invite_code">Invite code</string>
     <string name="family_invite_code_hint">Enter the code from another member</string>
     <string name="family_copy_code">Copy</string>
@@ -320,7 +325,7 @@
     <string name="family_share_code">Share</string>
     <string name="family_rotate_code">New code</string>
     <string name="family_encrypted_badge">End-to-end encrypted</string>
-    <string name="family_encrypted_help">The server stores only encrypted labels, locations and photos. Photos are deleted after every family phone downloads them.</string>
+    <string name="family_encrypted_help">The server stores only encrypted labels, locations, notes and photos. Photos are deleted after every family phone downloads them, and you can retract a sent photo at any time.</string>
     <string name="family_plaintext_badge">Not end-to-end encrypted</string>
     <string name="family_plaintext_help">This group was created by an older app version. Leave it and create a new group to encrypt labels and locations.</string>
     <string name="family_invite_link">Invite link</string>
@@ -344,12 +349,12 @@
     <string name="family_pending_upload">The latest spot could not be uploaded. It will retry on the next refresh.</string>
     <string name="family_photos">Family photos</string>
     <string name="family_photos_empty">Photos sent by family members will appear here after they are downloaded.</string>
-    <string name="family_photos_help">Encrypted on the sender’s phone and deleted from the server once every family phone has downloaded them.</string>
+    <string name="family_photos_help">Encrypted on the sender’s phone and deleted from the server once every family phone has downloaded them. If the sender deletes the original, the photo is withdrawn from family phones too.</string>
     <string name="family_photos_disabled">The family server has temporarily turned off new photos. Location sharing keeps working and photos already sent will still arrive.</string>
     <string name="family_photo_sending">Sending photo…</string>
     <string name="family_send_photo">Send to family</string>
     <string name="family_send_photo_title">Send this photo to your family?</string>
-    <string name="family_send_photo_message">The photo is end-to-end encrypted and stored temporarily on the family server. It is deleted as soon as every family phone downloads it, or after 24 hours at the latest. Notes never leave this phone.</string>
+    <string name="family_send_photo_message">The photo is end-to-end encrypted and stored temporarily on the family server. It is deleted as soon as every family phone downloads it, or after 24 hours at the latest. If you delete the photo here later, it is withdrawn from the server and from family phones too.</string>
     <string name="family_send_photo_confirm">Send photo</string>
     <string name="family_refresh">Refresh</string>
     <string name="family_change_name">Change car</string>

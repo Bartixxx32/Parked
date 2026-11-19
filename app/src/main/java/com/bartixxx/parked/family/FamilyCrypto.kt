@@ -58,6 +58,8 @@ data class FamilySpotPayload(
     val longitude: Double,
     val accuracyMeters: Double?,
     val savedAtEpochMs: Long,
+    /** Optional note. Empty when the user has not opted in to note sharing. */
+    val note: String = "",
 )
 
 /**
@@ -81,7 +83,12 @@ object FamilyCrypto {
     private const val PAYLOAD_BYTES = 384
     private const val FORMAT_VERSION = 1
     private const val FLAG_ACCURACY = 1
+    private const val FLAG_NOTE = 2
     private const val HEADER_BYTES = 8
+    // The payload keeps its original fixed size so phones on 1.5.x and older
+    // still decrypt the label and coordinates. The note is appended after the
+    // original fields, which those versions already ignore.
+    private const val NOTE_LENGTH_BYTES = 2
     private val MAGIC = byteArrayOf(0x50, 0x4B, 0x53, 0x50) // PKSP
 
     private val random = SecureRandom()
@@ -218,17 +225,27 @@ object FamilyCrypto {
         val label = payload.carLabel.toByteArray(Charsets.UTF_8)
         require(label.size in 1..MAX_LABEL_BYTES) { "invalid label" }
         check(HEADER_BYTES + label.size + 32 <= PAYLOAD_BYTES) { "payload too large" }
+        val noteCapacity = PAYLOAD_BYTES - HEADER_BYTES - label.size - 32 - NOTE_LENGTH_BYTES
+        val note = truncateUtf8(payload.note.trim(), noteCapacity)
+
+        var flags = 0
+        if (payload.accuracyMeters != null) flags = flags or FLAG_ACCURACY
+        if (note.isNotEmpty()) flags = flags or FLAG_NOTE
 
         val plain = ByteBuffer.allocate(PAYLOAD_BYTES)
         plain.put(MAGIC)
         plain.put(FORMAT_VERSION.toByte())
-        plain.put((if (payload.accuracyMeters != null) FLAG_ACCURACY else 0).toByte())
+        plain.put(flags.toByte())
         plain.putShort(label.size.toShort())
         plain.put(label)
         plain.putDouble(payload.latitude)
         plain.putDouble(payload.longitude)
         plain.putDouble(payload.accuracyMeters ?: 0.0)
         plain.putLong(payload.savedAtEpochMs)
+        if (note.isNotEmpty()) {
+            plain.putShort(note.size.toShort())
+            plain.put(note)
+        }
 
         val iv = randomBytes(IV_BYTES)
         val key = spotKey(groupKey, groupId, deviceId, keyVersion)
@@ -372,13 +389,33 @@ object FamilyCrypto {
         val accuracy = if (flags and FLAG_ACCURACY != 0) accuracyRaw else null
         if (accuracy != null && (!accuracy.isFinite() || accuracy < 0.0)) return null
         if (label.isBlank()) return null
+        var note = ""
+        if (flags and FLAG_NOTE != 0) {
+            if (buffer.remaining() < NOTE_LENGTH_BYTES) return null
+            val noteLength = buffer.short.toInt() and 0xFFFF
+            if (noteLength > buffer.remaining()) return null
+            val noteBytes = ByteArray(noteLength)
+            buffer.get(noteBytes)
+            note = String(noteBytes, Charsets.UTF_8)
+        }
         return FamilySpotPayload(
             carLabel = label,
             latitude = latitude,
             longitude = longitude,
             accuracyMeters = accuracy,
             savedAtEpochMs = savedAt,
+            note = note,
         )
+    }
+
+    /** Cuts UTF-8 text at a character boundary so no replacement bytes appear. */
+    private fun truncateUtf8(text: String, maxBytes: Int): ByteArray {
+        if (maxBytes <= 0 || text.isEmpty()) return ByteArray(0)
+        val bytes = text.toByteArray(Charsets.UTF_8)
+        if (bytes.size <= maxBytes) return bytes
+        var end = maxBytes
+        while (end > 0 && (bytes[end].toInt() and 0xC0) == 0x80) end--
+        return bytes.copyOf(end)
     }
 
     private fun spotKey(

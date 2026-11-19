@@ -33,6 +33,11 @@ const MAX_PHOTO_BYTES = 2_000_000;
 const MAX_PHOTO_PENDING_PER_GROUP = 5;
 const MAX_PHOTO_PENDING_PER_DEVICE = 3;
 const MAX_PHOTOS_PER_CLEANUP = 100;
+// A small ownership record outlives the photo object so a sender can still
+// retract a wrong photo after every family phone has downloaded it. The record
+// is pruned after this many days.
+const PHOTO_RECORD_RETENTION_DAYS = 30;
+const MAX_REVOCATIONS_PER_LIST = 100;
 const DEFAULT_PHOTO_RETENTION_HOURS = 24;
 const MAX_PHOTO_RETENTION_HOURS = 168;
 const DEFAULT_PHOTO_BUCKET = "parked-photos";
@@ -502,6 +507,16 @@ async function uploadPhoto(request, env) {
       },
       prefer: "return=minimal",
     });
+    await supabase(env, "photo_records", {
+      method: "POST",
+      body: {
+        photo_id: photoId,
+        group_id: device.group_id,
+        sender_device_id: device.id,
+        created_at: now.toISOString(),
+      },
+      prefer: "return=minimal",
+    });
     await supabase(env, "photo_deliveries", {
       method: "POST",
       body: recipients.map((deviceId) => ({
@@ -513,6 +528,10 @@ async function uploadPhoto(request, env) {
   } catch (error) {
     await storageDelete(env, objectPath).catch(() => {});
     await supabase(env, `photos?id=eq.${photoId}`, {
+      method: "DELETE",
+      prefer: "return=minimal",
+    }).catch(() => {});
+    await supabase(env, `photo_records?photo_id=eq.${photoId}`, {
       method: "DELETE",
       prefer: "return=minimal",
     }).catch(() => {});
@@ -536,10 +555,19 @@ async function listPhotos(request, env) {
   // Clients use this capability flag to hide the "Send to family" action
   // instead of attempting an upload that the server would reject.
   const uploadEnabled = photoUploadEnabled(env);
-  const deliveries = await supabase(
-    env,
-    `photo_deliveries?device_id=eq.${device.id}&acked_at=is.null&select=photo_id&limit=20`,
-  );
+  const revocationCutoff = new Date(
+    Date.now() - PHOTO_RECORD_RETENTION_DAYS * 24 * 60 * 60 * 1000,
+  ).toISOString();
+  const [deliveries, revocations] = await Promise.all([
+    supabase(
+      env,
+      `photo_deliveries?device_id=eq.${device.id}&acked_at=is.null&select=photo_id&limit=20`,
+    ),
+    supabase(
+      env,
+      `photo_records?group_id=eq.${device.group_id}&revoked_at=not.is.null&created_at=gt.${encodeURIComponent(revocationCutoff)}&select=photo_id&order=revoked_at.desc&limit=${MAX_REVOCATIONS_PER_LIST}`,
+    ),
+  ]);
   const ids = [
     ...new Set(
       (deliveries || [])
@@ -547,7 +575,12 @@ async function listPhotos(request, env) {
         .filter(Boolean),
     ),
   ];
-  if (ids.length === 0) return json({ photos: [], uploadEnabled });
+  const revokedPhotoIds = (revocations || [])
+    .map((record) => record.photo_id)
+    .filter(Boolean);
+  if (ids.length === 0) {
+    return json({ photos: [], uploadEnabled, revokedPhotoIds });
+  }
 
   const photos = await supabase(
     env,
@@ -564,6 +597,7 @@ async function listPhotos(request, env) {
       expiresAt: photo.expires_at,
     })),
     uploadEnabled,
+    revokedPhotoIds,
   });
 }
 
@@ -652,21 +686,60 @@ async function deletePhoto(request, env, rawPhotoId) {
   const device = await requireDevice(request, env);
   await enforceRateLimit(request, env, "WRITE_LIMITER", "photo-delete", device.id);
 
-  const photos = await supabase(
-    env,
-    `photos?id=eq.${photoId}&group_id=eq.${device.group_id}&select=id,sender_device_id,object_path`,
-  );
+  const [photos, records] = await Promise.all([
+    supabase(
+      env,
+      `photos?id=eq.${photoId}&group_id=eq.${device.group_id}&select=id,sender_device_id,object_path,created_at`,
+    ),
+    supabase(
+      env,
+      `photo_records?photo_id=eq.${photoId}&group_id=eq.${device.group_id}&select=photo_id,sender_device_id`,
+    ),
+  ]);
   const photo = photos?.[0];
-  if (!photo) throw new HttpError(404, "not_found");
-  if (photo.sender_device_id !== device.id) {
+  const record = records?.[0];
+  if (!photo && !record) throw new HttpError(404, "not_found");
+
+  const senderId = record?.sender_device_id || photo?.sender_device_id;
+  if (senderId !== device.id) {
     throw new HttpError(403, "forbidden");
   }
 
-  await storageDelete(env, photo.object_path);
-  await supabase(env, `photos?id=eq.${photoId}`, {
-    method: "DELETE",
-    prefer: "return=minimal",
-  });
+  if (photo) {
+    await storageDelete(env, photo.object_path);
+    await supabase(env, `photos?id=eq.${photoId}`, {
+      method: "DELETE",
+      prefer: "return=minimal",
+    });
+  }
+
+  const now = new Date().toISOString();
+  if (record) {
+    // Keep the timestamp when the sender repeats the same request.
+    await supabase(
+      env,
+      `photo_records?photo_id=eq.${photoId}&revoked_at=is.null`,
+      {
+        method: "PATCH",
+        body: { revoked_at: now },
+        prefer: "return=minimal",
+      },
+    );
+  } else {
+    // Photos uploaded before the ownership table existed still become
+    // revocable once their sender deletes them.
+    await supabase(env, "photo_records", {
+      method: "POST",
+      body: {
+        photo_id: photoId,
+        group_id: device.group_id,
+        sender_device_id: device.id,
+        created_at: photo?.created_at || now,
+        revoked_at: now,
+      },
+      prefer: "resolution=merge-duplicates,return=minimal",
+    });
+  }
   return empty(204);
 }
 
@@ -758,6 +831,21 @@ async function deleteDevice(request, env) {
     await storageDelete(env, photo.object_path).catch((error) => {
       console.error("photo object delete failed", error?.message || error);
     });
+  }
+
+  if (!lastDevice) {
+    // Ownership records outlive the device. Mark them revoked first, so
+    // family phones remove photos they already downloaded even if the app did
+    // not get a chance to retract them before leaving.
+    await supabase(
+      env,
+      `photo_records?sender_device_id=eq.${device.id}&revoked_at=is.null`,
+      {
+        method: "PATCH",
+        body: { revoked_at: new Date().toISOString() },
+        prefer: "return=minimal",
+      },
+    );
   }
 
   await supabase(env, `devices?id=eq.${device.id}`, {
@@ -934,6 +1022,18 @@ async function cleanupExpiredPhotos(env) {
       prefer: "return=minimal",
     });
   }
+
+  // Ownership records only exist to let a sender retract a photo. They carry
+  // no image and are small, but prune them once they are no longer useful.
+  const recordCutoff = encodeURIComponent(
+    new Date(
+      Date.now() - PHOTO_RECORD_RETENTION_DAYS * 24 * 60 * 60 * 1000,
+    ).toISOString(),
+  );
+  await supabase(env, `photo_records?created_at=lt.${recordCutoff}`, {
+    method: "DELETE",
+    prefer: "return=minimal",
+  });
 }
 
 async function readJson(request, { allowEmpty = false } = {}) {

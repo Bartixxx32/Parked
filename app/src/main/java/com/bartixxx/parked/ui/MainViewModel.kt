@@ -253,8 +253,18 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
 
     fun updateNote(id: Long, note: String) {
         viewModelScope.launch {
+            val isLatest = runCatching {
+                container.parkingRepository.latestSpot()?.id == id
+            }.getOrDefault(false)
             runCatching { container.parkingRepository.updateNote(id, note) }
-                .onSuccess { message(appContext.getString(R.string.msg_note_saved)) }
+                .onSuccess {
+                    message(appContext.getString(R.string.msg_note_saved))
+                    if (isLatest) {
+                        container.familyRepository.onLocalNoteChanged()?.let { error ->
+                            message(familyErrorMessage(error))
+                        }
+                    }
+                }
                 .onFailure { message(appContext.getString(R.string.msg_note_save_failed)) }
         }
     }
@@ -281,7 +291,14 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
     fun removePhoto(spotId: Long) {
         viewModelScope.launch {
             runCatching { container.parkingRepository.removePhoto(spotId) }
-                .onSuccess { message(appContext.getString(R.string.msg_photo_removed)) }
+                .onSuccess {
+                    message(appContext.getString(R.string.msg_photo_removed))
+                    // If this photo was sent to the family, retract it from the
+                    // server and from family phones that already downloaded it.
+                    container.familyRepository.revokePhotosForSpot(spotId)?.let { error ->
+                        message(familyErrorMessage(error))
+                    }
+                }
                 .onFailure { message(appContext.getString(R.string.msg_photo_remove_failed)) }
         }
     }
@@ -299,6 +316,9 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
                             message(familyErrorMessage(error))
                         }
                     }
+                    container.familyRepository.revokePhotosForSpot(id)?.let { error ->
+                        message(familyErrorMessage(error))
+                    }
                 }
                 .onFailure { message(appContext.getString(R.string.msg_spot_delete_failed)) }
         }
@@ -310,6 +330,9 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
                 .onSuccess {
                     message(appContext.getString(R.string.msg_history_deleted))
                     container.familyRepository.onLocalSpotDeleted()?.let { error ->
+                        message(familyErrorMessage(error))
+                    }
+                    container.familyRepository.revokeAllSentPhotos()?.let { error ->
                         message(familyErrorMessage(error))
                     }
                 }
@@ -514,6 +537,13 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
                     familyErrorMessage(error)
                 },
             )
+        }
+    }
+
+    fun setFamilyShareNote(enabled: Boolean) {
+        viewModelScope.launch {
+            val error = container.familyRepository.setShareNote(enabled)
+            if (error != null) message(familyErrorMessage(error))
         }
     }
 

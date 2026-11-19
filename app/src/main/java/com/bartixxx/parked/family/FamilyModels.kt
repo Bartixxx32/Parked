@@ -7,6 +7,8 @@ const val DEFAULT_FAMILY_SERVER = "https://parked.bartixxx.workers.dev"
 
 data class FamilyCredentials(
     val enabled: Boolean = false,
+    /** Opt-in: include the latest parking note in the encrypted family spot. */
+    val shareNote: Boolean = false,
     val serverUrl: String = DEFAULT_FAMILY_SERVER,
     val groupId: String? = null,
     val deviceId: String? = null,
@@ -51,6 +53,8 @@ data class FamilySpot(
     val accuracyMeters: Double?,
     val savedAtEpochMs: Long,
     val lastSeenAtEpochMs: Long?,
+    /** Decrypted family note; empty unless the sender opted in to sharing it. */
+    val note: String = "",
 )
 
 data class FamilyMember(

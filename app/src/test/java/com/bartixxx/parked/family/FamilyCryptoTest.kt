@@ -91,6 +91,66 @@ class FamilyCryptoTest {
     }
 
     @Test
+    fun `spot payload carries an optional note without changing its size`() {
+        val groupKey = ByteArray(32) { (it + 11).toByte() }
+        val payload = FamilySpotPayload(
+            carLabel = "Golf",
+            latitude = 50.0,
+            longitude = 20.0,
+            accuracyMeters = 4.0,
+            savedAtEpochMs = 1_700_000_000_000L,
+            note = "Level 2, near the stairs 🚗",
+        )
+        val encoded = FamilyCrypto.encryptSpot(
+            groupKey = groupKey,
+            groupId = "group-1",
+            deviceId = "device-1",
+            keyVersion = 1,
+            payload = payload,
+        )
+        assertEquals(412, FamilyCrypto.decodeBase64(encoded).size)
+        assertEquals(
+            payload,
+            FamilyCrypto.decryptSpot(
+                groupKey = groupKey,
+                groupId = "group-1",
+                deviceId = "device-1",
+                keyVersion = 1,
+                encoded = encoded,
+            ),
+        )
+    }
+
+    @Test
+    fun `oversized note is truncated without broken UTF-8`() {
+        val groupKey = ByteArray(32) { (it + 13).toByte() }
+        val encoded = FamilyCrypto.encryptSpot(
+            groupKey = groupKey,
+            groupId = "group-1",
+            deviceId = "device-1",
+            keyVersion = 1,
+            payload = FamilySpotPayload(
+                carLabel = "Golf",
+                latitude = 50.0,
+                longitude = 20.0,
+                accuracyMeters = null,
+                savedAtEpochMs = 1_700_000_000_000L,
+                note = "🚗".repeat(2000),
+            ),
+        )
+        val decoded = FamilyCrypto.decryptSpot(
+            groupKey = groupKey,
+            groupId = "group-1",
+            deviceId = "device-1",
+            keyVersion = 1,
+            encoded = encoded,
+        )
+        assertNotNull(decoded)
+        assertTrue(decoded!!.note.isNotEmpty())
+        assertTrue('\uFFFD' !in decoded.note)
+    }
+
+    @Test
     fun `tampered or relocated spot payload is rejected`() {
         val groupKey = ByteArray(32) { (it + 7).toByte() }
         val encoded = FamilyCrypto.encryptSpot(

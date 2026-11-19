@@ -29,7 +29,9 @@ and anyone can run an equivalent instance.
   `service_role` has grants; `anon` and `authenticated` have no access, even if
   the schema is exposed through PostgREST.
 - The latest spot per device is stored in `parked.spots` (`device_id` is
-  unique). There is no cloud history. Notes never leave the phone.
+  unique). There is no cloud history. Notes stay on the phone unless the user
+  opts in to sharing the latest one; then the note travels inside the
+  encrypted spot payload and is never visible to the server.
 - Family photos are optional and sent only when the user explicitly chooses
   **Send to family**. The phone compresses the image, encrypts it with a key
   derived from the group key, and uploads only ciphertext to the private
@@ -38,6 +40,12 @@ and anyone can run an equivalent instance.
   the download. When every recipient acknowledges, the Worker deletes both the
   Storage object and the metadata row. A 24-hour TTL is the fallback for phones
   that stay offline.
+- `parked.photo_records` keeps a tiny ownership row per uploaded photo. It is
+  created when the photo is uploaded and survives the ciphertext deletion, so
+  the sender can still retract a wrong photo after every family phone has
+  downloaded it. Retraction sets `revoked_at`; recipients receive the id in
+  `GET /v1/photos` and delete their local copy. Records carry no image, key or
+  note data and are pruned after 30 days.
 - For E2EE groups, `parked.spots.payload` holds an AES-256-GCM ciphertext of
   the car label, coordinates, accuracy and save time. `latitude`, `longitude`
   and `accuracy_m` are `NULL`. The payload is bound with AAD to the group,
@@ -59,6 +67,7 @@ and anyone can run an equivalent instance.
 | `parked.spots` | Latest plaintext coordinates/accuracy or encrypted payload per device. |
 | `parked.photos` | Temporary encrypted-photo metadata; the ciphertext is in Supabase Storage. |
 | `parked.photo_deliveries` | Per-device download acknowledgements used to delete a photo early. |
+| `parked.photo_records` | Tiny per-photo ownership and retraction record that outlives the ciphertext. No image data. |
 
 Apply the DDL in order through the Supabase SQL editor or the Management API:
 
@@ -67,6 +76,7 @@ Apply the DDL in order through the Supabase SQL editor or the Management API:
 3. [`supabase/003_security_hardening.sql`](supabase/003_security_hardening.sql)
 4. [`supabase/004_e2ee.sql`](supabase/004_e2ee.sql)
 5. [`supabase/005_photos.sql`](supabase/005_photos.sql)
+6. [`supabase/006_photo_records.sql`](supabase/006_photo_records.sql)
 
 The files are written to be idempotent for the schema, tables, columns and
 indexes. Review them before re-running after manual changes.
@@ -85,10 +95,10 @@ indexes. Review them before re-running after manual changes.
 | `PATCH` | `/v1/device` | device token | Change the caller's car label (no-op on the server for E2EE). |
 | `DELETE` | `/v1/device` | device token | Leave; deletes the device and its spot, and the group when empty. |
 | `POST` | `/v1/photos` | device token | Upload one encrypted photo. Headers: `X-Photo-Id` (UUID), `X-Photo-Iv` (12-byte base64url), `X-Key-Version`. Body is raw ciphertext. E2EE groups only. |
-| `GET` | `/v1/photos` | device token | List photos this device still has to download and acknowledge. Also reports `uploadEnabled`. |
+| `GET` | `/v1/photos` | device token | List photos this device still has to download and acknowledge. Also reports `uploadEnabled` and recent `revokedPhotoIds`. |
 | `GET` | `/v1/photos/{id}` | device token | Download the ciphertext. Returns `X-Photo-Iv` and `X-Key-Version` headers. |
 | `POST` | `/v1/photos/{id}/ack` | device token | Confirm download; the Worker deletes the photo once every recipient has acknowledged. |
-| `DELETE` | `/v1/photos/{id}` | sender only | Remove a pending photo early. |
+| `DELETE` | `/v1/photos/{id}` | sender only | Retract a photo at any time, including after delivery. Deletes pending ciphertext and marks the ownership record so family phones remove their local copies. |
 
 Device tokens are random 256-bit values sent as
 `Authorization: Bearer <token>`. The admin token is sent in `X-Admin-Token` and
@@ -136,8 +146,9 @@ You need a Supabase project, a Cloudflare account and Node.js 20 or newer.
 1. Create a Supabase project (any region close to your users).
 2. Open the SQL editor and run `backend/supabase/001_parked_schema.sql`,
    then `002_group_admin.sql`, `003_security_hardening.sql`,
-   `004_e2ee.sql` and `005_photos.sql`. The last file creates the private
-   `parked-photos` Storage bucket and enforces the 2 MB object limit.
+   `004_e2ee.sql`, `005_photos.sql` and `006_photo_records.sql`. The fifth file
+   creates the private `parked-photos` Storage bucket and enforces the 2 MB
+   object limit; the last adds the retraction records.
 3. Copy the project URL (for example
    `https://YOUR_PROJECT.supabase.co`) and the `service_role` key from
    **Project Settings → API**. Keep the service role key private; it bypasses
@@ -228,7 +239,8 @@ large or aged data set; those are enforced by the SQL trigger and the cron job.
   (default 30), devices that have not been seen for that long, and old empty
   groups. Only the latest spot is ever stored, so there is no location history
   to retain. A second hourly cron deletes family photos past
-  `PHOTO_RETENTION_HOURS` (default 24).
+  `PHOTO_RETENTION_HOURS` (default 24) and photo ownership records after 30
+  days.
 - **Photo quotas.** Encrypted photos are accepted only in E2EE groups, are
   limited to 2 MB of ciphertext, and are capped at 5 pending per group and 3
   pending per sender. The normal path deletes a photo as soon as every
@@ -238,7 +250,7 @@ large or aged data set; those are enforced by the SQL trigger and the cron job.
 - **Photo kill switch.** Set `PHOTO_UPLOAD_ENABLED = "false"` in the Worker
   environment and deploy to stop accepting new photo uploads. Family map
   sharing, joining and the rest of the API keep working. Already uploaded
-  photos can still be downloaded and acknowledged, and expire after
+  photos can still be downloaded, acknowledged or retracted, and expire after
   `PHOTO_RETENTION_HOURS`, so nothing is stranded. `GET /v1/photos` reports the
   flag to current clients, which hide the send action instead of showing an
   error; older clients receive a clear `503 photos_disabled` response. To turn
@@ -275,10 +287,10 @@ large or aged data set; those are enforced by the SQL trigger and the cron job.
 
 For E2EE groups created by the current app, the Worker and the Supabase project
 operator can see group/device identifiers, timestamps, key versions, ciphertext
-lengths and request metadata, but **not** the car labels, coordinates, accuracy
-or family photos. Photo images are encrypted on the sender's phone; the server
-stores only temporary ciphertext. The invite secret and raw group key never
-reach the server.
+lengths and request metadata, but **not** the car labels, coordinates, accuracy,
+notes or family photos. Photo images are encrypted on the sender's phone; the
+server stores only temporary ciphertext plus small ownership/retraction ids.
+The invite secret and raw group key never reach the server.
 
 Groups created by 1.2.0/1.3.0 clients are plaintext for compatibility. Their
 Worker and Supabase operator can read the latest coordinates, car labels and
