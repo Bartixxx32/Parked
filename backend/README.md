@@ -45,7 +45,8 @@ and anyone can run an equivalent instance.
   the sender can still retract a wrong photo after every family phone has
   downloaded it. Retraction sets `revoked_at`; recipients receive the id in
   `GET /v1/photos` and delete their local copy. Records carry no image, key or
-  note data and are pruned after 30 days.
+  note data; unrevoked rows are pruned after 30 days and revoked rows 30 days
+  after the retraction.
 - For E2EE groups, `parked.spots.payload` holds an AES-256-GCM ciphertext of
   the car label, coordinates, accuracy and save time. `latitude`, `longitude`
   and `accuracy_m` are `NULL`. The payload is bound with AAD to the group,
@@ -239,8 +240,8 @@ large or aged data set; those are enforced by the SQL trigger and the cron job.
   (default 30), devices that have not been seen for that long, and old empty
   groups. Only the latest spot is ever stored, so there is no location history
   to retain. A second hourly cron deletes family photos past
-  `PHOTO_RETENTION_HOURS` (default 24) and photo ownership records after 30
-  days.
+  `PHOTO_RETENTION_HOURS` (default 24) and photo ownership records after the
+  retention window.
 - **Photo quotas.** Encrypted photos are accepted only in E2EE groups, are
   limited to 2 MB of ciphertext, and are capped at 5 pending per group and 3
   pending per sender. The normal path deletes a photo as soon as every

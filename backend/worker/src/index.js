@@ -34,8 +34,9 @@ const MAX_PHOTO_PENDING_PER_GROUP = 5;
 const MAX_PHOTO_PENDING_PER_DEVICE = 3;
 const MAX_PHOTOS_PER_CLEANUP = 100;
 // A small ownership record outlives the photo object so a sender can still
-// retract a wrong photo after every family phone has downloaded it. The record
-// is pruned after this many days.
+// retract a wrong photo after every family phone has downloaded it. Unrevoked
+// records are pruned after this many days; revoked records are kept this long
+// after the retraction so phones that were offline can still learn about it.
 const PHOTO_RECORD_RETENTION_DAYS = 30;
 const MAX_REVOCATIONS_PER_LIST = 100;
 const DEFAULT_PHOTO_RETENTION_HOURS = 24;
@@ -565,7 +566,7 @@ async function listPhotos(request, env) {
     ),
     supabase(
       env,
-      `photo_records?group_id=eq.${device.group_id}&revoked_at=not.is.null&created_at=gt.${encodeURIComponent(revocationCutoff)}&select=photo_id&order=revoked_at.desc&limit=${MAX_REVOCATIONS_PER_LIST}`,
+      `photo_records?group_id=eq.${device.group_id}&revoked_at=gt.${encodeURIComponent(revocationCutoff)}&select=photo_id&order=revoked_at.desc&limit=${MAX_REVOCATIONS_PER_LIST}`,
     ),
   ]);
   const ids = [
@@ -1025,12 +1026,22 @@ async function cleanupExpiredPhotos(env) {
 
   // Ownership records only exist to let a sender retract a photo. They carry
   // no image and are small, but prune them once they are no longer useful.
+  // Revoked records stay for the full retention window counted from the
+  // retraction, not from the original upload.
   const recordCutoff = encodeURIComponent(
     new Date(
       Date.now() - PHOTO_RECORD_RETENTION_DAYS * 24 * 60 * 60 * 1000,
     ).toISOString(),
   );
-  await supabase(env, `photo_records?created_at=lt.${recordCutoff}`, {
+  await supabase(
+    env,
+    `photo_records?created_at=lt.${recordCutoff}&revoked_at=is.null`,
+    {
+      method: "DELETE",
+      prefer: "return=minimal",
+    },
+  );
+  await supabase(env, `photo_records?revoked_at=lt.${recordCutoff}`, {
     method: "DELETE",
     prefer: "return=minimal",
   });

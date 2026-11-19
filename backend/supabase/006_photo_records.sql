@@ -5,7 +5,8 @@
 -- download: the Worker keeps the photo id, group, sender and timestamps, marks
 -- revoked_at when the sender deletes the photo, and recipients remove their
 -- local copy on the next refresh. No image data or key material is stored here.
--- The hourly photo cleanup prunes rows after PHOTO_RECORD_RETENTION_DAYS (30).
+-- The hourly photo cleanup prunes unrevoked rows after
+-- PHOTO_RECORD_RETENTION_DAYS (30) and revoked rows 30 days after retraction.
 
 create table if not exists parked.photo_records (
     photo_id uuid primary key,
@@ -25,6 +26,8 @@ create index if not exists photo_records_group_revoked_idx
     on parked.photo_records (group_id, revoked_at);
 create index if not exists photo_records_created_idx
     on parked.photo_records (created_at);
+create index if not exists photo_records_revoked_idx
+    on parked.photo_records (revoked_at);
 
 alter table parked.photo_records enable row level security;
 
