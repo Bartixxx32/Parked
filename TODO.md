@@ -23,8 +23,8 @@ Right now a spot photo can only be picked from the gallery
 ## Family mode follow-ups
 
 Status: v1 released in 1.2.0; car labels and server selection in 1.3.0;
-end-to-end encryption is in the next release. Still needs broader on-device
-testing. See [backend/README.md](backend/README.md).
+end-to-end encryption in 1.4.0. Still needs broader on-device testing.
+See [backend/README.md](backend/README.md).
 
 Implemented in v1:
 
@@ -55,4 +55,4 @@ Follow-ups:
 - Add automatic group-key rotation when a member leaves, so a member who kept
   the old key cannot decrypt future spots.
 - Test family mode on two physical devices and fix any issues found after the
-  next release.
+  1.4.0 release.
