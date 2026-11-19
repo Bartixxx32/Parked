@@ -73,8 +73,19 @@ class FamilyStore(private val context: Context) {
         context.familyDataStore.edit { it[Keys.INVITE_CODE] = code }
     }
 
+    /**
+     * Removes the group session but keeps the chosen server and the last car
+     * label, so leaving a self-hosted group does not silently switch the next
+     * group back to the public server.
+     */
     suspend fun clear() {
-        context.familyDataStore.edit { it.clear() }
+        context.familyDataStore.edit { preferences ->
+            val serverUrl = preferences[Keys.SERVER_URL]
+            val carLabel = preferences[Keys.CAR_LABEL]
+            preferences.clear()
+            if (serverUrl != null) preferences[Keys.SERVER_URL] = serverUrl
+            if (carLabel != null) preferences[Keys.CAR_LABEL] = carLabel
+        }
     }
 
     private fun Preferences.toCredentials(): FamilyCredentials = FamilyCredentials(

@@ -447,7 +447,6 @@ fun FamilySection(
  * connected car radio's Bluetooth name as a starting point. The field stays
  * editable, so users can type a model or registration plate instead.
  */
-@Composable
 private fun rememberDefaultCarLabel(savedLabel: String, pairedCarName: String): String =
     savedLabel.ifBlank { pairedCarName.trim().take(60) }
 
