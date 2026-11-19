@@ -1,0 +1,4 @@
+• Tryb rodzinny: każde auto ma teraz nazwę (model lub tablica rejestracyjna) widoczną na mapie i w karcie rodziny.
+• Możesz wybrać własny serwer rodziny w Ustawienia → Rodzina → Serwer; publiczny serwer pozostaje domyślny.
+• Wzmocnione API rodziny: limity zapytań, limit 20 aut w grupie, brak CORS, nagłówki bezpieczeństwa i automatyczne czyszczenie starych lokalizacji.
+• Ten sam pakiet i klucz podpisywania — zwykła aktualizacja z 1.2.0.

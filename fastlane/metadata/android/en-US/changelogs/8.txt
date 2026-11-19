@@ -1,0 +1,4 @@
+• Family mode: every car now has a label (model or registration plate) shown on the map and in the family card.
+• Choose your own family server in Settings → Family → Server; the public server remains the default.
+• Family API hardening: rate limits, a 20-car group cap, no browser CORS, security headers and automatic cleanup of stale locations.
+• Same package and signing key — a normal update over 1.2.0.
