@@ -119,6 +119,10 @@
     <string name="action_photo">Photo</string>
     <string name="action_change_photo">Change photo</string>
     <string name="action_remove_photo">Remove photo</string>
+    <string name="action_take_photo">Take photo</string>
+    <string name="action_choose_gallery">Choose from gallery</string>
+    <string name="photo_source_title">Add photo</string>
+    <string name="photo_source_message">Take a new photo with the camera or choose an existing one from the gallery.</string>
     <string name="add_manual_title">Add spot manually</string>
     <string name="manual_coords_hint">Enter decimal coordinates, for example 52.2297 and 21.0122.</string>
     <string name="label_latitude">Latitude</string>
@@ -258,6 +262,7 @@
     <string name="msg_photo_add_failed">Could not add photo: %1$s</string>
     <string name="msg_photo_removed">Photo removed</string>
     <string name="msg_photo_remove_failed">Could not remove photo</string>
+    <string name="msg_photo_capture_failed">Could not open the camera app</string>
     <string name="msg_spot_deleted">Entry deleted</string>
     <string name="msg_spot_delete_failed">Could not delete entry</string>
     <string name="msg_history_deleted">History deleted</string>

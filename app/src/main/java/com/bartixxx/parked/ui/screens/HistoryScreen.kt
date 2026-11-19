@@ -1,5 +1,6 @@
 package com.bartixxx.parked.ui.screens
 
+import android.content.Context
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -26,6 +27,7 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -37,6 +39,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -44,16 +47,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.core.content.FileProvider
 import com.bartixxx.parked.R
 import com.bartixxx.parked.data.db.ParkingSpot
 import com.bartixxx.parked.export.ExportFormat
@@ -61,12 +67,14 @@ import com.bartixxx.parked.ui.Formatters
 import com.bartixxx.parked.ui.components.EmptyState
 import com.bartixxx.parked.ui.components.InfoRow
 import com.bartixxx.parked.ui.components.SpotPhoto
+import java.io.File
 
 @Composable
 fun HistoryScreen(
     spots: List<ParkingSpot>,
     onUpdateNote: (Long, String) -> Unit,
     onAttachPhoto: (Long, Uri) -> Unit,
+    onPhotoError: () -> Unit,
     onRemovePhoto: (Long) -> Unit,
     onDeleteSpot: (Long) -> Unit,
     onDeleteAll: () -> Unit,
@@ -76,13 +84,33 @@ fun HistoryScreen(
     onNavigate: (ParkingSpot) -> Unit,
     onOpenMap: (ParkingSpot) -> Unit,
 ) {
-    var pendingPhotoSpotId by remember { mutableStateOf<Long?>(null) }
-    val photoPicker = rememberLauncherForActivityResult(
+    val context = LocalContext.current
+    var pendingPhotoSpotId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var pendingCameraUri by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingCameraPath by rememberSaveable { mutableStateOf<String?>(null) }
+    var photoTargetSpotId by rememberSaveable { mutableStateOf<Long?>(null) }
+
+    val galleryPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent(),
     ) { uri: Uri? ->
         val id = pendingPhotoSpotId
         pendingPhotoSpotId = null
         if (id != null && uri != null) onAttachPhoto(id, uri)
+    }
+    val cameraPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.TakePicture(),
+    ) { success ->
+        val id = pendingPhotoSpotId
+        val uri = pendingCameraUri?.let(Uri::parse)
+        val path = pendingCameraPath
+        pendingPhotoSpotId = null
+        pendingCameraUri = null
+        pendingCameraPath = null
+        if (success && id != null && uri != null) {
+            onAttachPhoto(id, uri)
+        } else if (path != null) {
+            File(path).delete()
+        }
     }
 
     val jsonExport = rememberLauncherForActivityResult(
@@ -197,10 +225,7 @@ fun HistoryScreen(
                     onNavigate = { onNavigate(spot) },
                     onOpenMap = { onOpenMap(spot) },
                     onDelete = { deleteTarget = spot },
-                    onPickPhoto = {
-                        pendingPhotoSpotId = spot.id
-                        photoPicker.launch("image/*")
-                    },
+                    onPickPhoto = { photoTargetSpotId = spot.id },
                     onRemovePhoto = { onRemovePhoto(spot.id) },
                     onUpdateNote = { note -> onUpdateNote(spot.id, note) },
                 )
@@ -245,6 +270,74 @@ fun HistoryScreen(
             },
             dismissButton = {
                 TextButton(onClick = { deleteTarget = null }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            },
+        )
+    }
+
+    photoTargetSpotId?.let { spotId ->
+        AlertDialog(
+            onDismissRequest = { photoTargetSpotId = null },
+            title = { Text(stringResource(R.string.photo_source_title)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = stringResource(R.string.photo_source_message),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    FilledTonalButton(
+                        onClick = {
+                            photoTargetSpotId = null
+                            val target = createCameraTarget(context)
+                            if (target != null) {
+                                pendingPhotoSpotId = spotId
+                                pendingCameraUri = target.first.toString()
+                                pendingCameraPath = target.second
+                                runCatching { cameraPicker.launch(target.first) }
+                                    .onFailure {
+                                        pendingPhotoSpotId = null
+                                        pendingCameraUri = null
+                                        pendingCameraPath = null
+                                        File(target.second).delete()
+                                        onPhotoError()
+                                    }
+                            } else {
+                                onPhotoError()
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Icon(
+                            Icons.Filled.PhotoCamera,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(Modifier.size(8.dp))
+                        Text(stringResource(R.string.action_take_photo))
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            photoTargetSpotId = null
+                            pendingPhotoSpotId = spotId
+                            galleryPicker.launch("image/*")
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Icon(
+                            Icons.Filled.PhotoLibrary,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(Modifier.size(8.dp))
+                        Text(stringResource(R.string.action_choose_gallery))
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { photoTargetSpotId = null }) {
                     Text(stringResource(R.string.action_cancel))
                 }
             },
@@ -498,3 +591,25 @@ fun ManualAddDialog(
         },
     )
 }
+
+/**
+ * Creates a private cache file for the system camera app. The app itself does
+ * not request the CAMERA permission; the capture happens in the camera app and
+ * the result is copied into the spot photo directory.
+ */
+private fun createCameraTarget(context: Context): Pair<Uri, String>? = runCatching {
+    val dir = File(context.cacheDir, "camera").apply { mkdirs() }
+    val cutoff = System.currentTimeMillis() - CAMERA_CACHE_MAX_AGE_MS
+    dir.listFiles()?.forEach { file ->
+        if (file.isFile && file.lastModified() < cutoff) file.delete()
+    }
+    val file = File.createTempFile("spot_", ".jpg", dir)
+    val uri = FileProvider.getUriForFile(
+        context,
+        "${context.packageName}.fileprovider",
+        file,
+    )
+    uri to file.absolutePath
+}.getOrNull()
+
+private const val CAMERA_CACHE_MAX_AGE_MS = 24L * 60L * 60L * 1000L

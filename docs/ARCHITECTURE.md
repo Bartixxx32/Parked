@@ -247,7 +247,9 @@ has no permission to access all storage.
 - Minimal permissions: location, Bluetooth, FGS, boot, wake lock. `POST_NOTIFICATIONS` is
   declared in the manifest, but the app **does not request** it — the required FGS
   notification may then appear only in the task manager, and monitoring keeps working.
-  No SMS, contacts, microphone, camera (photos via SAF) or file access.
+  No SMS, contacts, microphone or file access. Photos are taken in the system
+  camera app through a FileProvider URI (the app does not request the CAMERA
+  permission) or chosen through SAF, then copied into private app storage.
 
 ## Tests and manual checklist
 

@@ -36,9 +36,14 @@ test("unknown routes use the same security headers", async () => {
 });
 
 test("device routes reject a missing bearer token", async () => {
-  const response = await worker.fetch(request("/v1/spots"), {});
-  assert.equal(response.status, 401);
-  assert.deepEqual(await response.json(), { error: "unauthorized" });
+  const responses = await Promise.all([
+    worker.fetch(request("/v1/spots"), {}),
+    worker.fetch(request("/v1/spot", { method: "DELETE" }), {}),
+  ]);
+  for (const response of responses) {
+    assert.equal(response.status, 401);
+    assert.deepEqual(await response.json(), { error: "unauthorized" });
+  }
 });
 
 test("malformed JSON is rejected before Supabase", async () => {

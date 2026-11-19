@@ -234,6 +234,7 @@ fun ParkedRoot(viewModel: MainViewModel) {
                     spots = spots,
                     onUpdateNote = viewModel::updateNote,
                     onAttachPhoto = viewModel::attachPhoto,
+                    onPhotoError = viewModel::notifyPhotoCaptureFailed,
                     onRemovePhoto = viewModel::removePhoto,
                     onDeleteSpot = viewModel::deleteSpot,
                     onDeleteAll = viewModel::deleteAllSpots,

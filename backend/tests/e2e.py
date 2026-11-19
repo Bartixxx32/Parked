@@ -286,20 +286,21 @@ def main() -> int:
         )
 
         saved_a = 1_700_000_000_000
+        payload_a = encrypt_spot(
+            group_key,
+            group_id,
+            a["deviceId"],
+            "WA 12345",
+            52.2297,
+            21.0122,
+            8.5,
+            saved_a,
+        )
         status, body = request(
             "PUT",
             "/v1/spot",
             {
-                "payload": encrypt_spot(
-                    group_key,
-                    group_id,
-                    a["deviceId"],
-                    "WA 12345",
-                    52.2297,
-                    21.0122,
-                    8.5,
-                    saved_a,
-                ),
+                "payload": payload_a,
                 "keyVersion": 1,
                 "savedAt": iso(saved_a),
             },
@@ -333,6 +334,27 @@ def main() -> int:
             "WA 12345" not in json.dumps(payload) and "52.2297" not in json.dumps(payload),
             "plaintext leaked in response",
         )
+
+        status, body = request("DELETE", "/v1/spot", token=a["deviceToken"])
+        check("encrypted spot can be deleted", status == 204, f"{status} {body}")
+        status, payload = request("GET", "/v1/spots", token=a["deviceToken"])
+        check(
+            "deleted encrypted spot disappears from the family map",
+            status == 200
+            and member_map(payload).get(a["deviceId"], {}).get("spot") is None,
+            repr(payload),
+        )
+        status, body = request(
+            "PUT",
+            "/v1/spot",
+            {
+                "payload": payload_a,
+                "keyVersion": 1,
+                "savedAt": iso(saved_a),
+            },
+            token=a["deviceToken"],
+        )
+        check("encrypted spot can be restored", status == 204, f"{status} {body}")
 
         # --- encrypted joins ---
         status, body = request(
@@ -574,6 +596,15 @@ def main() -> int:
             close(legacy_spot.get("latitude", 0), 52.0)
             and close(legacy_spot.get("longitude", 0), 21.0),
             repr(legacy_spot),
+        )
+        status, body = request("DELETE", "/v1/spot", token=old["deviceToken"])
+        check("legacy spot can be deleted", status == 204, f"{status} {body}")
+        status, payload = request("GET", "/v1/spots", token=old["deviceToken"])
+        check(
+            "deleted legacy spot disappears from the family map",
+            status == 200
+            and member_map(payload).get(old["deviceId"], {}).get("spot") is None,
+            repr(payload),
         )
         status, old_b = request(
             "POST",

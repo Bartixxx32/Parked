@@ -70,6 +70,7 @@ indexes. Review them before re-running after manual changes.
 | `POST` | `/v1/groups/rotate` | device + admin token | Replace the invite code and E2EE link secret; existing device tokens stay valid. |
 | `GET` | `/v1/spots` | device token | List cars and their latest spots (ciphertext for E2EE). |
 | `PUT` | `/v1/spot` | device token | Insert or replace the caller's latest spot. |
+| `DELETE` | `/v1/spot` | device token | Remove the caller's shared spot immediately. |
 | `PATCH` | `/v1/device` | device token | Change the caller's car label (no-op on the server for E2EE). |
 | `DELETE` | `/v1/device` | device token | Leave; deletes the device and its spot, and the group when empty. |
 

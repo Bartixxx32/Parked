@@ -121,6 +121,10 @@
     <string name="action_photo">Zdjęcie</string>
     <string name="action_change_photo">Zmień zdjęcie</string>
     <string name="action_remove_photo">Usuń zdjęcie</string>
+    <string name="action_take_photo">Zrób zdjęcie</string>
+    <string name="action_choose_gallery">Wybierz z galerii</string>
+    <string name="photo_source_title">Dodaj zdjęcie</string>
+    <string name="photo_source_message">Zrób nowe zdjęcie aparatem albo wybierz istniejące z galerii.</string>
     <string name="add_manual_title">Dodaj miejsce ręcznie</string>
     <string name="manual_coords_hint">Podaj współrzędne dziesiętne, np. 52.2297 oraz 21.0122.</string>
     <string name="label_latitude">Szerokość geograficzna</string>
@@ -260,6 +264,7 @@
     <string name="msg_photo_add_failed">Nie udało się dodać zdjęcia: %1$s</string>
     <string name="msg_photo_removed">Zdjęcie usunięte</string>
     <string name="msg_photo_remove_failed">Nie udało się usunąć zdjęcia</string>
+    <string name="msg_photo_capture_failed">Nie udało się uruchomić aparatu</string>
     <string name="msg_spot_deleted">Wpis usunięty</string>
     <string name="msg_spot_delete_failed">Nie udało się usunąć wpisu</string>
     <string name="msg_history_deleted">Usunięto całą historię</string>
