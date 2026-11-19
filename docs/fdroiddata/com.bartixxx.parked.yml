@@ -1,6 +1,6 @@
 # F-Droid metadata for Parked.
 # Copy this file to `metadata/com.bartixxx.parked.yml` in the fdroiddata repository.
-# The newest build below is the v1.4.1 tag commit.
+# The newest build below is the v1.5.0 tag commit.
 Categories:
   - Navigation
 License: GPL-3.0-only
@@ -15,6 +15,12 @@ Repo: https://github.com/Bartixxx32/Parked
 Binaries: https://github.com/Bartixxx32/Parked/releases/download/v%v/Parked-%v.apk
 
 Builds:
+  - versionName: 1.5.0
+    versionCode: 11
+    commit: bf8dab56a7b4448079d96981fba2090e24b6bd3b
+    subdir: app
+    gradle:
+      - yes
   - versionName: 1.4.1
     versionCode: 10
     commit: 418c285ab83dc305ad84da0e0bef916f91c61aa0
@@ -50,5 +56,5 @@ AllowedAPKSigningKeys: 684d25dd4c9b136f304dd2ecb6b1fd6acb776a6cf9b7fb030f8cdfaf5
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
-CurrentVersion: 1.4.1
-CurrentVersionCode: 10
+CurrentVersion: 1.5.0
+CurrentVersionCode: 11
