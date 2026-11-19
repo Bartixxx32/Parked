@@ -3,15 +3,18 @@ package com.bartixxx.parked.ui.components
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -41,6 +44,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -398,6 +402,83 @@ fun FamilySection(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )
+            }
+
+            if (state.sendingPhoto) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                    )
+                    Text(
+                        text = stringResource(R.string.family_photo_sending),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            if (credentials.encrypted) {
+                HorizontalDivider()
+                Text(
+                    text = stringResource(R.string.family_photos),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                if (state.photos.isEmpty()) {
+                    Text(
+                        text = stringResource(R.string.family_photos_empty),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    Text(
+                        text = stringResource(R.string.family_photos_help),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        state.photos.forEach { photo ->
+                            Column(
+                                modifier = Modifier.width(132.dp),
+                                verticalArrangement = Arrangement.spacedBy(2.dp),
+                            ) {
+                                SpotPhoto(
+                                    path = photo.filePath,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(96.dp)
+                                        .clip(RoundedCornerShape(10.dp)),
+                                    maxSize = 480,
+                                )
+                                Text(
+                                    text = photo.senderLabel.ifBlank {
+                                        stringResource(R.string.family_encrypted_car)
+                                    },
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    text = Formatters.age(photo.savedAtEpochMs),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                )
+                            }
+                        }
+                    }
+                }
             }
 
             Row(
@@ -879,6 +960,11 @@ private fun familyErrorText(error: FamilyError): String = stringResource(
         FamilyError.RATE_LIMITED -> R.string.family_error_rate_limited
         FamilyError.GROUP_FULL -> R.string.family_error_group_full
         FamilyError.CRYPTO -> R.string.family_error_crypto
+        FamilyError.PHOTO_LIMIT -> R.string.family_error_photo_limit
+        FamilyError.PHOTO_TOO_LARGE -> R.string.family_error_photo_too_large
+        FamilyError.PHOTO_FAILED -> R.string.family_error_photo_failed
+        FamilyError.NO_PHOTO -> R.string.family_error_no_photo
+        FamilyError.NO_RECIPIENTS -> R.string.family_error_no_recipients
         FamilyError.SERVER -> R.string.family_error_server
         FamilyError.UNKNOWN -> R.string.family_error_unknown
     },

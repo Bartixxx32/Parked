@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """End-to-end check of the deployed Parked family API.
 
-Covers the encrypted API (default for current clients), the legacy plaintext
-API kept for 1.2.0/1.3.0 compatibility, validation and cleanup. Requires the
-`cryptography` package for AES-GCM.
+Covers the encrypted API (default for current clients), encrypted photo
+upload/download/delete, the legacy plaintext API kept for 1.2.0/1.3.0
+compatibility, validation and cleanup. Requires the `cryptography` package for
+AES-GCM.
 
 Usage: python3 backend/tests/e2e.py
 """
@@ -22,6 +23,7 @@ import struct
 import sys
 import urllib.error
 import urllib.request
+import uuid
 from datetime import datetime, timezone
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -81,6 +83,37 @@ def response_headers(method: str, path: str):
             return resp.status, {k.lower(): v for k, v in resp.headers.items()}
     except urllib.error.HTTPError as e:
         return e.code, {k.lower(): v for k, v in e.headers.items()}
+
+
+def binary_request(method: str, path: str, body=None, token=None, headers=None):
+    req = urllib.request.Request(BASE + path, data=body, method=method)
+    req.add_header("Accept", "application/octet-stream")
+    req.add_header("User-Agent", "Parked-e2e/2.0")
+    if body is not None:
+        req.add_header("Content-Type", "application/octet-stream")
+    if token:
+        req.add_header("Authorization", "Bearer " + token)
+    for name, value in (headers or {}).items():
+        req.add_header(name, value)
+    try:
+        with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+            headers = {k.lower(): v for k, v in resp.headers.items()}
+            raw = resp.read()
+            if "application/json" in headers.get("content-type", ""):
+                try:
+                    parsed = json.loads(raw) if raw else None
+                except json.JSONDecodeError:
+                    parsed = raw
+            else:
+                parsed = raw
+            return resp.status, headers, parsed
+    except urllib.error.HTTPError as e:
+        raw = e.read()
+        try:
+            parsed = json.loads(raw) if raw else None
+        except json.JSONDecodeError:
+            parsed = raw.decode(errors="replace")
+        return e.code, {k.lower(): v for k, v in e.headers.items()}, parsed
 
 
 def parse_time(value: str) -> datetime:
@@ -203,6 +236,48 @@ def decrypt_spot(
         "accuracy": accuracy if plain[5] & 1 else None,
         "savedAtMs": saved_at_ms,
     }
+
+
+def encrypt_photo(
+    group_key: bytes,
+    group_id: str,
+    photo_id: str,
+    sender_device_id: str,
+    plaintext: bytes,
+) -> tuple[str, bytes]:
+    key = hkdf(
+        group_key,
+        b"parked-photo-salt-v1",
+        f"photo|{group_id}|{photo_id}|{KEY_VERSION}".encode(),
+        32,
+    )
+    aad = (
+        f"parked-photo|v1|{group_id}|{photo_id}|"
+        f"{sender_device_id}|{KEY_VERSION}"
+    ).encode()
+    iv = secrets.token_bytes(IV_BYTES)
+    return b64e(iv), AESGCM(key).encrypt(iv, plaintext, aad)
+
+
+def decrypt_photo(
+    group_key: bytes,
+    group_id: str,
+    photo_id: str,
+    sender_device_id: str,
+    iv_encoded: str,
+    ciphertext: bytes,
+) -> bytes:
+    key = hkdf(
+        group_key,
+        b"parked-photo-salt-v1",
+        f"photo|{group_id}|{photo_id}|{KEY_VERSION}".encode(),
+        32,
+    )
+    aad = (
+        f"parked-photo|v1|{group_id}|{photo_id}|"
+        f"{sender_device_id}|{KEY_VERSION}"
+    ).encode()
+    return AESGCM(key).decrypt(b64d(iv_encoded), ciphertext, aad)
 
 
 def main() -> int:
@@ -356,6 +431,32 @@ def main() -> int:
         )
         check("encrypted spot can be restored", status == 204, f"{status} {body}")
 
+        # --- encrypted photos ---
+        lonely_photo_id = str(uuid.uuid4())
+        lonely_iv, lonely_ciphertext = encrypt_photo(
+            group_key,
+            group_id,
+            lonely_photo_id,
+            a["deviceId"],
+            b"\xff\xd8\xff\xe0 lonely",
+        )
+        status, _, body = binary_request(
+            "POST",
+            "/v1/photos",
+            lonely_ciphertext,
+            token=a["deviceToken"],
+            headers={
+                "X-Photo-Id": lonely_photo_id,
+                "X-Photo-Iv": lonely_iv,
+                "X-Key-Version": "1",
+            },
+        )
+        check(
+            "photo upload needs at least one recipient",
+            status == 409 and body == {"error": "no_recipients"},
+            f"{status} {body}",
+        )
+
         # --- encrypted joins ---
         status, body = request(
             "POST",
@@ -440,6 +541,135 @@ def main() -> int:
             "second member's encrypted label and spot decrypt",
             second["label"] == "Opel Astra" and close(second["latitude"], 50.0647),
             repr(second),
+        )
+
+        photo_id = str(uuid.uuid4())
+        photo_plain = b"\xff\xd8\xff\xe0" + secrets.token_bytes(1500)
+        photo_iv, photo_ciphertext = encrypt_photo(
+            group_key,
+            group_id,
+            photo_id,
+            a["deviceId"],
+            photo_plain,
+        )
+        status, _, body = binary_request(
+            "POST",
+            "/v1/photos",
+            photo_ciphertext,
+            token=a["deviceToken"],
+            headers={
+                "X-Photo-Id": photo_id,
+                "X-Photo-Iv": photo_iv,
+                "X-Key-Version": "1",
+            },
+        )
+        check(
+            "encrypted photo upload",
+            status == 201 and (body or {}).get("recipients") == 1,
+            f"{status} {body}",
+        )
+        check(
+            "photo upload response leaks no plaintext",
+            "ffd8" not in json.dumps(body).lower(),
+            repr(body),
+        )
+
+        status, listed = request("GET", "/v1/photos", token=b["deviceToken"])
+        pending = (listed or {}).get("photos") or []
+        check(
+            "recipient sees the pending photo",
+            status == 200
+            and len(pending) == 1
+            and pending[0]["id"] == photo_id
+            and pending[0]["senderDeviceId"] == a["deviceId"]
+            and pending[0]["iv"] == photo_iv,
+            f"{status} {listed}",
+        )
+        status, listed_a = request("GET", "/v1/photos", token=a["deviceToken"])
+        check(
+            "sender is not a photo recipient",
+            status == 200 and not ((listed_a or {}).get("photos") or []),
+            repr(listed_a),
+        )
+
+        status, headers, downloaded = binary_request(
+            "GET", f"/v1/photos/{photo_id}", token=b["deviceToken"]
+        )
+        check(
+            "recipient downloads the ciphertext",
+            status == 200 and downloaded == photo_ciphertext,
+            f"{status} {len(downloaded) if isinstance(downloaded, bytes) else downloaded}",
+        )
+        check(
+            "download headers carry iv and key version",
+            headers.get("x-photo-iv") == photo_iv
+            and headers.get("x-key-version") == "1",
+            repr(headers),
+        )
+        check(
+            "photo decrypts with the group key",
+            decrypt_photo(
+                group_key,
+                group_id,
+                photo_id,
+                a["deviceId"],
+                headers.get("x-photo-iv", ""),
+                downloaded,
+            )
+            == photo_plain,
+            "photo plaintext mismatch",
+        )
+
+        status, body = request("POST", f"/v1/photos/{photo_id}/ack", token=b["deviceToken"])
+        check("recipient acknowledges the photo", status == 204, f"{status} {body}")
+        status, listed = request("GET", "/v1/photos", token=b["deviceToken"])
+        check(
+            "acknowledged photo leaves the pending list",
+            status == 200 and not ((listed or {}).get("photos") or []),
+            repr(listed),
+        )
+        status, _, body = binary_request(
+            "GET", f"/v1/photos/{photo_id}", token=b["deviceToken"]
+        )
+        check(
+            "photo is deleted on the server after the last ack",
+            status == 404,
+            f"{status} {body}",
+        )
+
+        early_photo_id = str(uuid.uuid4())
+        early_iv, early_ciphertext = encrypt_photo(
+            group_key,
+            group_id,
+            early_photo_id,
+            a["deviceId"],
+            b"\xff\xd8\xff\xe0 early",
+        )
+        status, _, body = binary_request(
+            "POST",
+            "/v1/photos",
+            early_ciphertext,
+            token=a["deviceToken"],
+            headers={
+                "X-Photo-Id": early_photo_id,
+                "X-Photo-Iv": early_iv,
+                "X-Key-Version": "1",
+            },
+        )
+        check("second encrypted photo upload", status == 201, f"{status} {body}")
+        status, _, _ = binary_request(
+            "DELETE", f"/v1/photos/{early_photo_id}", token=b["deviceToken"]
+        )
+        check("recipient cannot delete the sender's photo", status == 403, f"{status}")
+        status, _, body = binary_request(
+            "DELETE", f"/v1/photos/{early_photo_id}", token=a["deviceToken"]
+        )
+        check("sender can delete a pending photo", status == 204, f"{status} {body}")
+        status, listed = request("GET", "/v1/photos", token=b["deviceToken"])
+        check(
+            "sender deletion removes the photo from the recipient",
+            status == 200 and not ((listed or {}).get("photos") or []),
+            repr(listed),
         )
 
         # --- encrypted validation ---
@@ -571,6 +801,22 @@ def main() -> int:
             return 1
         created.append((old["deviceToken"], "legacy-a"))
         check("legacy create has no crypto field", "crypto" not in old, repr(old))
+        status, _, body = binary_request(
+            "POST",
+            "/v1/photos",
+            b"\xff\xd8\xff\xe0 legacy",
+            token=old["deviceToken"],
+            headers={
+                "X-Photo-Id": str(uuid.uuid4()),
+                "X-Photo-Iv": b64e(secrets.token_bytes(IV_BYTES)),
+                "X-Key-Version": "1",
+            },
+        )
+        check(
+            "plaintext groups cannot upload photos",
+            status == 400 and body == {"error": "crypto_required"},
+            f"{status} {body}",
+        )
         legacy_group = old["groupId"]
         legacy_code = old["inviteCode"]
         status, payload = request("GET", "/v1/spots", token=old["deviceToken"])

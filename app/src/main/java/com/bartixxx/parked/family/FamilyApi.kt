@@ -2,6 +2,7 @@ package com.bartixxx.parked.family
 
 import com.bartixxx.parked.BuildConfig
 import com.bartixxx.parked.data.db.ParkingSpot
+import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
@@ -56,6 +57,16 @@ data class RemoteFamilyMember(
 data class RemoteFamilySnapshot(
     val groupId: String?,
     val members: List<RemoteFamilyMember>,
+)
+
+data class RemoteFamilyPhoto(
+    val id: String,
+    val senderDeviceId: String,
+    val iv: String,
+    val keyVersion: Int,
+    val sizeBytes: Int,
+    val savedAtEpochMs: Long,
+    val expiresAtEpochMs: Long,
 )
 
 class FamilyApiException(
@@ -170,6 +181,69 @@ class FamilyApi(serverUrl: String) {
 
     suspend fun deleteSpot(deviceToken: String) {
         request(method = "DELETE", path = "/v1/spot", deviceToken = deviceToken)
+    }
+
+    suspend fun listPhotos(deviceToken: String): List<RemoteFamilyPhoto> {
+        val response = request(
+            method = "GET",
+            path = "/v1/photos",
+            deviceToken = deviceToken,
+        )
+        val array = response?.optJSONArray("photos") ?: JSONArray()
+        val photos = mutableListOf<RemoteFamilyPhoto>()
+        for (index in 0 until array.length()) {
+            val item = array.optJSONObject(index) ?: continue
+            val id = item.optString("id").takeIf { it.isNotBlank() } ?: continue
+            val sender = item.optString("senderDeviceId").takeIf { it.isNotBlank() }
+                ?: continue
+            val iv = item.optString("iv").takeIf { it.isNotBlank() } ?: continue
+            val keyVersion = item.optInt("keyVersion", 0).takeIf { it > 0 } ?: continue
+            photos += RemoteFamilyPhoto(
+                id = id,
+                senderDeviceId = sender,
+                iv = iv,
+                keyVersion = keyVersion,
+                sizeBytes = item.optInt("sizeBytes", 0),
+                savedAtEpochMs = epoch(item.optString("createdAt")) ?: 0L,
+                expiresAtEpochMs = epoch(item.optString("expiresAt")) ?: 0L,
+            )
+        }
+        return photos
+    }
+
+    suspend fun downloadPhoto(deviceToken: String, photoId: String): ByteArray =
+        requestBytes(
+            method = "GET",
+            path = "/v1/photos/$photoId",
+            deviceToken = deviceToken,
+        )
+
+    suspend fun uploadPhoto(
+        deviceToken: String,
+        photoId: String,
+        iv: String,
+        keyVersion: Int,
+        ciphertext: ByteArray,
+    ) {
+        requestBytes(
+            method = "POST",
+            path = "/v1/photos",
+            deviceToken = deviceToken,
+            body = ciphertext,
+            headers = mapOf(
+                "X-Photo-Id" to photoId,
+                "X-Photo-Iv" to iv,
+                "X-Key-Version" to keyVersion.toString(),
+            ),
+        )
+    }
+
+    suspend fun ackPhoto(deviceToken: String, photoId: String) {
+        request(
+            method = "POST",
+            path = "/v1/photos/$photoId/ack",
+            deviceToken = deviceToken,
+        )
     }
 
     suspend fun updateCarLabel(deviceToken: String, carLabel: String) {
@@ -333,6 +407,72 @@ class FamilyApi(serverUrl: String) {
         }
     }
 
+    private suspend fun requestBytes(
+        method: String,
+        path: String,
+        deviceToken: String,
+        body: ByteArray? = null,
+        headers: Map<String, String> = emptyMap(),
+    ): ByteArray = withContext(Dispatchers.IO) {
+        val connection = (URL("$baseUrl$path").openConnection() as HttpURLConnection).apply {
+            requestMethod = method
+            connectTimeout = CONNECT_TIMEOUT_MS
+            readTimeout = READ_TIMEOUT_MS
+            instanceFollowRedirects = false
+            useCaches = false
+            setRequestProperty("Accept", "application/octet-stream")
+            setRequestProperty("User-Agent", "Parked/${BuildConfig.VERSION_NAME} (Android)")
+            setRequestProperty("Authorization", "Bearer $deviceToken")
+            headers.forEach { (name, value) -> setRequestProperty(name, value) }
+            if (body != null) {
+                doOutput = true
+                setFixedLengthStreamingMode(body.size)
+                setRequestProperty("Content-Type", "application/octet-stream")
+            }
+        }
+
+        try {
+            if (body != null) {
+                connection.outputStream.use { output -> output.write(body) }
+            }
+            val status = connection.responseCode
+            if (status !in 200..299) {
+                val text = connection.errorStream
+                    ?.bufferedReader()
+                    ?.use { it.readText() }
+                    .orEmpty()
+                throw FamilyApiException(parseError(status, text), status)
+            }
+            val declared = connection.contentLengthLong
+            if (declared > MAX_BINARY_BYTES) {
+                throw FamilyApiException(FamilyError.PHOTO_TOO_LARGE, status)
+            }
+            connection.inputStream.use { input ->
+                val output = ByteArrayOutputStream()
+                val buffer = ByteArray(16 * 1024)
+                var total = 0
+                while (true) {
+                    val read = input.read(buffer)
+                    if (read < 0) break
+                    total += read
+                    if (total > MAX_BINARY_BYTES) {
+                        throw FamilyApiException(FamilyError.PHOTO_TOO_LARGE, status)
+                    }
+                    output.write(buffer, 0, read)
+                }
+                output.toByteArray()
+            }
+        } catch (error: FamilyApiException) {
+            throw error
+        } catch (error: IOException) {
+            throw FamilyApiException(FamilyError.NETWORK, cause = error)
+        } catch (error: Exception) {
+            throw FamilyApiException(FamilyError.UNKNOWN, cause = error)
+        } finally {
+            connection.disconnect()
+        }
+    }
+
     private fun parseError(status: Int, text: String): FamilyError {
         val code = runCatching { JSONObject(text).optString("error") }.getOrNull()
         return when {
@@ -343,6 +483,9 @@ class FamilyApi(serverUrl: String) {
                 FamilyError.INVALID_INVITE
             code == "invalid_crypto" || code == "crypto_required" ||
                 code == "key_version_mismatch" -> FamilyError.CRYPTO
+            code == "photo_limit" -> FamilyError.PHOTO_LIMIT
+            code == "photo_too_large" -> FamilyError.PHOTO_TOO_LARGE
+            code == "no_recipients" -> FamilyError.NO_RECIPIENTS
             code == "invalid_name" -> FamilyError.INVALID_NAME
             code == "unauthorized" || code == "forbidden" -> FamilyError.UNAUTHORIZED
             code == "not_found" -> FamilyError.NOT_CONNECTED
@@ -360,5 +503,6 @@ class FamilyApi(serverUrl: String) {
         const val CONNECT_TIMEOUT_MS = 10_000
         const val READ_TIMEOUT_MS = 15_000
         const val ENCRYPTED_PLACEHOLDER = "Encrypted"
+        const val MAX_BINARY_BYTES = 2_100_000
     }
 }

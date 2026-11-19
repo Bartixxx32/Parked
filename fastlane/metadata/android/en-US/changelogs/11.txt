@@ -1,0 +1,5 @@
+• A spot photo can now be sent explicitly to the family with “Send to family”. The photo is compressed and end-to-end encrypted on the phone.
+• The family server stores only ciphertext and deletes it as soon as every family phone downloads the photo, or after 24 hours.
+• Received family photos are shown in Settings → Family.
+• Family map polling now runs only while the map is visible and the app is in the foreground, saving battery and server quota.
+• Same package and signing key — a normal update over 1.4.1.

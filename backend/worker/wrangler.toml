@@ -8,8 +8,17 @@ workers_dev = true
 # days. Keep this in sync with the privacy expectations documented in the app.
 RETAIN_DAYS = "30"
 
+# Encrypted family photos are deleted after this many hours even if a phone
+# never confirms the download. The normal path deletes them as soon as every
+# recipient confirms. Keep this short on the free Storage plan.
+PHOTO_RETENTION_HOURS = "24"
+# Private Supabase Storage bucket. Create it before deploying the Worker.
+PHOTO_BUCKET = "parked-photos"
+
 [triggers]
-crons = ["17 3 * * *"]
+# The hourly run enforces the photo TTL; the daily run also removes stale
+# spots, devices and empty groups.
+crons = ["17 3 * * *", "17 * * * *"]
 
 # Cloudflare rate limiting bindings. Limits are approximate and are applied
 # separately in each Cloudflare location. The namespace IDs must be unique

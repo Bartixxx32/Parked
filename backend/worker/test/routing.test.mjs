@@ -36,9 +36,21 @@ test("unknown routes use the same security headers", async () => {
 });
 
 test("device routes reject a missing bearer token", async () => {
+  const photoId = "123e4567-e89b-42d3-a456-426614174000";
   const responses = await Promise.all([
     worker.fetch(request("/v1/spots"), {}),
     worker.fetch(request("/v1/spot", { method: "DELETE" }), {}),
+    worker.fetch(request("/v1/photos"), {}),
+    worker.fetch(
+      request("/v1/photos", {
+        method: "POST",
+        headers: { "x-photo-id": photoId },
+        body: new Uint8Array(32),
+      }),
+      {},
+    ),
+    worker.fetch(request(`/v1/photos/${photoId}`), {}),
+    worker.fetch(request(`/v1/photos/${photoId}/ack`, { method: "POST" }), {}),
   ]);
   for (const response of responses) {
     assert.equal(response.status, 401);

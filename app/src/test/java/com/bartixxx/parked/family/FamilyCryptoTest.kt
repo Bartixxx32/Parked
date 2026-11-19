@@ -131,6 +131,68 @@ class FamilyCryptoTest {
     }
 
     @Test
+    fun `photo ciphertext round trips and is bound to its metadata`() {
+        val groupKey = ByteArray(32) { (it + 3).toByte() }
+        val plaintext = ByteArray(2048) { (it * 31).toByte() }
+        val encrypted = FamilyCrypto.encryptPhoto(
+            groupKey = groupKey,
+            groupId = "group-1",
+            photoId = "123e4567-e89b-42d3-a456-426614174000",
+            senderDeviceId = "device-1",
+            keyVersion = 1,
+            plaintext = plaintext,
+        )
+        assertEquals(16, encrypted.iv.length)
+        assertArrayEquals(
+            plaintext,
+            FamilyCrypto.decryptPhoto(
+                groupKey = groupKey,
+                groupId = "group-1",
+                photoId = "123e4567-e89b-42d3-a456-426614174000",
+                senderDeviceId = "device-1",
+                keyVersion = 1,
+                ivEncoded = encrypted.iv,
+                ciphertext = encrypted.ciphertext,
+            ),
+        )
+        assertNull(
+            FamilyCrypto.decryptPhoto(
+                groupKey = groupKey,
+                groupId = "group-1",
+                photoId = "123e4567-e89b-42d3-a456-426614174000",
+                senderDeviceId = "device-2",
+                keyVersion = 1,
+                ivEncoded = encrypted.iv,
+                ciphertext = encrypted.ciphertext,
+            ),
+        )
+        assertNull(
+            FamilyCrypto.decryptPhoto(
+                groupKey = groupKey,
+                groupId = "group-2",
+                photoId = "123e4567-e89b-42d3-a456-426614174000",
+                senderDeviceId = "device-1",
+                keyVersion = 1,
+                ivEncoded = encrypted.iv,
+                ciphertext = encrypted.ciphertext,
+            ),
+        )
+        val tampered = encrypted.ciphertext.copyOf()
+        tampered[tampered.size / 2] = (tampered[tampered.size / 2].toInt() xor 1).toByte()
+        assertNull(
+            FamilyCrypto.decryptPhoto(
+                groupKey = groupKey,
+                groupId = "group-1",
+                photoId = "123e4567-e89b-42d3-a456-426614174000",
+                senderDeviceId = "device-1",
+                keyVersion = 1,
+                ivEncoded = encrypted.iv,
+                ciphertext = tampered,
+            ),
+        )
+    }
+
+    @Test
     fun `invite link carries the secret outside the code`() {
         val code = "BSHR4H4P5M"
         val secret = FamilyCrypto.newInviteSecret()

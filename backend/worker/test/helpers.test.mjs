@@ -3,12 +3,17 @@ import test from "node:test";
 
 import {
   MAX_GROUP_MEMBERS,
+  MAX_PHOTO_BYTES,
   cleanDisplayName,
+  cleanPhotoId,
+  cleanPhotoIv,
   clientTimeOrNow,
   generateInviteCode,
   hashInviteCode,
   inRange,
   normalizeInviteCode,
+  photoBucket,
+  photoRetentionHours,
   randomToken,
   sha256Hex,
   timingSafeEqual,
@@ -99,4 +104,32 @@ test("clientTimeOrNow clamps future and stale timestamps", () => {
   assert.ok(Math.abs(Date.now() - Date.parse(clientTimeOrNow(stale))) < 5000);
 
   assert.ok(Math.abs(Date.now() - Date.parse(clientTimeOrNow("nope"))) < 5000);
+});
+
+test("photo ids must be UUIDs", () => {
+  const id = "123e4567-e89b-42d3-a456-426614174000";
+  assert.equal(cleanPhotoId(id), id);
+  assert.equal(cleanPhotoId(id.toUpperCase()), id);
+  assert.equal(cleanPhotoId("not-a-uuid"), null);
+  assert.equal(cleanPhotoId("123e4567-e89b-62d3-a456-426614174000"), null);
+  assert.equal(cleanPhotoId(null), null);
+});
+
+test("photo IVs are 12-byte base64url values", () => {
+  assert.equal(cleanPhotoIv("AAAAAAAAAAAAAAAA"), "AAAAAAAAAAAAAAAA");
+  assert.equal(cleanPhotoIv("A".repeat(15)), null);
+  assert.equal(cleanPhotoIv("A".repeat(17)), null);
+  assert.equal(cleanPhotoIv("AAAAAAAAAAAAAAA+"), null);
+  assert.equal(cleanPhotoIv(null), null);
+});
+
+test("photo bucket and retention use safe defaults", () => {
+  assert.equal(photoBucket({}), "parked-photos");
+  assert.equal(photoBucket({ PHOTO_BUCKET: "family-photos" }), "family-photos");
+  assert.equal(photoBucket({ PHOTO_BUCKET: "../evil" }), "parked-photos");
+  assert.equal(photoRetentionHours({}), 24);
+  assert.equal(photoRetentionHours({ PHOTO_RETENTION_HOURS: "48" }), 48);
+  assert.equal(photoRetentionHours({ PHOTO_RETENTION_HOURS: "0" }), 1);
+  assert.equal(photoRetentionHours({ PHOTO_RETENTION_HOURS: "9999" }), 168);
+  assert.equal(MAX_PHOTO_BYTES, 2_000_000);
 });
