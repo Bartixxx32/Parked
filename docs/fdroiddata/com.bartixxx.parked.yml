@@ -56,7 +56,7 @@ Builds:
 
   - versionName: 1.5.1
     versionCode: 12
-    commit: 107cf970bbd59768507a0fbec55115d107c3ac2c
+    commit: fd8d123d924878ef3d862eeb3c3f61cd2111f65e
     subdir: app
     gradle:
       - yes
