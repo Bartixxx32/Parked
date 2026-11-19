@@ -124,7 +124,11 @@
     <string name="photo_source_title">Add photo</string>
     <string name="photo_source_message">Take a new photo with the camera or choose an existing one from the gallery.</string>
     <string name="add_manual_title">Add spot manually</string>
-    <string name="manual_coords_hint">Enter decimal coordinates, for example 52.2297 and 21.0122.</string>
+    <string name="manual_coords_hint">Enter decimal coordinates, or pick the spot on the map.</string>
+    <string name="map_picker_title">Pick a spot on the map</string>
+    <string name="map_picker_hint">Drag and zoom the map, then place the crosshair on the parking spot.</string>
+    <string name="map_picker_use">Use this point</string>
+    <string name="map_picker_pick">Pick on map</string>
     <string name="label_latitude">Latitude</string>
     <string name="label_longitude">Longitude</string>
     <string name="label_note_optional">Note (optional)</string>

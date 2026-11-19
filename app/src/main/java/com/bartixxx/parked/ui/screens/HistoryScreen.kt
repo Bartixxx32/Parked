@@ -16,7 +16,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
@@ -70,6 +72,7 @@ import com.bartixxx.parked.ui.components.EmptyState
 import com.bartixxx.parked.ui.components.InfoRow
 import com.bartixxx.parked.ui.components.SpotPhoto
 import java.io.File
+import java.util.Locale
 
 @Composable
 fun HistoryScreen(
@@ -603,17 +606,33 @@ fun ManualAddDialog(
     var latitude by remember { mutableStateOf("") }
     var longitude by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
+    var pickerOpen by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.add_manual_spot)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 Text(
                     text = stringResource(R.string.manual_coords_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                OutlinedButton(
+                    onClick = { pickerOpen = true },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Map,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Spacer(Modifier.size(6.dp))
+                    Text(stringResource(R.string.map_picker_pick))
+                }
                 OutlinedTextField(
                     value = latitude,
                     onValueChange = { latitude = it },
@@ -652,6 +671,19 @@ fun ManualAddDialog(
             }
         },
     )
+
+    if (pickerOpen) {
+        MapPickerDialog(
+            initialLatitude = latitude.trim().toDoubleOrNull(),
+            initialLongitude = longitude.trim().toDoubleOrNull(),
+            onDismiss = { pickerOpen = false },
+            onConfirm = { pickedLatitude, pickedLongitude ->
+                latitude = String.format(Locale.US, "%.6f", pickedLatitude)
+                longitude = String.format(Locale.US, "%.6f", pickedLongitude)
+                pickerOpen = false
+            },
+        )
+    }
 }
 
 /**

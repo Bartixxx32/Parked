@@ -1,0 +1,3 @@
+• Dodawanie miejsca ręcznie przez wskazanie punktu na mapie; wpisywanie współrzędnych nie jest już konieczne.
+• Wybór mapy startuje w pobliżu ostatniej pozycji i ma celownik „użyj tego punktu”.
+• Zwykła aktualizacja z 1.5.2.

@@ -33,7 +33,8 @@ dependencies — no Google Play Services.
   last-known fallback.
 - History: date, coordinates, accuracy, fix source (GPS/Fused/Network), note and an
   optional photo.
-- Manual save of the current location and manual entry of coordinates.
+- Manual save of the current location and manual entry of coordinates, including
+  picking the point directly on a map instead of typing latitude and longitude.
 - OpenStreetMap: pins for all spots, tap to select, accuracy circle around the selected
   point, current position and an external navigation button.
 - Built-in target compass: a dial that reacts to phone rotation, cardinal direction

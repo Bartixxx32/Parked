@@ -126,7 +126,11 @@
     <string name="photo_source_title">Dodaj zdjęcie</string>
     <string name="photo_source_message">Zrób nowe zdjęcie aparatem albo wybierz istniejące z galerii.</string>
     <string name="add_manual_title">Dodaj miejsce ręcznie</string>
-    <string name="manual_coords_hint">Podaj współrzędne dziesiętne, np. 52.2297 oraz 21.0122.</string>
+    <string name="manual_coords_hint">Podaj współrzędne dziesiętne lub wskaż miejsce na mapie.</string>
+    <string name="map_picker_title">Wybierz miejsce na mapie</string>
+    <string name="map_picker_hint">Przesuń i powiększ mapę, a następnie ustaw celownik na miejscu parkingowym.</string>
+    <string name="map_picker_use">Użyj tego punktu</string>
+    <string name="map_picker_pick">Wybierz na mapie</string>
     <string name="label_latitude">Szerokość geograficzna</string>
     <string name="label_longitude">Długość geograficzna</string>
     <string name="label_note_optional">Notatka (opcjonalnie)</string>
