@@ -9,6 +9,10 @@ account.
 - OpenStreetMap via osmdroid — no API keys and no paid services
 - Android 10 (API 29) or newer, built against API 36
 
+**Privacy in one sentence:** without optional family mode the app never uploads your
+location. New family groups are end-to-end encrypted; the server stores only ciphertext
+and technical metadata, and never receives the group key.
+
 The app is available in **12 languages** (English, Polish, German, French, Spanish,
 Italian, Portuguese, Russian, Ukrainian, Simplified Chinese, Dutch and Czech); the
 language follows the phone settings.
@@ -62,7 +66,8 @@ dependencies — no Google Play Services.
   low-priority notification of the monitoring foreground service (it can be hidden in
   the system settings — monitoring keeps working).
 - Monitoring is restored after a phone reboot and after an app update (best effort).
-- No ads, analytics, telemetry, account or location uploads.
+- No ads, analytics, telemetry or accounts. Outside optional family mode, no location
+  uploads.
 
 ## Installation
 
@@ -170,32 +175,42 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Privacy
 
-- All data (history, notes, photos, logs, settings) is stored exclusively in the app's
-  private storage.
-- No ads, analytics, Crashlytics, telemetry or user accounts.
-- Without family mode the app does not send coordinates to any server.
-- Family mode is opt-in. New groups are end-to-end encrypted: the car label,
-  group name, coordinates, accuracy and timestamps are encrypted on the phone before
-  upload, and the server stores only ciphertext plus group/device identifiers. The
-  256-bit group key is kept on family phones, wrapped by the Android Keystore. Notes,
-  photos and spot history are never uploaded. Leaving the group deletes the member's
-  cloud data.
-  Groups created by older app versions remain plaintext for compatibility, so the
-  server operator could read those until the group is recreated. The default is the
-  public Parked server; you can enter a self-hosted HTTPS server in
-  **Settings → Family → Server**.
-- Otherwise the only network traffic is downloading map tiles from OpenStreetMap servers
-  while the map screen is open (the server sees the IP address and tile area, like any
-  website).
-- Export creates a file only where you point the system file picker.
-- Android backup is disabled; data does not reach the cloud through system backup.
+**In short:** Parked works locally. The only optional server feature is family mode.
+New groups are end-to-end encrypted: the server stores only encrypted data plus
+technical metadata, never receives the group key, and cannot read the car label, group
+name, coordinates, accuracy, note or photo contents.
+
+| The server can see | The server cannot see |
+|---|---|
+| group/device identifiers, key version, ciphertext size, timestamps, request metadata | car label, group name, coordinates, accuracy, note or photo contents, group key, invite secret |
+
+- History, notes, photos, logs and settings stay in the app's private storage. There
+  are no ads, analytics, Crashlytics, telemetry or user accounts.
+- Without family mode the app sends no location data to any server.
+- Family mode is opt-in. The latest car label, group name, coordinates and accuracy
+  are encrypted on the phone before upload. The 256-bit group key stays on family
+  phones, wrapped by the Android Keystore; the ciphertext is bound to the group, device
+  and key version, so the server cannot move it to another group.
+- Notes stay local unless you enable **Share note**; photos are uploaded only when you
+  tap **Send to family**. Both travel inside the encrypted payload, so the server
+  cannot read them. Spot history is never uploaded.
+- Leaving the group removes the member's latest spot and photos from the server.
+  Groups created by 1.2/1.3 remain plaintext for compatibility; recreate such a group
+  to get encryption.
+- Outside family mode, the only network traffic is downloading OpenStreetMap tiles
+  while the map is open. The tile server sees the IP address and tile area, like any
+  website.
+- Export creates a file only where you point the system file picker. Android backup is
+  disabled, so local data does not reach cloud backup.
 
 ## Family server
 
 Family mode uses the public instance
 `https://parked.bartixxx.workers.dev` by default, so there is nothing to set up.
-If you want to control the data yourself, the backend is open source and can be
-deployed to your own Cloudflare Workers + Supabase project. The complete
+Even on the public instance the data is end-to-end encrypted: the server only
+relays ciphertext and never gets the key. If you want to control the data
+yourself, the backend is open source and can be deployed to your own Cloudflare
+Workers + Supabase project. The complete
 step-by-step guide, security model and API documentation are in
 [backend/README.md](backend/README.md).
 
