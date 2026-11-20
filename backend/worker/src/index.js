@@ -16,6 +16,7 @@ const CODE_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 const CODE_LENGTH = 10;
 const MAX_BODY_BYTES = 4096;
 const MAX_DISPLAY_NAME = 60;
+const MAX_GROUP_NAME = 60;
 const MAX_ACCURACY_M = 10000;
 const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
 const MAX_SPOT_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -23,6 +24,8 @@ const MAX_GROUP_MEMBERS = 20;
 const DEFAULT_RETAIN_DAYS = 30;
 const RATE_LIMIT_RETRY_SECONDS = 60;
 const MAX_ENCRYPTED_PAYLOAD = 2048;
+const MIN_ENCRYPTED_NAME_PAYLOAD = 40;
+const MAX_ENCRYPTED_NAME_PAYLOAD = 512;
 const MAX_KEY_VERSION = 1_000_000;
 const ENCRYPTED_DISPLAY_NAME = "Encrypted";
 const CRYPTO_KEY_SALT_LENGTH = 22;
@@ -136,6 +139,9 @@ async function route(request, env) {
   }
   if (method === "PATCH" && path === "/v1/device") {
     return updateDevice(request, env);
+  }
+  if (method === "PATCH" && path === "/v1/group") {
+    return updateGroupName(request, env);
   }
   if (method === "DELETE" && path === "/v1/device") {
     return deleteDevice(request, env);
@@ -334,6 +340,13 @@ async function listSpots(request, env) {
   return json({
     groupId: device.group_id,
     cryptoMode: encrypted ? "e2ee" : "plaintext",
+    // Older workers simply omit these fields; older apps ignore them.
+    ...(encrypted
+      ? {
+          groupNamePayload: group?.name_payload || null,
+          groupNameKeyVersion: group?.name_key_version || null,
+        }
+      : { groupName: group?.name || null }),
     members,
   });
 }
@@ -810,6 +823,58 @@ async function updateDevice(request, env) {
   return empty(204);
 }
 
+/**
+ * Renames the family group. Plaintext groups keep using a plaintext name, just
+ * like their car labels. E2EE groups accept only a client-generated ciphertext;
+ * the Worker never receives the plaintext group name.
+ */
+async function updateGroupName(request, env) {
+  const device = await requireDevice(request, env);
+  await enforceRateLimit(request, env, "WRITE_LIMITER", "group-name", device.id);
+  const body = await readJson(request);
+  const group = await getGroup(env, device.group_id);
+  if (!group) throw new HttpError(404, "not_found");
+
+  let patch;
+  if (group.crypto_mode === "e2ee") {
+    if (body.name !== undefined) {
+      // Reject a plaintext name even if the client sends both fields.
+      throw new HttpError(400, "crypto_required");
+    }
+    const payload = cleanGroupNamePayload(body.namePayload);
+    const keyVersion = cleanKeyVersion(body.keyVersion);
+    if (!payload || keyVersion === null) {
+      throw new HttpError(400, "invalid_name");
+    }
+    if (keyVersion !== group.key_version) {
+      throw new HttpError(409, "key_version_mismatch");
+    }
+    patch = {
+      name: null,
+      name_payload: payload,
+      name_key_version: keyVersion,
+    };
+  } else {
+    if (body.namePayload !== undefined || body.keyVersion !== undefined) {
+      throw new HttpError(400, "invalid_name");
+    }
+    const name = cleanGroupName(body.name);
+    if (!name) throw new HttpError(400, "invalid_name");
+    patch = {
+      name,
+      name_payload: null,
+      name_key_version: null,
+    };
+  }
+
+  await supabase(env, `groups?id=eq.${device.group_id}`, {
+    method: "PATCH",
+    body: patch,
+    prefer: "return=minimal",
+  });
+  return empty(204);
+}
+
 async function deleteDevice(request, env) {
   const device = await requireDevice(request, env);
   await enforceRateLimit(request, env, "WRITE_LIMITER", "write", device.id);
@@ -1072,7 +1137,7 @@ async function readJson(request, { allowEmpty = false } = {}) {
 async function getGroup(env, groupId) {
   const groups = await supabase(
     env,
-    `groups?id=eq.${groupId}&select=crypto_mode,key_salt,wrapped_key,key_iv,key_version,join_auth_hash`,
+    `groups?id=eq.${groupId}&select=crypto_mode,key_salt,wrapped_key,key_iv,key_version,join_auth_hash,name,name_payload,name_key_version`,
   );
   return groups?.[0] || null;
 }
@@ -1153,6 +1218,19 @@ function cleanEncryptedPayload(raw) {
     typeof raw !== "string" ||
     raw.length < 64 ||
     raw.length > MAX_ENCRYPTED_PAYLOAD ||
+    !/^[A-Za-z0-9_-]+$/.test(raw)
+  ) {
+    return null;
+  }
+  return raw;
+}
+
+/** A group name is shorter than a spot payload, so it needs tighter bounds. */
+function cleanGroupNamePayload(raw) {
+  if (
+    typeof raw !== "string" ||
+    raw.length < MIN_ENCRYPTED_NAME_PAYLOAD ||
+    raw.length > MAX_ENCRYPTED_NAME_PAYLOAD ||
     !/^[A-Za-z0-9_-]+$/.test(raw)
   ) {
     return null;
@@ -1358,6 +1436,13 @@ function cleanDisplayName(raw) {
   return name;
 }
 
+function cleanGroupName(raw) {
+  if (typeof raw !== "string") return null;
+  const name = raw.replace(/[\u0000-\u001F\u007F]/g, "").trim();
+  if (name.length < 1 || name.length > MAX_GROUP_NAME) return null;
+  return name;
+}
+
 function normalizeInviteCode(raw) {
   if (typeof raw !== "string") return null;
   const code = raw
@@ -1484,6 +1569,8 @@ export {
   cleanBase64Url,
   cleanDisplayName,
   cleanEncryptedPayload,
+  cleanGroupName,
+  cleanGroupNamePayload,
   cleanKeyVersion,
   cleanPhotoId,
   cleanPhotoIv,

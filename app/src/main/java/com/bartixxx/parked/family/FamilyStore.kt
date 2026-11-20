@@ -57,6 +57,9 @@ class FamilyStore(private val context: Context) {
             preferences[Keys.DEVICE_TOKEN] = deviceToken
             preferences[Keys.INVITE_CODE] = inviteCode.orEmpty()
             preferences[Keys.CAR_LABEL] = carLabel
+            // A new session never inherits the previous group's name. It is
+            // filled in again by the first refresh.
+            preferences.remove(Keys.GROUP_NAME)
             preferences[Keys.CRYPTO_MODE] = cryptoMode.wireValue
             preferences[Keys.KEY_VERSION] = keyVersion
             preferences[Keys.INVITE_SECRET] = inviteSecret.orEmpty()
@@ -87,6 +90,10 @@ class FamilyStore(private val context: Context) {
 
     suspend fun setCarLabel(label: String) {
         context.familyDataStore.edit { it[Keys.CAR_LABEL] = label }
+    }
+
+    suspend fun setGroupName(name: String) {
+        context.familyDataStore.edit { it[Keys.GROUP_NAME] = name }
     }
 
     suspend fun setInvite(code: String, secret: String?) {
@@ -122,6 +129,7 @@ class FamilyStore(private val context: Context) {
         adminToken = this[Keys.ADMIN_TOKEN]?.takeIf { it.isNotBlank() },
         inviteCode = this[Keys.INVITE_CODE]?.takeIf { it.isNotBlank() },
         carLabel = this[Keys.CAR_LABEL].orEmpty(),
+        groupName = this[Keys.GROUP_NAME].orEmpty(),
         cryptoMode = FamilyCryptoMode.fromWire(this[Keys.CRYPTO_MODE]),
         keyVersion = this[Keys.KEY_VERSION]?.takeIf { it > 0 } ?: FamilyCrypto.KEY_VERSION,
         wrappedGroupKey = this[Keys.WRAPPED_GROUP_KEY]?.takeIf { it.isNotBlank() },
@@ -139,6 +147,7 @@ class FamilyStore(private val context: Context) {
         val INVITE_CODE = stringPreferencesKey("family_invite_code")
         // Keep the legacy key name so upgrades from 1.2.0 keep the saved label.
         val CAR_LABEL = stringPreferencesKey("family_display_name")
+        val GROUP_NAME = stringPreferencesKey("family_group_name")
         val CRYPTO_MODE = stringPreferencesKey("family_crypto_mode")
         val KEY_VERSION = intPreferencesKey("family_key_version")
         val WRAPPED_GROUP_KEY = stringPreferencesKey("family_wrapped_group_key")

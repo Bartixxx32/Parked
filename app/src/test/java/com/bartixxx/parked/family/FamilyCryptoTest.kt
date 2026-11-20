@@ -191,6 +191,73 @@ class FamilyCryptoTest {
     }
 
     @Test
+    fun `group name round trips and is bound to the group`() {
+        val groupKey = ByteArray(32) { (it + 17).toByte() }
+        val name = "Rodzina Kowalskich 🚗"
+        val encoded = FamilyCrypto.encryptGroupName(
+            groupKey = groupKey,
+            groupId = "group-1",
+            keyVersion = 1,
+            name = name,
+        )
+        assertEquals(
+            name,
+            FamilyCrypto.decryptGroupName(
+                groupKey = groupKey,
+                groupId = "group-1",
+                keyVersion = 1,
+                encoded = encoded,
+            ),
+        )
+        assertNull(
+            FamilyCrypto.decryptGroupName(
+                groupKey = groupKey,
+                groupId = "group-2",
+                keyVersion = 1,
+                encoded = encoded,
+            ),
+        )
+        assertNull(
+            FamilyCrypto.decryptGroupName(
+                groupKey = groupKey,
+                groupId = "group-1",
+                keyVersion = 2,
+                encoded = encoded,
+            ),
+        )
+        assertNull(
+            FamilyCrypto.decryptGroupName(
+                groupKey = ByteArray(32),
+                groupId = "group-1",
+                keyVersion = 1,
+                encoded = encoded,
+            ),
+        )
+    }
+
+    @Test
+    fun `tampered group name is rejected`() {
+        val groupKey = ByteArray(32) { (it + 19).toByte() }
+        val encoded = FamilyCrypto.encryptGroupName(
+            groupKey = groupKey,
+            groupId = "group-1",
+            keyVersion = 1,
+            name = "Home",
+        )
+        val tamperedChars = encoded.toCharArray()
+        val index = tamperedChars.size / 2
+        tamperedChars[index] = if (tamperedChars[index] == 'A') 'B' else 'A'
+        assertNull(
+            FamilyCrypto.decryptGroupName(
+                groupKey = groupKey,
+                groupId = "group-1",
+                keyVersion = 1,
+                encoded = String(tamperedChars),
+            ),
+        )
+    }
+
+    @Test
     fun `photo ciphertext round trips and is bound to its metadata`() {
         val groupKey = ByteArray(32) { (it + 3).toByte() }
         val plaintext = ByteArray(2048) { (it * 31).toByte() }

@@ -20,8 +20,8 @@ android {
         applicationId = "com.bartixxx.parked"
         minSdk = 29
         targetSdk = 36
-        versionCode = 15
-        versionName = "1.5.4"
+        versionCode = 16
+        versionName = "1.5.5"
 
         vectorDrawables {
             useSupportLibrary = true

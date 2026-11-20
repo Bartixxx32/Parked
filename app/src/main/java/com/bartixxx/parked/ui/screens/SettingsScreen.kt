@@ -67,6 +67,7 @@ fun SettingsScreen(
     onSetFamilyEnabled: (Boolean) -> Unit,
     onSetFamilyShareNote: (Boolean) -> Unit,
     onSetFamilyCarLabel: (String) -> Unit,
+    onSetFamilyGroupName: (String) -> Unit,
     onSetFamilyServerUrl: (String) -> Unit,
 ) {
     LazyColumn(
@@ -251,6 +252,7 @@ fun SettingsScreen(
                 onSetEnabled = onSetFamilyEnabled,
                 onSetShareNote = onSetFamilyShareNote,
                 onSetCarLabel = onSetFamilyCarLabel,
+                onSetGroupName = onSetFamilyGroupName,
                 onSetServerUrl = onSetFamilyServerUrl,
             )
         }

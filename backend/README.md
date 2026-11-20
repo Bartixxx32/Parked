@@ -6,9 +6,9 @@ role key. Family mode is optional and disabled by default. The app works fully
 without this backend.
 
 New groups are end-to-end encrypted (E2EE). The Worker stores only ciphertext
-for the car label and latest coordinates; it never receives the group key or the
-invite-link secret. Groups created by 1.2.0/1.3.0 clients stay plaintext and
-remain supported for compatibility.
+for the car label, shared group name and latest coordinates; it never receives
+the group key or the invite-link secret. Groups created by 1.2.0/1.3.0 clients
+stay plaintext and remain supported for compatibility.
 
 Update both the schema and the Worker before expecting E2EE. A 1.3.0 Worker
 ignores the `crypto` field and would silently create a plaintext group, so the
@@ -60,10 +60,17 @@ and anyone can run an equivalent instance.
   E2EE groups store the placeholder `Encrypted`; the real label is inside the
   encrypted payload. The JSON field is still `displayName` so 1.2.0 clients
   remain compatible.
+- The shared group name is optional and nullable. Legacy plaintext groups keep
+  it in `parked.groups.name`, just like their car labels. E2EE groups store only
+  `name_payload` (AES-256-GCM ciphertext bound to the group id and key
+  version); the plaintext name never reaches the Worker. `GET /v1/spots`
+  returns `groupName` for plaintext groups and `groupNamePayload` /
+  `groupNameKeyVersion` for E2EE groups. Older clients ignore the extra fields
+  and older groups keep working with all name columns set to `NULL`.
 
 | Table | Purpose |
 |---|---|
-| `parked.groups` | Group id, HMAC of the invite code, hash of the admin token and optional E2EE key material. |
+| `parked.groups` | Group id, HMAC of the invite code, hash of the admin token, optional E2EE key material and the shared group name. |
 | `parked.devices` | Group members, legacy car label and hash of the device token. |
 | `parked.spots` | Latest plaintext coordinates/accuracy or encrypted payload per device. |
 | `parked.photos` | Temporary encrypted-photo metadata; the ciphertext is in Supabase Storage. |
@@ -78,6 +85,7 @@ Apply the DDL in order through the Supabase SQL editor or the Management API:
 4. [`supabase/004_e2ee.sql`](supabase/004_e2ee.sql)
 5. [`supabase/005_photos.sql`](supabase/005_photos.sql)
 6. [`supabase/006_photo_records.sql`](supabase/006_photo_records.sql)
+7. [`supabase/007_group_name.sql`](supabase/007_group_name.sql)
 
 The files are written to be idempotent for the schema, tables, columns and
 indexes. Review them before re-running after manual changes.
@@ -90,10 +98,11 @@ indexes. Review them before re-running after manual changes.
 | `POST` | `/v1/groups` | none | Create a group. Returns IDs, device token, admin token, invite code and E2EE key material once. |
 | `POST` | `/v1/groups/join` | invite code + link secret | Join a group. Returns a new device token and, for E2EE, the wrapped group key. |
 | `POST` | `/v1/groups/rotate` | device + admin token | Replace the invite code and E2EE link secret; existing device tokens stay valid. |
-| `GET` | `/v1/spots` | device token | List cars and their latest spots (ciphertext for E2EE). |
+| `GET` | `/v1/spots` | device token | List cars and their latest spots (ciphertext for E2EE). Also returns the optional group name (`groupName` or encrypted `groupNamePayload`). |
 | `PUT` | `/v1/spot` | device token | Insert or replace the caller's latest spot. |
 | `DELETE` | `/v1/spot` | device token | Remove the caller's shared spot immediately. |
 | `PATCH` | `/v1/device` | device token | Change the caller's car label (no-op on the server for E2EE). |
+| `PATCH` | `/v1/group` | device token | Rename the group. Plaintext groups send `name`; E2EE groups send `namePayload` and `keyVersion`, never the plaintext name. |
 | `DELETE` | `/v1/device` | device token | Leave; deletes the device and its spot, and the group when empty. |
 | `POST` | `/v1/photos` | device token | Upload one encrypted photo. Headers: `X-Photo-Id` (UUID), `X-Photo-Iv` (12-byte base64url), `X-Key-Version`. Body is raw ciphertext. E2EE groups only. |
 | `GET` | `/v1/photos` | device token | List photos this device still has to download and acknowledge. Also reports `uploadEnabled` and recent `revokedPhotoIds`. |
@@ -113,6 +122,13 @@ base64url HKDF-derived join auth key, not the invite secret; the Worker hashes
 it with `CODE_PEPPER` before storing. Joining requires `joinAuthKey` from the
 link fragment. Encrypted spot uploads send `payload` (base64url ciphertext) and
 `keyVersion` instead of coordinates.
+
+Group names use the same split. A plaintext group renames itself with
+`{"name":"..."}`. An E2EE group sends only
+`{"namePayload":"...","keyVersion":N}`; the ciphertext is AES-256-GCM with a
+key derived from the group key and AAD bound to the group id and key version.
+The Worker rejects a plaintext `name` for an E2EE group and a `namePayload` for
+a plaintext group.
 
 Encrypted photo uploads are only accepted in E2EE groups. The phone derives a
 per-photo AES-256-GCM key from the group key with HKDF; the AAD binds the
@@ -147,9 +163,10 @@ You need a Supabase project, a Cloudflare account and Node.js 20 or newer.
 1. Create a Supabase project (any region close to your users).
 2. Open the SQL editor and run `backend/supabase/001_parked_schema.sql`,
    then `002_group_admin.sql`, `003_security_hardening.sql`,
-   `004_e2ee.sql`, `005_photos.sql` and `006_photo_records.sql`. The fifth file
-   creates the private `parked-photos` Storage bucket and enforces the 2 MB
-   object limit; the last adds the retraction records.
+   `004_e2ee.sql`, `005_photos.sql`, `006_photo_records.sql` and
+   `007_group_name.sql`. The fifth file creates the private `parked-photos`
+   Storage bucket and enforces the 2 MB object limit; the sixth adds the
+   retraction records; the last adds the optional, nullable group name columns.
 3. Copy the project URL (for example
    `https://YOUR_PROJECT.supabase.co`) and the `service_role` key from
    **Project Settings → API**. Keep the service role key private; it bypasses
@@ -288,14 +305,15 @@ large or aged data set; those are enforced by the SQL trigger and the cron job.
 
 For E2EE groups created by the current app, the Worker and the Supabase project
 operator can see group/device identifiers, timestamps, key versions, ciphertext
-lengths and request metadata, but **not** the car labels, coordinates, accuracy,
-notes or family photos. Photo images are encrypted on the sender's phone; the
-server stores only temporary ciphertext plus small ownership/retraction ids.
-The invite secret and raw group key never reach the server.
+lengths and request metadata, but **not** the car labels, shared group name,
+coordinates, accuracy, notes or family photos. Photo images are encrypted on the
+sender's phone; the server stores only temporary ciphertext plus small
+ownership/retraction ids. The invite secret and raw group key never reach the
+server.
 
 Groups created by 1.2.0/1.3.0 clients are plaintext for compatibility. Their
-Worker and Supabase operator can read the latest coordinates, car labels and
-timestamps. Recreate such a group with the current app to get E2EE.
+Worker and Supabase operator can read the latest coordinates, car labels, group
+name and timestamps. Recreate such a group with the current app to get E2EE.
 
 Group members can, by design, see each other's latest spot. Metadata and the
 timing of updates are still visible to the server operator, so do not use

@@ -1,0 +1,1 @@
+Grupy rodzinne mogą mieć teraz nazwę, a nazwę auta możesz zmienić w każdej chwili. W nowych grupach nazwa grupy jest szyfrowana end-to-end. Wersja zawiera też drobne poprawki i ulepszenia tłumaczeń.

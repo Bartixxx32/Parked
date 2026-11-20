@@ -56,6 +56,11 @@ data class RemoteFamilyMember(
 
 data class RemoteFamilySnapshot(
     val groupId: String?,
+    /** Plaintext name for legacy groups. Null for E2EE groups and old servers. */
+    val groupName: String? = null,
+    /** Encrypted group name for E2EE groups. */
+    val groupNamePayload: String? = null,
+    val groupNameKeyVersion: Int? = null,
     val members: List<RemoteFamilyMember>,
 )
 
@@ -159,6 +164,10 @@ class FamilyApi(serverUrl: String) {
         }
         return RemoteFamilySnapshot(
             groupId = response?.optString("groupId")?.takeIf { it.isNotBlank() },
+            groupName = response?.stringOrNull("groupName"),
+            groupNamePayload = response?.stringOrNull("groupNamePayload"),
+            groupNameKeyVersion = response?.intOrNull("groupNameKeyVersion")
+                ?.takeIf { it > 0 },
             members = members,
         )
     }
@@ -286,6 +295,32 @@ class FamilyApi(serverUrl: String) {
             path = "/v1/device",
             deviceToken = deviceToken,
             body = JSONObject().put("displayName", carLabel),
+        )
+    }
+
+    /** Sets a plaintext group name for legacy groups created before E2EE. */
+    suspend fun updateGroupName(deviceToken: String, groupName: String) {
+        request(
+            method = "PATCH",
+            path = "/v1/group",
+            deviceToken = deviceToken,
+            body = JSONObject().put("name", groupName),
+        )
+    }
+
+    /** Sets the encrypted group name for E2EE groups. */
+    suspend fun updateEncryptedGroupName(
+        deviceToken: String,
+        payload: String,
+        keyVersion: Int,
+    ) {
+        request(
+            method = "PATCH",
+            path = "/v1/group",
+            deviceToken = deviceToken,
+            body = JSONObject()
+                .put("namePayload", payload)
+                .put("keyVersion", keyVersion),
         )
     }
 
@@ -533,6 +568,16 @@ class FamilyApi(serverUrl: String) {
         value?.takeIf { it.isNotBlank() }?.let {
             runCatching { Instant.parse(it).toEpochMilli() }.getOrNull()
         }
+
+    private fun JSONObject.stringOrNull(name: String): String? =
+        if (has(name) && !isNull(name)) {
+            optString(name).takeIf { it.isNotBlank() }
+        } else {
+            null
+        }
+
+    private fun JSONObject.intOrNull(name: String): Int? =
+        if (has(name) && !isNull(name)) optInt(name) else null
 
     private companion object {
         const val CONNECT_TIMEOUT_MS = 10_000

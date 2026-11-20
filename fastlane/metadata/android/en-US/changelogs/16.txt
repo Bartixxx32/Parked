@@ -1,0 +1,1 @@
+Family groups can now have a name, and you can change your car label at any time. Group names are end-to-end encrypted in new groups. This update also includes minor fixes and translation improvements.

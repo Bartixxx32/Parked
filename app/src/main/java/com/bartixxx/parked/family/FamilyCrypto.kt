@@ -74,6 +74,8 @@ object FamilyCrypto {
 
     const val KEY_VERSION = 1
     const val MAX_LABEL_BYTES = 240
+    const val MAX_GROUP_NAME_LENGTH = 60
+    const val MAX_GROUP_NAME_BYTES = 240
 
     private const val KEY_BYTES = 32
     private const val SECRET_BYTES = 16
@@ -89,7 +91,10 @@ object FamilyCrypto {
     // still decrypt the label and coordinates. The note is appended after the
     // original fields, which those versions already ignore.
     private const val NOTE_LENGTH_BYTES = 2
+    private const val GROUP_NAME_FORMAT_VERSION = 1
+    private const val GROUP_NAME_HEADER_BYTES = 5
     private val MAGIC = byteArrayOf(0x50, 0x4B, 0x53, 0x50) // PKSP
+    private val GROUP_NAME_MAGIC = byteArrayOf(0x50, 0x4B, 0x47, 0x4E) // PKGN
 
     private val random = SecureRandom()
     private val urlEncoder: Base64.Encoder = Base64.getUrlEncoder().withoutPadding()
@@ -101,6 +106,7 @@ object FamilyCrypto {
     private val joinAuthInfo = "join-auth|v1".toByteArray(Charsets.UTF_8)
     private val spotSalt = "parked-spot-salt-v1".toByteArray(Charsets.UTF_8)
     private val photoSalt = "parked-photo-salt-v1".toByteArray(Charsets.UTF_8)
+    private val groupNameSalt = "parked-group-name-salt-v1".toByteArray(Charsets.UTF_8)
 
     fun newGroupKeyMaterial(): FamilyGroupKeyMaterial {
         val groupKey = randomBytes(KEY_BYTES)
@@ -286,6 +292,69 @@ object FamilyCrypto {
     }
 
     /**
+     * Encrypts the shared family group name for E2EE groups. The ciphertext is
+     * bound to the group id and key version, so the server cannot move it to a
+     * different group or replay it after a future key rotation.
+     */
+    fun encryptGroupName(
+        groupKey: ByteArray,
+        groupId: String,
+        keyVersion: Int,
+        name: String,
+    ): String {
+        require(groupKey.size == KEY_BYTES) { "invalid group key" }
+        require(keyVersion > 0) { "invalid key version" }
+        val trimmed = name.trim()
+        val nameBytes = trimmed.toByteArray(Charsets.UTF_8)
+        require(
+            trimmed.isNotEmpty() &&
+                trimmed.length <= MAX_GROUP_NAME_LENGTH &&
+                nameBytes.size <= MAX_GROUP_NAME_BYTES,
+        ) { "invalid group name" }
+
+        val plain = ByteBuffer.allocate(GROUP_NAME_HEADER_BYTES + nameBytes.size)
+        plain.put(GROUP_NAME_MAGIC)
+        plain.put(GROUP_NAME_FORMAT_VERSION.toByte())
+        plain.put(nameBytes)
+
+        val iv = randomBytes(IV_BYTES)
+        val key = groupNameKey(groupKey, groupId, keyVersion)
+        val ciphertext = aesGcmEncrypt(
+            key,
+            iv,
+            plain.array(),
+            groupNameAad(groupId, keyVersion),
+        )
+        return encodeBase64(iv + ciphertext)
+    }
+
+    /** Returns null for anything that is not an authentic family group name. */
+    fun decryptGroupName(
+        groupKey: ByteArray,
+        groupId: String,
+        keyVersion: Int,
+        encoded: String,
+    ): String? = try {
+        val combined = decodeBase64(encoded)
+        if (keyVersion <= 0 || combined.size <= IV_BYTES + GROUP_NAME_HEADER_BYTES + 16) {
+            null
+        } else {
+            val iv = combined.copyOfRange(0, IV_BYTES)
+            val ciphertext = combined.copyOfRange(IV_BYTES, combined.size)
+            val key = groupNameKey(groupKey, groupId, keyVersion)
+            val plain = aesGcmDecrypt(
+                key,
+                iv,
+                ciphertext,
+                groupNameAad(groupId, keyVersion),
+            )
+            plain?.let(::parseGroupNamePlaintext)
+        }
+    } catch (_: Exception) {
+        null
+    }
+
+    /**
      * Encrypts a compressed family photo. The AAD binds the ciphertext to the
      * group, photo id, sender and key version, so the server cannot move a
      * photo to another group or impersonate another sender without breaking
@@ -408,6 +477,21 @@ object FamilyCrypto {
         )
     }
 
+    private fun parseGroupNamePlaintext(plain: ByteArray): String? {
+        if (plain.size < GROUP_NAME_HEADER_BYTES + 1) return null
+        val buffer = ByteBuffer.wrap(plain)
+        val magic = ByteArray(GROUP_NAME_MAGIC.size)
+        buffer.get(magic)
+        if (!magic.contentEquals(GROUP_NAME_MAGIC)) return null
+        val version = buffer.get().toInt() and 0xFF
+        if (version != GROUP_NAME_FORMAT_VERSION) return null
+        val nameBytes = ByteArray(buffer.remaining())
+        buffer.get(nameBytes)
+        if (nameBytes.size > MAX_GROUP_NAME_BYTES) return null
+        val name = String(nameBytes, Charsets.UTF_8)
+        return name.takeIf { it.isNotBlank() && it.length <= MAX_GROUP_NAME_LENGTH }
+    }
+
     /** Cuts UTF-8 text at a character boundary so no replacement bytes appear. */
     private fun truncateUtf8(text: String, maxBytes: Int): ByteArray {
         if (maxBytes <= 0 || text.isEmpty()) return ByteArray(0)
@@ -417,6 +501,20 @@ object FamilyCrypto {
         while (end > 0 && (bytes[end].toInt() and 0xC0) == 0x80) end--
         return bytes.copyOf(end)
     }
+
+    private fun groupNameKey(
+        groupKey: ByteArray,
+        groupId: String,
+        keyVersion: Int,
+    ): ByteArray = hkdf(
+        groupKey,
+        groupNameSalt,
+        "group-name|$groupId|$keyVersion".toByteArray(Charsets.UTF_8),
+        KEY_BYTES,
+    )
+
+    private fun groupNameAad(groupId: String, keyVersion: Int): ByteArray =
+        "parked-group-name|v1|$groupId|$keyVersion".toByteArray(Charsets.UTF_8)
 
     private fun spotKey(
         groupKey: ByteArray,

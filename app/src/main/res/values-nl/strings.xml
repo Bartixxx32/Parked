@@ -367,6 +367,13 @@
     <string name="family_display_name">Autolabel</string>
     <string name="family_display_name_hint">Bijvoorbeeld “Volkswagen Golf” of “WA 12345”</string>
     <string name="family_name_required">Voer een autolabel in (1–60 tekens).</string>
+    <string name="family_group_unnamed">Familiegroep</string>
+    <string name="family_group_name">Groepsnaam</string>
+    <string name="family_group_name_hint">Bijvoorbeeld ‘Familie Kowalski’ of ‘Thuis’</string>
+    <string name="family_group_name_title">Groepsnaam wijzigen</string>
+    <string name="family_change_group_name">Groepsnaam wijzigen</string>
+    <string name="family_group_name_help">Alle familieleden zien deze naam in de app. Bij end-to-end versleutelde groepen wordt de naam versleuteld.</string>
+    <string name="family_group_name_required">Voer een groepsnaam in (1–60 tekens).</string>
     <string name="family_server_section">Server</string>
     <string name="family_server_default">Standaard openbare server</string>
     <string name="family_server_use_default">Standaard gebruiken</string>
@@ -389,6 +396,7 @@
     <string name="msg_family_refreshed">Gezinsplekken vernieuwd</string>
     <string name="msg_family_rotated">Nieuwe uitnodiging gegenereerd</string>
     <string name="msg_family_name_updated">Autolabel bijgewerkt</string>
+    <string name="msg_family_group_name_updated">Groepsnaam bijgewerkt</string>
     <string name="msg_family_server_updated">Server-URL opgeslagen</string>
     <string name="msg_family_enabled">Gezinsdeling ingeschakeld</string>
     <string name="msg_family_disabled">Gezinsdeling uitgeschakeld</string>
@@ -410,6 +418,7 @@
     <string name="family_error_photo_already_sent">Deze foto wacht al op het gezin of is al bezorgd. Wijzig de foto om een nieuwe te versturen.</string>
     <string name="family_error_no_photo">Deze plek heeft geen foto om te versturen.</string>
     <string name="family_error_no_recipients">Er zijn nog geen andere gezinsleden toegetreden, dus er is niemand om de foto naar te sturen.</string>
+    <string name="family_error_unsupported">Deze familieserver ondersteunt nog geen groepsnamen. Werk de server bij en probeer het opnieuw.</string>
     <string name="family_error_server">De gezinesserver gaf een fout. Probeer het later opnieuw.</string>
     <string name="family_error_unknown">Er is iets misgegaan. Probeer het opnieuw.</string>
     <string name="family_share_subject">Parked — gezinsuitnodiging</string>

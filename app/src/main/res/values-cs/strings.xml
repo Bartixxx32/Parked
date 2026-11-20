@@ -369,6 +369,13 @@
     <string name="family_display_name">Štítek auta</string>
     <string name="family_display_name_hint">Například „Volkswagen Golf“ nebo „WA 12345“</string>
     <string name="family_name_required">Zadejte štítek auta (1–60 znaků).</string>
+    <string name="family_group_unnamed">Rodinná skupina</string>
+    <string name="family_group_name">Název skupiny</string>
+    <string name="family_group_name_hint">Například „Rodina Kowalských“ nebo „Domov“</string>
+    <string name="family_group_name_title">Změnit název skupiny</string>
+    <string name="family_change_group_name">Změnit název skupiny</string>
+    <string name="family_group_name_help">Všichni členové rodiny vidí tento název v aplikaci. U skupin se šifrováním end-to-end je název šifrován.</string>
+    <string name="family_group_name_required">Zadej název skupiny (1–60 znaků).</string>
     <string name="family_server_section">Server</string>
     <string name="family_server_default">Výchozí veřejný server</string>
     <string name="family_server_use_default">Použít výchozí</string>
@@ -391,6 +398,7 @@
     <string name="msg_family_refreshed">Rodinná místa aktualizována</string>
     <string name="msg_family_rotated">Vygenerována nová pozvánka</string>
     <string name="msg_family_name_updated">Štítek auta aktualizován</string>
+    <string name="msg_family_group_name_updated">Název skupiny aktualizován</string>
     <string name="msg_family_server_updated">Adresa serveru uložena</string>
     <string name="msg_family_enabled">Rodinné sdílení zapnuto</string>
     <string name="msg_family_disabled">Rodinné sdílení vypnuto</string>
@@ -412,6 +420,7 @@
     <string name="family_error_photo_already_sent">Tato fotografie už čeká na rodinu nebo byla doručena. Chcete-li poslat novou, změňte fotografii.</string>
     <string name="family_error_no_photo">Toto místo nemá fotografii k odeslání.</string>
     <string name="family_error_no_recipients">K rodině se zatím nikdo další nepřipojil, takže není komu fotografii poslat.</string>
+    <string name="family_error_unsupported">Tento rodinný server zatím nepodporuje názvy skupin. Aktualizuj server a zkus to znovu.</string>
     <string name="family_error_server">Rodinný server vrátil chybu. Zkuste to později.</string>
     <string name="family_error_unknown">Něco se pokazilo. Zkuste to znovu.</string>
     <string name="family_share_subject">Pozvánka do rodiny Parked</string>

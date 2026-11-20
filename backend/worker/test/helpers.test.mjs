@@ -5,6 +5,8 @@ import {
   MAX_GROUP_MEMBERS,
   MAX_PHOTO_BYTES,
   cleanDisplayName,
+  cleanGroupName,
+  cleanGroupNamePayload,
   cleanPhotoId,
   cleanPhotoIv,
   clientTimeOrNow,
@@ -34,6 +36,24 @@ test("cleanDisplayName keeps car labels and strips control characters", () => {
   assert.equal(cleanDisplayName(42), null);
   assert.equal(cleanDisplayName("x".repeat(61)), null);
   assert.equal(cleanDisplayName("x".repeat(60)), "x".repeat(60));
+});
+
+test("cleanGroupName follows the same limits as car labels", () => {
+  assert.equal(cleanGroupName("  Rodzina Kowalskich  "), "Rodzina Kowalskich");
+  assert.equal(cleanGroupName("A\u0000B"), "AB");
+  assert.equal(cleanGroupName("   "), null);
+  assert.equal(cleanGroupName(42), null);
+  assert.equal(cleanGroupName("x".repeat(61)), null);
+  assert.equal(cleanGroupName("x".repeat(60)), "x".repeat(60));
+});
+
+test("cleanGroupNamePayload accepts short encrypted names and rejects junk", () => {
+  assert.equal(cleanGroupNamePayload("A".repeat(40)), "A".repeat(40));
+  assert.equal(cleanGroupNamePayload("A".repeat(512)), "A".repeat(512));
+  assert.equal(cleanGroupNamePayload("A".repeat(39)), null);
+  assert.equal(cleanGroupNamePayload("A".repeat(513)), null);
+  assert.equal(cleanGroupNamePayload("A".repeat(40) + "!"), null);
+  assert.equal(cleanGroupNamePayload(42), null);
 });
 
 test("normalizeInviteCode accepts Crockford variants and separators", () => {

@@ -367,6 +367,13 @@
     <string name="family_display_name">Car label</string>
     <string name="family_display_name_hint">For example “Volkswagen Golf” or “WA 12345”</string>
     <string name="family_name_required">Enter a car label (1–60 characters).</string>
+    <string name="family_group_unnamed">Family group</string>
+    <string name="family_group_name">Group name</string>
+    <string name="family_group_name_hint">For example “Kowalski family” or “Home”</string>
+    <string name="family_group_name_title">Change group name</string>
+    <string name="family_change_group_name">Change group name</string>
+    <string name="family_group_name_help">Everyone in the family sees this name in the app. It is encrypted for end-to-end encrypted groups.</string>
+    <string name="family_group_name_required">Enter a group name (1–60 characters).</string>
     <string name="family_server_section">Server</string>
     <string name="family_server_default">Default public server</string>
     <string name="family_server_use_default">Use default</string>
@@ -389,6 +396,7 @@
     <string name="msg_family_refreshed">Family spots refreshed</string>
     <string name="msg_family_rotated">New invite generated</string>
     <string name="msg_family_name_updated">Car label updated</string>
+    <string name="msg_family_group_name_updated">Group name updated</string>
     <string name="msg_family_server_updated">Server URL saved</string>
     <string name="msg_family_enabled">Family sharing enabled</string>
     <string name="msg_family_disabled">Family sharing disabled</string>
@@ -410,6 +418,7 @@
     <string name="family_error_photo_already_sent">This photo is already waiting for the family or has been delivered. Change the photo to send a new one.</string>
     <string name="family_error_no_photo">This spot has no photo to send.</string>
     <string name="family_error_no_recipients">No other family member has joined yet, so there is nobody to send the photo to.</string>
+    <string name="family_error_unsupported">This family server does not support group names yet. Update the server and try again.</string>
     <string name="family_error_server">The family server returned an error. Try again later.</string>
     <string name="family_error_unknown">Something went wrong. Try again.</string>
     <string name="family_share_subject">Parked family invite</string>

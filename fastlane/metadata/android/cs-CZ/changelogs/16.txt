@@ -1,0 +1,1 @@
+Rodinné skupiny teď mohou mít název a označení auta můžete kdykoli změnit. V nových skupinách je název skupiny šifrován end-to-end. Aktualizace obsahuje také drobné opravy a vylepšení překladů.

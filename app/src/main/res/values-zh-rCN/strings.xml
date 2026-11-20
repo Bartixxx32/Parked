@@ -366,6 +366,13 @@
     <string name="family_display_name">车辆标签</string>
     <string name="family_display_name_hint">例如“大众高尔夫”或“WA 12345”</string>
     <string name="family_name_required">请输入车辆标签（1–60 个字符）。</string>
+    <string name="family_group_unnamed">家庭群组</string>
+    <string name="family_group_name">群组名称</string>
+    <string name="family_group_name_hint">例如“科瓦尔斯基一家”或“家”</string>
+    <string name="family_group_name_title">更改群组名称</string>
+    <string name="family_change_group_name">更改群组名称</string>
+    <string name="family_group_name_help">所有家庭成员都会在应用中看到此名称。端到端加密群组中的名称会被加密。</string>
+    <string name="family_group_name_required">请输入群组名称（1–60 个字符）。</string>
     <string name="family_server_section">服务器</string>
     <string name="family_server_default">默认公共服务器</string>
     <string name="family_server_use_default">使用默认服务器</string>
@@ -388,6 +395,7 @@
     <string name="msg_family_refreshed">家庭停车位置已刷新</string>
     <string name="msg_family_rotated">已生成新邀请</string>
     <string name="msg_family_name_updated">车辆标签已更新</string>
+    <string name="msg_family_group_name_updated">群组名称已更新</string>
     <string name="msg_family_server_updated">服务器 URL 已保存</string>
     <string name="msg_family_enabled">家庭分享已启用</string>
     <string name="msg_family_disabled">家庭分享已停用</string>
@@ -409,6 +417,7 @@
     <string name="family_error_photo_already_sent">此照片已在等待家人下载或已送达。请更换照片后再发送。</string>
     <string name="family_error_no_photo">此停车位置没有可发送的照片。</string>
     <string name="family_error_no_recipients">尚无其他家庭成员加入，没有可发送的对象。</string>
+    <string name="family_error_unsupported">此家庭服务器尚不支持群组名称。请更新服务器后重试。</string>
     <string name="family_error_server">家庭服务器返回错误。请稍后重试。</string>
     <string name="family_error_unknown">出了点问题。请重试。</string>
     <string name="family_share_subject">Parked 家庭邀请</string>

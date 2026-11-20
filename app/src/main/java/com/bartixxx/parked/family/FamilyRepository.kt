@@ -437,6 +437,46 @@ class FamilyRepository(
         }
     }
 
+    /**
+     * Renames the family group. E2EE groups send only ciphertext bound to the
+     * group id; legacy plaintext groups use a plaintext name just like their
+     * car labels and coordinates.
+     */
+    suspend fun updateGroupName(groupName: String): FamilyError? = mutex.withLock {
+        val current = store.current()
+        val name = cleanGroupName(groupName) ?: return@withLock FamilyError.INVALID_NAME
+        if (!current.joined) return@withLock FamilyError.NOT_CONNECTED
+        val token = current.deviceToken ?: return@withLock FamilyError.NOT_CONNECTED
+        return@withLock try {
+            val api = apiFor(current)
+            if (current.encrypted) {
+                val payload = crypto {
+                    FamilyCrypto.encryptGroupName(
+                        groupKey = groupKeyFor(current),
+                        groupId = current.groupId!!,
+                        keyVersion = current.keyVersion,
+                        name = name,
+                    )
+                }
+                api.updateEncryptedGroupName(token, payload, current.keyVersion)
+            } else {
+                api.updateGroupName(token, name)
+            }
+            store.setGroupName(name)
+            runtime.update { it.copy(error = null) }
+            null
+        } catch (error: Exception) {
+            if ((error as? FamilyApiException)?.status == 404) {
+                // Older self-hosted Workers have no /v1/group route. Keep the
+                // rest of family mode working and explain the limitation.
+                runtime.update { it.copy(error = FamilyError.UNSUPPORTED) }
+                FamilyError.UNSUPPORTED
+            } else {
+                fail(error)
+            }
+        }
+    }
+
     suspend fun setServerUrl(url: String): FamilyError? {
         val current = store.current()
         if (current.joined) return FamilyError.INVALID_URL
@@ -504,6 +544,7 @@ class FamilyRepository(
         return try {
             val groupKey = if (current.encrypted) groupKeyFor(current) else null
             val snapshot = api.fetchSpots(token)
+            syncGroupNameLocked(current, snapshot, groupKey)
             val members = snapshot.members.map { remote ->
                 val decrypted = remote.spot?.let { spot ->
                     decryptSpot(current, remote.deviceId, remote.carLabel, spot, groupKey)
@@ -865,6 +906,32 @@ class FamilyRepository(
         }
     }
 
+    /**
+     * Older servers and older clients do not know the group name fields. A
+     * missing or unreadable name is ignored and the last local copy is kept.
+     */
+    private suspend fun syncGroupNameLocked(
+        current: FamilyCredentials,
+        snapshot: RemoteFamilySnapshot,
+        groupKey: ByteArray?,
+    ) {
+        val remoteName = if (current.encrypted) {
+            val payload = snapshot.groupNamePayload ?: return
+            val key = groupKey ?: return
+            val version = snapshot.groupNameKeyVersion ?: current.keyVersion
+            FamilyCrypto.decryptGroupName(
+                groupKey = key,
+                groupId = current.groupId!!,
+                keyVersion = version,
+                encoded = payload,
+            )
+        } else {
+            snapshot.groupName
+        }
+        val name = remoteName?.let(::cleanGroupName) ?: return
+        if (name != current.groupName) store.setGroupName(name)
+    }
+
     private fun decryptSpot(
         current: FamilyCredentials,
         deviceId: String,
@@ -1006,6 +1073,11 @@ class FamilyRepository(
     private fun cleanCarLabel(raw: String): String? {
         val label = raw.filterNot { it.isISOControl() }.trim()
         return label.takeIf { it.length in 1..MAX_CAR_LABEL_LENGTH }
+    }
+
+    private fun cleanGroupName(raw: String): String? {
+        val name = raw.filterNot { it.isISOControl() }.trim()
+        return name.takeIf { it.length in 1..FamilyCrypto.MAX_GROUP_NAME_LENGTH }
     }
 
     private fun normalizeServerUrl(raw: String): String? {

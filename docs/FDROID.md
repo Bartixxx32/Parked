@@ -96,7 +96,7 @@ Checklist before opening the merge request:
    HTTPS-only app URLs, has no browser CORS, applies rate limits, caps groups at
    20 cars and deletes stale location data; family mode is off by default and
    uploads only the latest spot. New groups are end-to-end encrypted: the
-   Worker stores only ciphertext for the car label and coordinates.
+   Worker stores only ciphertext for the car label, group name and coordinates.
 4. `fastlane` metadata exists in all 12 app languages; changelog for the new
    `versionCode` is present.
 5. The GitHub release contains `Parked-<version>.apk` and its `.sha256` file.

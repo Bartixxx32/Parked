@@ -367,6 +367,13 @@
     <string name="family_display_name">Nom de la voiture</string>
     <string name="family_display_name_hint">Par exemple « Volkswagen Golf » ou « WA 12345 »</string>
     <string name="family_name_required">Saisissez un nom de voiture (1–60 caractères).</string>
+    <string name="family_group_unnamed">Groupe familial</string>
+    <string name="family_group_name">Nom du groupe</string>
+    <string name="family_group_name_hint">Par exemple « Famille Kowalski » ou « Maison »</string>
+    <string name="family_group_name_title">Modifier le nom du groupe</string>
+    <string name="family_change_group_name">Modifier le nom du groupe</string>
+    <string name="family_group_name_help">Tous les membres de la famille voient ce nom dans l’application. Il est chiffré pour les groupes chiffrés de bout en bout.</string>
+    <string name="family_group_name_required">Saisissez un nom de groupe (1 à 60 caractères).</string>
     <string name="family_server_section">Serveur</string>
     <string name="family_server_default">Serveur public par défaut</string>
     <string name="family_server_use_default">Utiliser celui par défaut</string>
@@ -389,6 +396,7 @@
     <string name="msg_family_refreshed">Places de la famille actualisées</string>
     <string name="msg_family_rotated">Nouvelle invitation générée</string>
     <string name="msg_family_name_updated">Nom de la voiture mis à jour</string>
+    <string name="msg_family_group_name_updated">Nom du groupe mis à jour</string>
     <string name="msg_family_server_updated">URL du serveur enregistrée</string>
     <string name="msg_family_enabled">Partage familial activé</string>
     <string name="msg_family_disabled">Partage familial désactivé</string>
@@ -410,6 +418,7 @@
     <string name="family_error_photo_already_sent">Cette photo est déjà en attente pour la famille ou a déjà été livrée. Changez de photo pour en envoyer une nouvelle.</string>
     <string name="family_error_no_photo">Cette place n\'a pas de photo à envoyer.</string>
     <string name="family_error_no_recipients">Aucun autre membre de la famille n\'a encore rejoint le groupe, il n\'y a donc personne à qui envoyer la photo.</string>
+    <string name="family_error_unsupported">Ce serveur familial ne prend pas encore en charge les noms de groupe. Mettez le serveur à jour et réessayez.</string>
     <string name="family_error_server">Le serveur familial a renvoyé une erreur. Réessayez plus tard.</string>
     <string name="family_error_unknown">Un problème est survenu. Réessayez.</string>
     <string name="family_share_subject">Invitation famille Parked</string>

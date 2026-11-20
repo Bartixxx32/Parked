@@ -44,9 +44,10 @@ dependencies — no Google Play Services.
   spot.
 - Optional family mode, off by default: create or join a group with an invite link and
   see each member's latest parked car on the map. Every car has a label (model,
-  nickname or registration plate). New groups are end-to-end encrypted: the single
-  latest spot is uploaded as ciphertext and only family phones can read the label,
-  coordinates and an optionally shared note. A spot photo can be sent explicitly to
+  nickname or registration plate) and the group has its own name. New groups are
+  end-to-end encrypted: the single latest spot and group name are uploaded as
+  ciphertext and only family phones can read the label, coordinates and an optionally
+  shared note. A spot photo can be sent explicitly to
   the family; it is encrypted on the phone, stored temporarily and deleted from the
   server once every family phone downloads it (or after 24 hours). Deleting the
   original photo on the sender's phone retracts it from the server and from family
@@ -174,10 +175,11 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - No ads, analytics, Crashlytics, telemetry or user accounts.
 - Without family mode the app does not send coordinates to any server.
 - Family mode is opt-in. New groups are end-to-end encrypted: the car label,
-  coordinates, accuracy and timestamps are encrypted on the phone before upload, and
-  the server stores only ciphertext plus group/device identifiers. The 256-bit group
-  key is kept on family phones, wrapped by the Android Keystore. Notes, photos and
-  spot history are never uploaded. Leaving the group deletes the member's cloud data.
+  group name, coordinates, accuracy and timestamps are encrypted on the phone before
+  upload, and the server stores only ciphertext plus group/device identifiers. The
+  256-bit group key is kept on family phones, wrapped by the Android Keystore. Notes,
+  photos and spot history are never uploaded. Leaving the group deletes the member's
+  cloud data.
   Groups created by older app versions remain plaintext for compatibility, so the
   server operator could read those until the group is recreated. The default is the
   public Parked server; you can enter a self-hosted HTTPS server in

@@ -51,6 +51,13 @@ test("device routes reject a missing bearer token", async () => {
     ),
     worker.fetch(request(`/v1/photos/${photoId}`), {}),
     worker.fetch(request(`/v1/photos/${photoId}/ack`, { method: "POST" }), {}),
+    worker.fetch(
+      request("/v1/group", {
+        method: "PATCH",
+        body: JSON.stringify({ name: "Family" }),
+      }),
+      {},
+    ),
   ]);
   for (const response of responses) {
     assert.equal(response.status, 401);
@@ -306,6 +313,196 @@ test("another family member cannot retract someone else's photo", async () => {
     assert.equal(response.status, 403);
     assert.deepEqual(await response.json(), { error: "forbidden" });
     assert.equal(patched, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("a member can rename a plaintext legacy group", async () => {
+  const originalFetch = globalThis.fetch;
+  const device = { id: "11111111-1111-4111-8111-111111111111", group_id: "22222222-2222-4222-8222-222222222222" };
+  let patchBody = null;
+  globalThis.fetch = async (url, init = {}) => {
+    const target = String(url);
+    if (target.includes("/rest/v1/devices?")) {
+      return new Response(JSON.stringify([device]), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    if (target.includes("/rest/v1/groups?")) {
+      if (init.method === "PATCH") {
+        patchBody = JSON.parse(init.body);
+        return new Response(null, { status: 204 });
+      }
+      return new Response(
+        JSON.stringify([
+          {
+            crypto_mode: "plaintext",
+            key_version: 1,
+            name: null,
+            name_payload: null,
+            name_key_version: null,
+          },
+        ]),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    throw new Error(`unexpected fetch: ${target}`);
+  };
+  try {
+    const response = await worker.fetch(
+      request("/v1/group", {
+        method: "PATCH",
+        headers: { authorization: "Bearer " + "a".repeat(43) },
+        body: JSON.stringify({ name: "  Rodzina Kowalskich  " }),
+      }),
+      {
+        SUPABASE_URL: "https://supabase.example",
+        SUPABASE_SERVICE_ROLE_KEY: "service-role",
+      },
+    );
+    assert.equal(response.status, 204);
+    assert.deepEqual(patchBody, {
+      name: "Rodzina Kowalskich",
+      name_payload: null,
+      name_key_version: null,
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("spot listing includes the shared group name", async () => {
+  const originalFetch = globalThis.fetch;
+  const device = { id: "11111111-1111-4111-8111-111111111111", group_id: "22222222-2222-4222-8222-222222222222" };
+  globalThis.fetch = async (url, init = {}) => {
+    const target = String(url);
+    if (target.includes("/rest/v1/devices?")) {
+      if (init.method === "PATCH") return new Response(null, { status: 204 });
+      if (target.includes("group_id=eq.")) {
+        return new Response(
+          JSON.stringify([
+            {
+              id: device.id,
+              display_name: "Golf",
+              last_seen_at: "2026-11-20T10:00:00Z",
+            },
+          ]),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      return new Response(JSON.stringify([device]), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    if (target.includes("/rest/v1/groups?")) {
+      return new Response(
+        JSON.stringify([
+          {
+            crypto_mode: "plaintext",
+            name: "Rodzina Kowalskich",
+            name_payload: null,
+            name_key_version: null,
+          },
+        ]),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    if (target.includes("/rest/v1/spots?")) {
+      return new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    throw new Error(`unexpected fetch: ${target}`);
+  };
+  try {
+    const response = await worker.fetch(
+      request("/v1/spots", {
+        headers: { authorization: "Bearer " + "a".repeat(43) },
+      }),
+      {
+        SUPABASE_URL: "https://supabase.example",
+        SUPABASE_SERVICE_ROLE_KEY: "service-role",
+      },
+    );
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.groupName, "Rodzina Kowalskich");
+    assert.equal(body.cryptoMode, "plaintext");
+    assert.equal(body.groupNamePayload, undefined);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("an E2EE group accepts only an encrypted name", async () => {
+  const originalFetch = globalThis.fetch;
+  const device = { id: "11111111-1111-4111-8111-111111111111", group_id: "22222222-2222-4222-8222-222222222222" };
+  const payload = "A".repeat(64);
+  let patchBody = null;
+  globalThis.fetch = async (url, init = {}) => {
+    const target = String(url);
+    if (target.includes("/rest/v1/devices?")) {
+      return new Response(JSON.stringify([device]), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    if (target.includes("/rest/v1/groups?")) {
+      if (init.method === "PATCH") {
+        patchBody = JSON.parse(init.body);
+        return new Response(null, { status: 204 });
+      }
+      return new Response(
+        JSON.stringify([
+          {
+            crypto_mode: "e2ee",
+            key_version: 1,
+            name: null,
+            name_payload: null,
+            name_key_version: null,
+          },
+        ]),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    throw new Error(`unexpected fetch: ${target}`);
+  };
+  const env = {
+    SUPABASE_URL: "https://supabase.example",
+    SUPABASE_SERVICE_ROLE_KEY: "service-role",
+  };
+  const auth = "Bearer " + "a".repeat(43);
+  try {
+    const plaintext = await worker.fetch(
+      request("/v1/group", {
+        method: "PATCH",
+        headers: { authorization: auth },
+        body: JSON.stringify({ name: "Rodzina" }),
+      }),
+      env,
+    );
+    assert.equal(plaintext.status, 400);
+    assert.deepEqual(await plaintext.json(), { error: "crypto_required" });
+    assert.equal(patchBody, null);
+
+    const encrypted = await worker.fetch(
+      request("/v1/group", {
+        method: "PATCH",
+        headers: { authorization: auth },
+        body: JSON.stringify({ namePayload: payload, keyVersion: 1 }),
+      }),
+      env,
+    );
+    assert.equal(encrypted.status, 204);
+    assert.deepEqual(patchBody, {
+      name: null,
+      name_payload: payload,
+      name_key_version: 1,
+    });
   } finally {
     globalThis.fetch = originalFetch;
   }

@@ -1,0 +1,1 @@
+Familiengruppen können jetzt einen Namen haben, und du kannst die Bezeichnung deines Autos jederzeit ändern. In neuen Gruppen wird der Gruppenname Ende-zu-Ende verschlüsselt. Außerdem gibt es kleinere Korrekturen und Übersetzungsverbesserungen.

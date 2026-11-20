@@ -367,6 +367,13 @@
     <string name="family_display_name">Autobezeichnung</string>
     <string name="family_display_name_hint">Zum Beispiel „Volkswagen Golf“ oder „WA 12345“</string>
     <string name="family_name_required">Gib eine Autobezeichnung ein (1–60 Zeichen).</string>
+    <string name="family_group_unnamed">Familiengruppe</string>
+    <string name="family_group_name">Gruppenname</string>
+    <string name="family_group_name_hint">Zum Beispiel „Familie Kowalski“ oder „Zuhause“</string>
+    <string name="family_group_name_title">Gruppenname ändern</string>
+    <string name="family_change_group_name">Gruppenname ändern</string>
+    <string name="family_group_name_help">Alle Familienmitglieder sehen diesen Namen in der App. Bei Ende-zu-Ende-verschlüsselten Gruppen wird er verschlüsselt.</string>
+    <string name="family_group_name_required">Gib einen Gruppennamen ein (1–60 Zeichen).</string>
     <string name="family_server_section">Server</string>
     <string name="family_server_default">Öffentlicher Standardserver</string>
     <string name="family_server_use_default">Standard verwenden</string>
@@ -389,6 +396,7 @@
     <string name="msg_family_refreshed">Familienparkplätze aktualisiert</string>
     <string name="msg_family_rotated">Neue Einladung erzeugt</string>
     <string name="msg_family_name_updated">Autobezeichnung aktualisiert</string>
+    <string name="msg_family_group_name_updated">Gruppenname aktualisiert</string>
     <string name="msg_family_server_updated">Server-URL gespeichert</string>
     <string name="msg_family_enabled">Familienfreigabe aktiviert</string>
     <string name="msg_family_disabled">Familienfreigabe deaktiviert</string>
@@ -410,6 +418,7 @@
     <string name="family_error_photo_already_sent">Dieses Foto wartet bereits auf die Familie oder wurde zugestellt. Ändere das Foto, um ein neues zu senden.</string>
     <string name="family_error_no_photo">Dieser Parkplatz hat kein Foto zum Senden.</string>
     <string name="family_error_no_recipients">Es ist noch kein anderes Familienmitglied beigetreten, es gibt also niemanden, dem das Foto gesendet werden kann.</string>
+    <string name="family_error_unsupported">Dieser Familienserver unterstützt noch keine Gruppennamen. Aktualisiere den Server und versuche es erneut.</string>
     <string name="family_error_server">Der Familienserver hat einen Fehler zurückgegeben. Versuche es später erneut.</string>
     <string name="family_error_unknown">Etwas ist schiefgelaufen. Versuche es erneut.</string>
     <string name="family_share_subject">Parked-Familieneinladung</string>

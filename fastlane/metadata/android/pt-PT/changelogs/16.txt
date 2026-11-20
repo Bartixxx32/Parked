@@ -1,0 +1,1 @@
+Os grupos familiares podem agora ter um nome, e pode alterar o nome do seu carro a qualquer momento. Nos grupos novos, o nome do grupo é encriptado ponto a ponto. Esta atualização também inclui pequenas correções e melhorias nas traduções.

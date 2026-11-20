@@ -582,6 +582,19 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
+    fun setFamilyGroupName(groupName: String) {
+        viewModelScope.launch {
+            val error = container.familyRepository.updateGroupName(groupName)
+            message(
+                if (error == null) {
+                    appContext.getString(R.string.msg_family_group_name_updated)
+                } else {
+                    familyErrorMessage(error)
+                },
+            )
+        }
+    }
+
     fun setFamilyServerUrl(url: String) {
         viewModelScope.launch {
             val error = container.familyRepository.setServerUrl(url)
@@ -614,6 +627,7 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
             FamilyError.PHOTO_ALREADY_SENT -> R.string.family_error_photo_already_sent
             FamilyError.NO_PHOTO -> R.string.family_error_no_photo
             FamilyError.NO_RECIPIENTS -> R.string.family_error_no_recipients
+            FamilyError.UNSUPPORTED -> R.string.family_error_unsupported
             FamilyError.SERVER -> R.string.family_error_server
             FamilyError.UNKNOWN -> R.string.family_error_unknown
         },

@@ -1,0 +1,1 @@
+Familiegroepen kunnen nu een naam hebben en je kunt de naam van je auto altijd wijzigen. In nieuwe groepen wordt de groepsnaam end-to-end versleuteld. Deze update bevat ook kleine correcties en verbeteringen aan de vertalingen.

@@ -304,6 +304,7 @@ fun ParkedRoot(viewModel: MainViewModel) {
                     onSetFamilyEnabled = viewModel::setFamilyEnabled,
                     onSetFamilyShareNote = viewModel::setFamilyShareNote,
                     onSetFamilyCarLabel = viewModel::setFamilyCarLabel,
+                    onSetFamilyGroupName = viewModel::setFamilyGroupName,
                     onSetFamilyServerUrl = viewModel::setFamilyServerUrl,
                 )
 

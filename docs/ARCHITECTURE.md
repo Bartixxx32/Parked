@@ -237,8 +237,9 @@ has no permission to access all storage.
 
 - No `INTERNET` use except OpenStreetMap tiles and the optional, opt-in family
   sync. Family mode shares only the latest spot, and new groups encrypt its car
-  label, coordinates, accuracy, timestamps and an optionally shared note before
-  upload; notes stay local unless the user enables note sharing. A spot photo is
+  label, shared group name, coordinates, accuracy, timestamps and an optionally
+  shared note before upload; notes stay local unless the user enables note
+  sharing. A spot photo is
   uploaded only when the user explicitly chooses **Send to family**; it is
   encrypted on the phone and deleted from the server once every family phone
   confirms the download. Deleting the local original retracts the photo from the

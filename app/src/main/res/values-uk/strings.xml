@@ -369,6 +369,13 @@
     <string name="family_display_name">Назва авто</string>
     <string name="family_display_name_hint">Наприклад, «Volkswagen Golf» або «WA 12345»</string>
     <string name="family_name_required">Введіть назву авто (1–60 символів).</string>
+    <string name="family_group_unnamed">Сімейна група</string>
+    <string name="family_group_name">Назва групи</string>
+    <string name="family_group_name_hint">Наприклад, «Родина Ковальських» або «Дім»</string>
+    <string name="family_group_name_title">Змінити назву групи</string>
+    <string name="family_change_group_name">Змінити назву групи</string>
+    <string name="family_group_name_help">Усі члени родини бачать цю назву в застосунку. У групах із наскрізним шифруванням вона шифрується.</string>
+    <string name="family_group_name_required">Введіть назву групи (1–60 символів).</string>
     <string name="family_server_section">Сервер</string>
     <string name="family_server_default">Стандартний публічний сервер</string>
     <string name="family_server_use_default">Використовувати стандартний</string>
@@ -391,6 +398,7 @@
     <string name="msg_family_refreshed">Сімейні місця оновлено</string>
     <string name="msg_family_rotated">Нове запрошення створено</string>
     <string name="msg_family_name_updated">Назву авто оновлено</string>
+    <string name="msg_family_group_name_updated">Назву групи оновлено</string>
     <string name="msg_family_server_updated">URL сервера збережено</string>
     <string name="msg_family_enabled">Сімейний обмін увімкнено</string>
     <string name="msg_family_disabled">Сімейний обмін вимкнено</string>
@@ -412,6 +420,7 @@
     <string name="family_error_photo_already_sent">Це фото вже очікує на завантаження сім’єю або вже доставлено. Змініть фото, щоб надіслати нове.</string>
     <string name="family_error_no_photo">Це місце не має фото для надсилання.</string>
     <string name="family_error_no_recipients">Ще ніхто з членів сім’ї не приєднався, тож надсилати фото нікому.</string>
+    <string name="family_error_unsupported">Цей сімейний сервер ще не підтримує назви груп. Оновіть сервер і спробуйте знову.</string>
     <string name="family_error_server">Сімейний сервер повернув помилку. Спробуйте пізніше.</string>
     <string name="family_error_unknown">Щось пішло не так. Спробуйте ще раз.</string>
     <string name="family_share_subject">Запрошення до сім’ї Parked</string>

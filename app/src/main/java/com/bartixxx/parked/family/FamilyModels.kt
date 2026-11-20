@@ -21,6 +21,8 @@ data class FamilyCredentials(
      * plaintext groups.
      */
     val carLabel: String = "",
+    /** Shared family group name, cached locally for offline display. */
+    val groupName: String = "",
     val cryptoMode: FamilyCryptoMode = FamilyCryptoMode.PLAINTEXT,
     val keyVersion: Int = FamilyCrypto.KEY_VERSION,
     val wrappedGroupKey: String? = null,
@@ -82,6 +84,7 @@ enum class FamilyError {
     PHOTO_ALREADY_SENT,
     NO_PHOTO,
     NO_RECIPIENTS,
+    UNSUPPORTED,
     SERVER,
     UNKNOWN,
 }

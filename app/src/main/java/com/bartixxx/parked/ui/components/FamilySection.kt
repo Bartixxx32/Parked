@@ -80,6 +80,7 @@ fun FamilySection(
     onSetEnabled: (Boolean) -> Unit,
     onSetShareNote: (Boolean) -> Unit,
     onSetCarLabel: (String) -> Unit,
+    onSetGroupName: (String) -> Unit,
     onSetServerUrl: (String) -> Unit,
 ) {
     val context = LocalContext.current
@@ -96,6 +97,7 @@ fun FamilySection(
     var showCreate by rememberSaveable { mutableStateOf(false) }
     var showJoin by rememberSaveable { mutableStateOf(false) }
     var showName by rememberSaveable { mutableStateOf(false) }
+    var showGroupName by rememberSaveable { mutableStateOf(false) }
     var showServer by rememberSaveable { mutableStateOf(false) }
     var showLeave by rememberSaveable { mutableStateOf(false) }
     var showRotate by rememberSaveable { mutableStateOf(false) }
@@ -149,9 +151,19 @@ fun FamilySection(
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
+                        text = credentials.groupName.ifBlank {
+                            stringResource(R.string.family_group_unnamed)
+                        },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
                         text = stringResource(R.string.family_joined_as, joinedCarLabel),
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     Text(
                         text = if (state.lastSyncEpochMs == null) {
@@ -537,6 +549,18 @@ fun FamilySection(
                 }
             }
             TextButton(
+                onClick = { showGroupName = true },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(
+                    Icons.Filled.Edit,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.family_change_group_name))
+            }
+            TextButton(
                 onClick = { showLeave = true },
                 modifier = Modifier.fillMaxWidth(),
             ) {
@@ -604,6 +628,9 @@ fun FamilySection(
             description = stringResource(R.string.family_car_label_help),
             initialName = defaultCarLabel,
             confirmLabel = stringResource(R.string.family_create),
+            fieldLabel = stringResource(R.string.family_display_name),
+            fieldHint = stringResource(R.string.family_display_name_hint),
+            fieldError = stringResource(R.string.family_name_required),
             onDismiss = { showCreate = false },
             onConfirm = { label ->
                 showCreate = false
@@ -627,10 +654,29 @@ fun FamilySection(
             description = stringResource(R.string.family_car_label_help),
             initialName = credentials.carLabel.ifBlank { defaultCarLabel },
             confirmLabel = stringResource(R.string.action_save),
+            fieldLabel = stringResource(R.string.family_display_name),
+            fieldHint = stringResource(R.string.family_display_name_hint),
+            fieldError = stringResource(R.string.family_name_required),
             onDismiss = { showName = false },
             onConfirm = { label ->
                 showName = false
                 onSetCarLabel(label)
+            },
+        )
+    }
+    if (showGroupName) {
+        FamilyNameDialog(
+            title = stringResource(R.string.family_group_name_title),
+            description = stringResource(R.string.family_group_name_help),
+            initialName = credentials.groupName,
+            confirmLabel = stringResource(R.string.action_save),
+            fieldLabel = stringResource(R.string.family_group_name),
+            fieldHint = stringResource(R.string.family_group_name_hint),
+            fieldError = stringResource(R.string.family_group_name_required),
+            onDismiss = { showGroupName = false },
+            onConfirm = { name ->
+                showGroupName = false
+                onSetGroupName(name)
             },
         )
     }
@@ -783,6 +829,9 @@ private fun FamilyNameDialog(
     description: String?,
     initialName: String,
     confirmLabel: String,
+    fieldLabel: String,
+    fieldHint: String,
+    fieldError: String,
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit,
 ) {
@@ -803,12 +852,12 @@ private fun FamilyNameDialog(
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it.take(60) },
-                    label = { Text(stringResource(R.string.family_display_name)) },
-                    placeholder = { Text(stringResource(R.string.family_display_name_hint)) },
+                    label = { Text(fieldLabel) },
+                    placeholder = { Text(fieldHint) },
                     singleLine = true,
                     isError = !valid && name.isNotEmpty(),
                     supportingText = if (!valid) {
-                        { Text(stringResource(R.string.family_name_required)) }
+                        { Text(fieldError) }
                     } else {
                         null
                     },
@@ -997,6 +1046,7 @@ private fun familyErrorText(error: FamilyError): String = stringResource(
         FamilyError.PHOTO_ALREADY_SENT -> R.string.family_error_photo_already_sent
         FamilyError.NO_PHOTO -> R.string.family_error_no_photo
         FamilyError.NO_RECIPIENTS -> R.string.family_error_no_recipients
+        FamilyError.UNSUPPORTED -> R.string.family_error_unsupported
         FamilyError.SERVER -> R.string.family_error_server
         FamilyError.UNKNOWN -> R.string.family_error_unknown
     },
