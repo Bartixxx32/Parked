@@ -1,0 +1,29 @@
+Parked slaat je parkeerplek automatisch op wanneer je telefoon via Bluetooth loskoppelt van de autoradio. Geen account, geen advertenties — lokaal eerst en open source, met een optionele gezinsmodus.
+
+ZO WERKT HET
+1. Koppel je telefoon aan de autoradio in de Bluetooth-instellingen van het systeem.
+2. Selecteer de radio in Parked en schakel bewaking in.
+3. Bij het loskoppelen bepaalt de app meteen de locatie en slaat die na een instelbare vertraging op. Opnieuw verbinden tijdens het aftellen annuleert het opslaan.
+
+FUNCTIES
+• Automatisch parkeerplekken opslaan bij een Bluetooth-verbreking
+• De locatie wordt op het moment van loskoppelen bepaald, zodat weglopen van de auto de pin niet verplaatst
+• Handmatig de huidige locatie opslaan, coördinaten invoeren en de plek op de kaart kiezen
+• Geschiedenis met datum, coördinaten, nauwkeurigheid, bron, notitie en optionele foto
+• OpenStreetMap-kaart met alle plekken en een nauwkeurigheidscirkel
+• Optionele gezinsmodus, standaard uit: geef elke auto een naam (model of kenteken) en deel alleen de laatste plek met een groep via een uitnodigingscode
+• Ingebouwde kompas met richting en afstand tot de gekozen plek
+• Geschiedenis exporteren naar JSON, CSV of GPX
+• Diagnosescherm met servicestatus, machtigingen, GPS-test en lokale logboeken
+• Interface beschikbaar in 12 talen: Engels, Pools, Duits, Frans, Spaans, Italiaans, Portugees, Russisch, Oekraïens, Vereenvoudigd Chinees, Nederlands en Tsjechisch
+
+BETROUWBAARHEID
+Parked draait als voorgronddienst zodat Android op de achtergrond blijft bewaken. Schakel voor het beste resultaat batterijoptimalisatie voor de app uit en zet automatisch starten aan op telefoons met agressief energiebeheer (bijvoorbeeld ColorOS). Herstart en app-updates worden automatisch afgehandeld waar het systeem dat toestaat.
+
+PRIVACY
+Coördinaten, notities en foto’s worden alleen op je apparaat opgeslagen. De app heeft geen accounts, analytics of telemetrie. Zonder gezinsmodus wordt je locatie nooit geüpload; het enige netwerkverkeer is het downloaden van OpenStreetMap-tegels terwijl het kaartscherm open is. De gezinsmodus is optioneel en end-to-end versleuteld: bij het maken van of deelnemen aan een groep stuurt de app alleen je laatste versleutelde coördinaten, nauwkeurigheid, autonaam en tijdstempels naar de ingestelde gezins-server. Notities en geschiedenis blijven op de telefoon. Een foto verlaat de telefoon alleen als je ‘Naar gezin sturen’ kiest; hij wordt versleuteld, tijdelijk opgeslagen en van de server verwijderd zodra elke gezinstelefoon hem heeft gedownload (of na 24 uur). De openbare server werkt zonder configuratie; de backend is open source en zelf te hosten, met het adres in Instellingen → Gezin → Server.
+
+VEREISTEN
+Android 10 of nieuwer. Voor automatisch opslaan zijn Bluetooth-, locatie- en achtergrondlocatiemachtigingen nodig.
+
+Parked is vrije open-source software onder de GNU GPL v3.0-licentie.

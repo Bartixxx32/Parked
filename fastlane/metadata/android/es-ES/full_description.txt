@@ -1,0 +1,29 @@
+Parked guarda automáticamente tu plaza de aparcamiento cuando el teléfono se desconecta del radio del coche por Bluetooth. Sin cuenta y sin anuncios: datos en el dispositivo y código abierto, con un modo familia opcional.
+
+CÓMO FUNCIONA
+1. Empareja el teléfono con el radio en los ajustes Bluetooth del sistema.
+2. Selecciona el radio en Parked y activa la supervisión.
+3. Al desconectarte, la app obtiene la ubicación de inmediato y la guarda tras un retardo configurable. Si vuelves a conectarte durante la cuenta atrás, se cancela el guardado.
+
+FUNCIONES
+• Guardado automático de la plaza al desconectarse el Bluetooth
+• La ubicación se toma en el momento de la desconexión, así que alejarte del coche no mueve el punto
+• Guardado manual de la ubicación actual, introducción de coordenadas y selección de la plaza en el mapa
+• Historial con fecha, coordenadas, precisión, origen, nota y foto opcional
+• Mapa OpenStreetMap con todas las plazas y un círculo de precisión
+• Modo familia opcional, desactivado por defecto: pon nombre a cada coche (modelo o matrícula) y comparte solo su última plaza con un grupo mediante un código de invitación
+• Brújula integrada con rumbo y distancia a la plaza seleccionada
+• Exportación del historial a JSON, CSV o GPX
+• Pantalla de diagnóstico con estado del servicio, permisos, prueba de GPS y registros locales
+• Interfaz disponible en 12 idiomas: inglés, polaco, alemán, francés, español, italiano, portugués, ruso, ucraniano, chino simplificado, neerlandés y checo
+
+FIABILIDAD
+Parked usa un servicio en primer plano para que Android siga supervisando en segundo plano. Para obtener mejores resultados, desactiva la optimización de batería de la app y activa el inicio automático en teléfonos con gestión de energía agresiva (por ejemplo, ColorOS). El reinicio del teléfono y la actualización de la app se gestionan automáticamente cuando el sistema lo permite.
+
+PRIVACIDAD
+Las coordenadas, notas y fotos se guardan solo en tu dispositivo. La app no tiene cuentas, analítica ni telemetría. Sin el modo familia nunca sube tu ubicación; el único tráfico de red es la descarga de teselas de OpenStreetMap mientras el mapa está abierto. El modo familia es opcional y está cifrado de extremo a extremo: al crear o unirte a un grupo, la app envía solo tus últimas coordenadas cifradas, la precisión, el nombre del coche y las marcas de tiempo al servidor familiar configurado. Las notas y el historial se quedan en el teléfono. Una foto solo sale del teléfono si eliges «Enviar a la familia»; se cifra, se almacena temporalmente y se elimina del servidor cuando todos los teléfonos de la familia la han descargado (o tras 24 horas). El servidor público funciona sin configurar nada; el backend es de código abierto y se puede autoalojar, indicando su dirección en Ajustes → Familia → Servidor.
+
+REQUISITOS
+Android 10 o posterior. Para el guardado automático hacen falta permisos de Bluetooth, ubicación y ubicación en segundo plano.
+
+Parked es software libre y de código abierto, con licencia GNU GPL v3.0.

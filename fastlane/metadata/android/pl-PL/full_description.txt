@@ -8,14 +8,14 @@ JAK TO DZIAŁA
 NAJWAŻNIEJSZE FUNKCJE
 • Automatyczny zapis miejsca postoju wyzwalany rozłączeniem Bluetooth
 • Lokalizacja jest pobierana w chwili rozłączenia, więc odejście od auta nie przesuwa punktu
-• Ręczny zapis bieżącej lokalizacji i ręczne wprowadzanie współrzędnych
+• Ręczny zapis bieżącej lokalizacji, ręczne wprowadzanie współrzędnych i wybór miejsca na mapie
 • Historia z datą, współrzędnymi, dokładnością, źródłem pomiaru, notatką i opcjonalnym zdjęciem
 • Mapa OpenStreetMap ze wszystkimi miejscami i okręgiem dokładności
 • Opcjonalny tryb rodzinny, domyślnie wyłączony: nazwij każde auto (model lub tablica) i udostępniaj grupie tylko jego najnowsze miejsce przez kod zaproszenia
 • Wbudowany kompas pokazujący kierunek i odległość do wybranego miejsca
 • Eksport historii do JSON, CSV lub GPX
 • Ekran diagnostyki ze stanem usługi, uprawnieniami, testem GPS i lokalnymi logami
-• Interfejs w języku polskim i angielskim
+• Interfejs w 12 językach: angielskim, polskim, niemieckim, francuskim, hiszpańskim, włoskim, portugalskim, rosyjskim, ukraińskim, chińskim uproszczonym, niderlandzkim i czeskim
 
 NIEZAWODNOŚĆ
 Parked korzysta z usługi pierwszoplanowej, dzięki czemu Android może monitorować połączenie w tle. Dla najlepszych efektów wyłącz optymalizację baterii dla aplikacji i włącz autostart na telefonach z agresywnym zarządzaniem energią (np. ColorOS). Restart po ponownym uruchomieniu telefonu i po aktualizacji aplikacji jest obsługiwany automatycznie, o ile system na to pozwala.

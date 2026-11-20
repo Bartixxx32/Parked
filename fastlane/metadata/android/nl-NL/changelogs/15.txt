@@ -1,0 +1,3 @@
+• Volledige vertalingen toegevoegd voor Duits, Frans, Spaans, Italiaans, Portugees, Russisch, Oekraïens, Vereenvoudigd Chinees, Nederlands en Tsjechisch.
+• De F-Droid-pagina bevat nu de schermafbeelding van het kiezen op de kaart.
+• Normale update ten opzichte van 1.5.3.

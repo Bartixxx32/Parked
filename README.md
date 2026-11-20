@@ -9,7 +9,9 @@ account.
 - OpenStreetMap via osmdroid — no API keys and no paid services
 - Android 10 (API 29) or newer, built against API 36
 
-The app is available in **English and Polish**; the language follows the phone settings.
+The app is available in **12 languages** (English, Polish, German, French, Spanish,
+Italian, Portuguese, Russian, Ukrainian, Simplified Chinese, Dutch and Czech); the
+language follows the phone settings.
 It is prepared for [F-Droid](https://f-droid.org/) and uses only free and open source
 dependencies — no Google Play Services.
 
@@ -303,7 +305,7 @@ app/src/main/java/com/bartixxx/parked/
 
 ## F-Droid
 
-F-Droid metadata lives in `fastlane/metadata/android/` (English and Polish) and the
+F-Droid metadata lives in `fastlane/metadata/android/` (the same 12 languages) and the
 recipe is prepared in [docs/FDROID.md](docs/FDROID.md). The app uses reproducible builds:
 F-Droid rebuilds the tagged source and publishes the APK signed with the upstream key.
 

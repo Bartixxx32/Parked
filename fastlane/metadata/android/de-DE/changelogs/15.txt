@@ -1,0 +1,3 @@
+• Vollständige Übersetzungen für Deutsch, Französisch, Spanisch, Italienisch, Portugiesisch, Russisch, Ukrainisch, vereinfachtes Chinesisch, Niederländisch und Tschechisch.
+• Die F-Droid-Seite zeigt jetzt den Screenshot zur Kartenauswahl.
+• Normales Update gegenüber 1.5.3.

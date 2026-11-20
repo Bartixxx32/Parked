@@ -97,7 +97,7 @@ Checklist before opening the merge request:
    20 cars and deletes stale location data; family mode is off by default and
    uploads only the latest spot. New groups are end-to-end encrypted: the
    Worker stores only ciphertext for the car label and coordinates.
-4. `fastlane` metadata exists in English and Polish; changelog for the new
+4. `fastlane` metadata exists in all 12 app languages; changelog for the new
    `versionCode` is present.
 5. The GitHub release contains `Parked-<version>.apk` and its `.sha256` file.
 6. `AllowedAPKSigningKeys` matches the certificate printed by

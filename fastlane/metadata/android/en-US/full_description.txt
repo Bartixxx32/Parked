@@ -8,14 +8,14 @@ HOW IT WORKS
 KEY FEATURES
 • Automatic parking spot saving triggered by Bluetooth disconnect
 • The location is acquired at the moment of disconnection, so walking away from the car does not move the pin
-• Manual save of the current location and manual coordinate entry
+• Manual save of the current location, manual coordinate entry and picking the spot on a map
 • History with date, coordinates, accuracy, fix source, note and optional photo
 • OpenStreetMap map with pins for all spots and an accuracy circle
 • Optional family mode, off by default: label each car (model or plate) and share only its latest spot with a group via an invite code
 • Built-in compass showing bearing and distance to the selected spot
 • Export history to JSON, CSV or GPX
 • Diagnostics screen with service state, permissions, GPS test and local logs
-• English and Polish interface
+• Interface available in 12 languages: English, Polish, German, French, Spanish, Italian, Portuguese, Russian, Ukrainian, Simplified Chinese, Dutch and Czech
 
 RELIABILITY
 Parked runs a foreground service so Android keeps monitoring in the background. For best results disable battery optimization for the app and enable autostart on phones with aggressive power management (for example ColorOS). Reboot and app-update restart are handled automatically where the system allows it.

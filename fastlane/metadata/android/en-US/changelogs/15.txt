@@ -1,0 +1,3 @@
+• Added full translations for German, French, Spanish, Italian, Portuguese, Russian, Ukrainian, Simplified Chinese, Dutch and Czech.
+• The F-Droid listing now includes the map spot picker screenshot.
+• Normal update over 1.5.3.

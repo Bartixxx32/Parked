@@ -213,11 +213,12 @@ degrees and a cardinal direction.
 
 ## Localization
 
-The UI, notifications and user-facing errors are localized in English (default) and
-Polish (`values-pl`). Android picks the language from the system settings, and the app
-declares both locales in `locales_config.xml` for the Android 13+ per-app language
-picker. The diagnostics log is technical and always written in English, so reports are
-consistent regardless of the device language.
+The UI, notifications and user-facing errors are localized in English (default),
+Polish, German, French, Spanish, Italian, Portuguese, Russian, Ukrainian, Simplified
+Chinese, Dutch and Czech (`values-*`). Android picks the language from the system
+settings, and the app declares all locales in `locales_config.xml` for the Android 13+
+per-app language picker. The diagnostics log is technical and always written in English,
+so reports are consistent regardless of the device language.
 
 ## Export
 

@@ -1,0 +1,29 @@
+Parked automaticky uloží místo parkování, když se telefon odpojí od autorádia přes Bluetooth. Bez účtu a reklam — data zůstávají v zařízení, open source, s volitelným rodinným režimem.
+
+JAK TO FUNGUJE
+1. Spárujte telefon s autorádiem v systémovém nastavení Bluetooth.
+2. Vyberte rádio v Parked a zapněte sledování.
+3. Při odpojení aplikace okamžitě zjistí polohu a uloží ji po nastavitelném zpoždění. Opětovné připojení během odpočtu uložení zruší.
+
+FUNKCE
+• Automatické ukládání parkovacího místa při odpojení Bluetooth
+• Poloha se zjišťuje v okamžiku odpojení, takže odchod od auta špendlík neposune
+• Ruční uložení aktuální polohy, ruční zadání souřadnic a výběr místa na mapě
+• Historie s datem, souřadnicemi, přesností, zdrojem, poznámkou a volitelnou fotografií
+• Mapa OpenStreetMap se všemi místy a kruhem přesnosti
+• Volitelný rodinný režim, ve výchozím nastavení vypnutý: pojmenujte každé auto (model nebo značku) a sdílejte se skupinou pouze jeho poslední místo pomocí zvacího kódu
+• Vestavěný kompas se směrem a vzdáleností k vybranému místu
+• Export historie do JSON, CSV nebo GPX
+• Obrazovka diagnostiky se stavem služby, oprávněními, testem GPS a místními protokoly
+• Rozhraní ve 12 jazycích: angličtina, polština, němčina, francouzština, španělština, italština, portugalština, ruština, ukrajinština, zjednodušená čínština, nizozemština a čeština
+
+SPOLEHLIVOST
+Parked běží jako služba v popředí, aby Android mohl sledovat spojení na pozadí. Pro nejlepší výsledek vypněte optimalizaci baterie pro aplikaci a zapněte automatické spouštění na telefonech s agresivní správou energie (například ColorOS). Restart telefonu a aktualizace aplikace se obnoví automaticky, pokud to systém dovolí.
+
+SOUKROMÍ
+Souřadnice, poznámky a fotografie se ukládají pouze ve vašem zařízení. Aplikace nemá účty, analytiku ani telemetrii. Bez rodinného režimu nikdy nenahrává polohu; jediný síťový provoz je stahování dlaždic OpenStreetMap, když je otevřená mapa. Rodinný režim je volitelný a šifrovaný end-to-end: při vytvoření skupiny nebo připojení aplikace odešle na nastavený rodinný server pouze nejnovější šifrované souřadnice, přesnost, název auta a časové značky. Poznámky a historie zůstávají v telefonu. Fotografie opustí telefon jen když zvolíte „Odeslat rodině“; je šifrovaná, dočasně uložená a ze serveru se smaže, jakmile ji stáhne každý rodinný telefon (nebo po 24 hodinách). Veřejný server funguje bez nastavení; backend je open source a lze jej hostovat sami, adresa se zadává v Nastavení → Rodina → Server.
+
+POŽADAVKY
+Android 10 nebo novější. Pro automatické ukládání jsou potřeba oprávnění k Bluetooth, poloze a poloze na pozadí.
+
+Parked je svobodný software s otevřeným zdrojovým kódem pod licencí GNU GPL v3.0.

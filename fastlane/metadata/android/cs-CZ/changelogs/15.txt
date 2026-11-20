@@ -1,0 +1,3 @@
+• Přidány úplné překlady do němčiny, francouzštiny, španělštiny, italštiny, portugalštiny, ruštiny, ukrajinštiny, zjednodušené čínštiny, nizozemštiny a češtiny.
+• Stránka F-Droid nyní obsahuje snímek obrazovky s výběrem na mapě.
+• Běžná aktualizace nad verzí 1.5.3.

@@ -1,0 +1,3 @@
+• Aggiunte traduzioni complete in tedesco, francese, spagnolo, italiano, portoghese, russo, ucraino, cinese semplificato, olandese e ceco.
+• La scheda F-Droid include ora lo screenshot della scelta sulla mappa.
+• Aggiornamento normale rispetto alla 1.5.3.
