@@ -86,6 +86,16 @@ def dump_ui() -> ET.Element:
     raise RuntimeError(f"cannot dump UI: {last_error}")
 
 
+def node_center(root: ET.Element, text: str) -> tuple[int, int] | None:
+    for node in root.iter("node"):
+        if node.attrib.get("text") == text or node.attrib.get("content-desc") == text:
+            numbers = [int(v) for v in re.findall(r"\d+", node.attrib.get("bounds", ""))]
+            if len(numbers) == 4:
+                x1, y1, x2, y2 = numbers
+                return (x1 + x2) // 2, (y1 + y2) // 2
+    return None
+
+
 def find_text(text: str, timeout: float = 20.0) -> tuple[int, int] | None:
     deadline = time.time() + timeout
     while time.time() < deadline:
@@ -94,14 +104,38 @@ def find_text(text: str, timeout: float = 20.0) -> tuple[int, int] | None:
         except RuntimeError:
             time.sleep(1)
             continue
-        for node in root.iter("node"):
-            if node.attrib.get("text") == text or node.attrib.get("content-desc") == text:
-                numbers = [int(v) for v in re.findall(r"\d+", node.attrib.get("bounds", ""))]
-                if len(numbers) == 4:
-                    x1, y1, x2, y2 = numbers
-                    return (x1 + x2) // 2, (y1 + y2) // 2
+        position = node_center(root, text)
+        if position is not None:
+            return position
         time.sleep(1)
     return None
+
+
+def app_visible() -> bool:
+    try:
+        root = dump_ui()
+    except RuntimeError:
+        return False
+    return any(node.attrib.get("package") == PKG for node in root.iter("node"))
+
+
+def dismiss_system_dialog() -> bool:
+    """Dismiss a launcher ANR dialog that can cover the app on a slow emulator."""
+    try:
+        root = dump_ui()
+    except RuntimeError:
+        return False
+    texts = [node.attrib.get("text", "") for node in root.iter("node")]
+    if not any("responding" in text for text in texts):
+        return False
+    for label in ("Wait", "Close app"):
+        position = node_center(root, label)
+        if position is not None:
+            print(f"dismissing system dialog with {label!r}", flush=True)
+            tap(*position)
+            time.sleep(2)
+            return True
+    return False
 
 
 def tap_text(text: str, timeout: float = 20.0) -> None:
@@ -134,6 +168,8 @@ def hide_keyboard() -> None:
 
 def screenshot(directory: Path, name: str) -> None:
     directory.mkdir(parents=True, exist_ok=True)
+    if dismiss_system_dialog():
+        time.sleep(1)
     (directory / name).write_bytes(adb("exec-out", "screencap", "-p", binary=True))
     print(f"captured {directory.name}/{name}", flush=True)
 
@@ -179,7 +215,19 @@ def tap_tab(index: int) -> None:
 
 def launch() -> None:
     shell(f"am start -W -n {ACTIVITY} >/dev/null")
-    time.sleep(4)
+    time.sleep(2)
+    deadline = time.time() + 45
+    while time.time() < deadline:
+        if app_visible():
+            break
+        if dismiss_system_dialog():
+            continue
+        time.sleep(1)
+    else:
+        save_diagnostics("app-not-visible")
+        raise RuntimeError("the app window did not become visible after launch")
+    # Give Compose one more moment to lay out the bottom navigation bar.
+    time.sleep(3)
     pid = shell(f"pidof {PKG}").strip()
     if not pid:
         save_diagnostics("not-running")
@@ -213,8 +261,20 @@ def load_labels(qualifier: str) -> dict[str, str]:
     return {key: values[key] for key in LABEL_KEYS}
 
 
+def open_history(labels: dict[str, str]) -> None:
+    """Switch to History, retrying if the first tap lands before layout."""
+    for attempt in range(3):
+        tap_tab(1)
+        if find_text(labels["add_manual_spot"], timeout=15) is not None:
+            return
+        print("history is not ready, retrying", flush=True)
+        if dismiss_system_dialog():
+            time.sleep(2)
+    tap_text(labels["add_manual_spot"], timeout=10)
+
+
 def add_spots(labels: dict[str, str]) -> None:
-    tap_tab(1)
+    open_history(labels)
     for latitude, longitude, note in SPOTS:
         tap_text(labels["add_manual_spot"])
         tap_text(labels["label_latitude"])
@@ -233,7 +293,7 @@ def add_spots(labels: dict[str, str]) -> None:
 
 def capture_map_picker(labels: dict[str, str], directory: Path) -> None:
     """Capture the manual add dialog and its full-screen map picker."""
-    tap_tab(1)
+    open_history(labels)
     time.sleep(1)
     tap_text(labels["add_manual_spot"])
     tap_text(labels["map_picker_pick"])
