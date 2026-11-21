@@ -2,7 +2,7 @@
 """Capture F-Droid screenshots from a running Android emulator.
 
 The script drives the real app (no fake UI): it adds three manual spots through
-the History dialog, then captures every main screen in English and Polish.
+the History dialog, then captures every main screen in each app language.
 """
 
 from __future__ import annotations
@@ -18,6 +18,36 @@ from pathlib import Path
 PKG = os.environ.get("PARKED_PKG", "com.bartixxx.parked.debug")
 ACTIVITY = f"{PKG}/com.bartixxx.parked.MainActivity"
 OUTDIR = Path(os.environ.get("SCREENSHOT_OUT", "screenshots"))
+RES_DIR = Path(__file__).resolve().parents[2] / "app" / "src" / "main" / "res"
+
+# F-Droid store locale -> Android resource qualifier. Portuguese has two store
+# listings but a single translation in the app, so both listings reuse it.
+LOCALES = [
+    ("en-US", "values"),
+    ("pl-PL", "values-pl"),
+    ("de-DE", "values-de"),
+    ("fr-FR", "values-fr"),
+    ("es-ES", "values-es"),
+    ("it-IT", "values-it"),
+    ("pt-PT", "values-pt"),
+    ("pt-BR", "values-pt"),
+    ("ru-RU", "values-ru"),
+    ("uk-UA", "values-uk"),
+    ("zh-CN", "values-zh-rCN"),
+    ("nl-NL", "values-nl"),
+    ("cs-CZ", "values-cs"),
+]
+
+LABEL_KEYS = (
+    "add_manual_spot",
+    "label_latitude",
+    "label_longitude",
+    "label_note_optional",
+    "action_add",
+    "map_picker_pick",
+    "map_picker_use",
+    "action_cancel",
+)
 
 # Warsaw area, so the map screenshot shows a real city.
 SPOTS = [
@@ -102,10 +132,10 @@ def hide_keyboard() -> None:
         time.sleep(0.6)
 
 
-def screenshot(name: str) -> None:
-    OUTDIR.mkdir(parents=True, exist_ok=True)
-    (OUTDIR / name).write_bytes(adb("exec-out", "screencap", "-p", binary=True))
-    print(f"captured {name}", flush=True)
+def screenshot(directory: Path, name: str) -> None:
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / name).write_bytes(adb("exec-out", "screencap", "-p", binary=True))
+    print(f"captured {directory.name}/{name}", flush=True)
 
 
 def save_diagnostics(label: str) -> None:
@@ -164,86 +194,95 @@ def set_locale(locale: str) -> None:
     launch()
 
 
-def add_spots() -> None:
+def android_text(value: str) -> str:
+    """Turn Android string escaping into the text Compose renders."""
+    value = re.sub(r"\\(['\"\\])", r"\1", value)
+    return value.replace("\\n", "\n")
+
+
+def load_labels(qualifier: str) -> dict[str, str]:
+    path = RES_DIR / qualifier / "strings.xml"
+    root = ET.parse(path).getroot()
+    values = {
+        node.get("name"): android_text((node.text or "").strip())
+        for node in root.findall("string")
+    }
+    missing = [key for key in LABEL_KEYS if not values.get(key)]
+    if missing:
+        raise RuntimeError(f"{path}: missing strings: {', '.join(missing)}")
+    return {key: values[key] for key in LABEL_KEYS}
+
+
+def add_spots(labels: dict[str, str]) -> None:
     tap_tab(1)
     for latitude, longitude, note in SPOTS:
-        tap_text("Add spot manually")
-        tap_text("Latitude")
+        tap_text(labels["add_manual_spot"])
+        tap_text(labels["label_latitude"])
         type_text(latitude)
         hide_keyboard()
-        tap_text("Longitude")
+        tap_text(labels["label_longitude"])
         type_text(longitude)
         hide_keyboard()
         if note:
-            tap_text("Note (optional)")
+            tap_text(labels["label_note_optional"])
             type_text(note)
             hide_keyboard()
-        tap_text("Add")
+        tap_text(labels["action_add"])
         time.sleep(1.5)
 
 
-def capture_map_picker(english: bool) -> None:
+def capture_map_picker(labels: dict[str, str], directory: Path) -> None:
     """Capture the manual add dialog and its full-screen map picker."""
     tap_tab(1)
     time.sleep(1)
-    if english:
-        tap_text("Add spot manually")
-        tap_text("Pick on map")
-    else:
-        tap_text("Dodaj miejsce ręcznie")
-        tap_text("Wybierz na mapie")
+    tap_text(labels["add_manual_spot"])
+    tap_text(labels["map_picker_pick"])
     time.sleep(12)  # let OSM tiles load
-    screenshot("6.png")
-    if english:
-        tap_text("Use this point")
-        time.sleep(1)
-        tap_text("Cancel")
-    else:
-        tap_text("Użyj tego punktu")
-        time.sleep(1)
-        tap_text("Anuluj")
+    screenshot(directory, "6.png")
+    tap_text(labels["map_picker_use"])
+    time.sleep(1)
+    tap_text(labels["action_cancel"])
     time.sleep(1)
 
 
-def capture_english() -> None:
-    set_locale("en-US")
-    add_spots()
-    tap_tab(1)
-    time.sleep(1)
-    screenshot("2.png")
+def capture_locale(locale: str, labels: dict[str, str]) -> None:
+    directory = OUTDIR / locale
+    directory.mkdir(parents=True, exist_ok=True)
+    for old in directory.glob("*.png"):
+        old.unlink()
+
+    set_locale(locale)
     tap_tab(0)
     time.sleep(1)
-    screenshot("1.png")
-    tap_tab(2)
-    time.sleep(12)  # let OSM tiles load
-    screenshot("3.png")
-    tap_tab(3)
-    time.sleep(1)
-    screenshot("4.png")
-    tap_tab(4)
-    time.sleep(1)
-    screenshot("5.png")
-    capture_map_picker(english=True)
-
-
-def capture_polish() -> None:
-    set_locale("pl-PL")
-    tap_tab(0)
-    time.sleep(1)
-    screenshot("1.png")
+    screenshot(directory, "1.png")
     tap_tab(1)
     time.sleep(1)
-    screenshot("2.png")
+    screenshot(directory, "2.png")
     tap_tab(2)
-    time.sleep(12)
-    screenshot("3.png")
+    time.sleep(12)  # let OSM tiles load
+    screenshot(directory, "3.png")
     tap_tab(3)
     time.sleep(1)
-    screenshot("4.png")
+    screenshot(directory, "4.png")
     tap_tab(4)
     time.sleep(1)
-    screenshot("5.png")
-    capture_map_picker(english=False)
+    screenshot(directory, "5.png")
+    capture_map_picker(labels, directory)
+
+
+def selected_locales() -> list[tuple[str, str]]:
+    requested = {
+        item.strip()
+        for item in os.environ.get("SCREENSHOT_LOCALES", "").split(",")
+        if item.strip()
+    }
+    if not requested:
+        return LOCALES
+    known = {locale for locale, _ in LOCALES}
+    unknown = requested - known
+    if unknown:
+        raise RuntimeError(f"unknown screenshot locales: {', '.join(sorted(unknown))}")
+    return [entry for entry in LOCALES if entry[0] in requested]
 
 
 def main() -> int:
@@ -275,18 +314,10 @@ def run() -> int:
     )
 
     launch()
-    capture_english()
+    add_spots(load_labels("values"))
 
-    english_dir = OUTDIR / "en-US"
-    polish_dir = OUTDIR / "pl-PL"
-    english_dir.mkdir(parents=True, exist_ok=True)
-    for item in OUTDIR.glob("*.png"):
-        item.replace(english_dir / item.name)
-
-    capture_polish()
-    polish_dir.mkdir(parents=True, exist_ok=True)
-    for item in OUTDIR.glob("*.png"):
-        item.replace(polish_dir / item.name)
+    for locale, qualifier in selected_locales():
+        capture_locale(locale, load_labels(qualifier))
 
     print("screenshots ready", flush=True)
     return 0

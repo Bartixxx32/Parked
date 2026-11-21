@@ -2,6 +2,11 @@ name: Screenshots
 
 on:
   workflow_dispatch:
+    inputs:
+      locales:
+        description: 'Comma-separated fastlane locales (empty = all)'
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -49,6 +54,8 @@ jobs:
           sudo udevadm trigger --name-match=kvm
 
       - name: Capture screenshots
+        env:
+          SCREENSHOT_LOCALES: ${{ inputs.locales }}
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
