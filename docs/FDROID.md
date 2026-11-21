@@ -60,9 +60,16 @@ fastlane/metadata/android/
 │   └── images/
 │       ├── icon.png
 │       └── phoneScreenshots/
-└── pl-PL/
-    └── (same structure)
+├── pl-PL/
+│   └── (same structure)
+├── de-DE, fr-FR, es-ES, it-IT, nl-NL, cs-CZ, ru-RU, uk-UA, zh-CN
+│   └── (same structure)
+└── pt-PT, pt-BR
+    └── (same structure; the app has one Portuguese translation)
 ```
+
+Every store locale has its own screenshot set, so F-Droid shows the app in the
+language the user selected.
 
 Rules used by F-Droid:
 
@@ -74,8 +81,11 @@ Rules used by F-Droid:
 - icon 512×512 PNG, screenshots 1080 px wide or similar.
 
 Screenshots are generated in GitHub Actions (`.github/workflows/screenshots.yml`)
-on a clean emulator, so they always match the current UI. Download the artifact and
-commit the PNGs under `phoneScreenshots/` for both locales before tagging a release.
+on a clean emulator, so they always match the current UI. The script switches the
+app language and captures six screens for every store locale; the optional
+`locales` workflow input limits a run to a comma-separated subset while debugging.
+Download the artifact and commit every locale's PNGs under `phoneScreenshots/`
+before tagging a release.
 
 ## fdroiddata recipe
 
