@@ -7,15 +7,54 @@ on:
         description: 'Comma-separated fastlane locales (empty = all)'
         required: false
         default: ''
+      commit:
+        description: 'Commit the PNGs to main after every locale succeeds'
+        type: boolean
+        default: true
 
 permissions:
   contents: read
 
 jobs:
-  screenshots:
-    name: Generate F-Droid screenshots
+  prepare:
+    name: Prepare locale matrix
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    outputs:
+      matrix: ${{ steps.locales.outputs.matrix }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build locale matrix
+        id: locales
+        env:
+          SCREENSHOT_LOCALES: ${{ inputs.locales }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import importlib.util
+          import json
+
+          spec = importlib.util.spec_from_file_location(
+              "screenshots", ".github/scripts/screenshots.py"
+          )
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+
+          entries = module.selected_locales()
+          matrix = {
+              "include": [
+                  {"locale": locale, "qualifier": qualifier}
+                  for locale, qualifier in entries
+              ]
+          }
+          print("matrix=" + json.dumps(matrix, separators=(",", ":")))
+          PY
+
+  build:
+    name: Build debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -30,12 +69,7 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
         with:
-          packages: >-
-            platform-tools
-            platforms;android-36
-            build-tools;36.0.0
-            emulator
-            system-images;android-35;default;x86_64
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -46,6 +80,41 @@ jobs:
       - name: Build debug APK
         run: ./gradlew --no-daemon assembleDebug --stacktrace
 
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: parked-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 3
+
+  screenshots:
+    name: Screenshots ${{ matrix.locale }}
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: >-
+            platform-tools
+            emulator
+            system-images;android-35;default;x86_64
+
+      - name: Download debug APK
+        uses: actions/download-artifact@v4
+        with:
+          name: parked-debug-apk
+          path: apk
+
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
@@ -53,9 +122,9 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Capture screenshots
+      - name: Capture ${{ matrix.locale }}
         env:
-          SCREENSHOT_LOCALES: ${{ inputs.locales }}
+          SCREENSHOT_LOCALES: ${{ matrix.locale }}
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -67,14 +136,83 @@ jobs:
             -no-snapshot -no-window -gpu swiftshader_indirect
             -noaudio -no-boot-anim -camera-back none
           script: |
-            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            adb install -r apk/app-debug.apk
             python3 .github/scripts/screenshots.py
 
-      - name: Upload screenshots
+      - name: Upload ${{ matrix.locale }} screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: parked-screenshots
+          name: screenshots-${{ matrix.locale }}
           path: screenshots/
-          if-no-files-found: error
-          retention-days: 30
+          if-no-files-found: warn
+          retention-days: 7
+
+  commit:
+    name: Commit screenshots to main
+    needs: [prepare, build, screenshots]
+    if: ${{ needs.screenshots.result == 'success' && inputs.commit }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Download all screenshots
+        uses: actions/download-artifact@v4
+        with:
+          pattern: screenshots-*
+          path: screenshots
+          merge-multiple: true
+
+      - name: Copy screenshots into fastlane
+        run: |
+          set -euo pipefail
+          found=0
+          for dir in screenshots/*/; do
+            locale="$(basename "$dir")"
+            count="$(find "$dir" -maxdepth 1 -type f -name '*.png' | wc -l)"
+            if [ "$count" -ne 6 ]; then
+              echo "::error::$locale has $count screenshots, expected 6"
+              exit 1
+            fi
+            dest="fastlane/metadata/android/$locale/images/phoneScreenshots"
+            mkdir -p "$dest"
+            find "$dest" -maxdepth 1 -type f -name '*.png' -delete
+            cp "$dir"/*.png "$dest"/
+            found=$((found + 1))
+          done
+          if [ "$found" -eq 0 ]; then
+            echo "::error::no screenshot artifacts were downloaded"
+            exit 1
+          fi
+          git status --short fastlane/metadata/android
+
+      - name: Commit and push to main
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add fastlane/metadata/android
+          if git diff --cached --quiet; then
+            echo "Screenshots are already up to date"
+            exit 0
+          fi
+          git commit -m "chore: update F-Droid screenshots"
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            git fetch origin main
+            git rebase origin/main || {
+              echo "::error::cannot rebase the screenshot commit onto main"
+              exit 1
+            }
+          done
+          echo "::error::cannot push the screenshot commit"
+          exit 1
