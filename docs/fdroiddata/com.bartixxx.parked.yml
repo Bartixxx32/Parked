@@ -14,7 +14,7 @@ Binaries: https://github.com/Bartixxx32/Parked/releases/download/v%v/Parked-%v.a
 Builds:
   - versionName: 1.5.5
     versionCode: 16
-    commit: daa8eeaa68265fc034f29a246640b89ea132efde
+    commit: 75f6a50bec17fd078177643bc7f03a90cd43856c
     subdir: app
     gradle:
       - yes
