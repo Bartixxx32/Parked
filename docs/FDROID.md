@@ -93,9 +93,15 @@ The complete recipe is kept in
 [`docs/fdroiddata/com.bartixxx.parked.yml`](fdroiddata/com.bartixxx.parked.yml).
 The newest `Builds` entry points at the `v1.5.5` tag commit, which already
 contains `backend/worker/package-lock.json` (F-Droid rejects a `package.json`
-without a lockfile) and the six screenshots per locale. For later releases, add
-a new entry with the full SHA of the new tag before submitting. F-Droid builds
-from that commit, never from a moving branch.
+without a lockfile). For later releases, add a new entry with the full SHA of
+the new tag before submitting. F-Droid builds from that commit, never from a
+moving branch.
+
+Keep the entry on the tagged commit. F-Droid's reproducible-build check compares
+the built APK with the release asset, and `META-INF/version-control-info.textproto`
+embeds the commit SHA. Pointing the recipe at a later commit (for example one
+that only adds screenshots) changes that file and fails verification, so commit
+screenshots before creating the release tag.
 
 Checklist before opening the merge request:
 
