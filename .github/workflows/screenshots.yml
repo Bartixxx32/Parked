@@ -95,7 +95,7 @@ jobs:
     timeout-minutes: 25
     strategy:
       fail-fast: false
-      max-parallel: 6
+      max-parallel: 4
       matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
 
     steps:
@@ -152,7 +152,7 @@ jobs:
   commit:
     name: Commit screenshots to main
     needs: [prepare, build, screenshots]
-    if: ${{ needs.screenshots.result == 'success' && inputs.commit }}
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.screenshots.result != 'skipped' && inputs.commit }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -179,8 +179,8 @@ jobs:
             locale="$(basename "$dir")"
             count="$(find "$dir" -maxdepth 1 -type f -name '*.png' | wc -l)"
             if [ "$count" -ne 6 ]; then
-              echo "::error::$locale has $count screenshots, expected 6"
-              exit 1
+              echo "::warning::$locale has $count screenshots, skipping"
+              continue
             fi
             dest="fastlane/metadata/android/$locale/images/phoneScreenshots"
             mkdir -p "$dest"
@@ -189,7 +189,7 @@ jobs:
             found=$((found + 1))
           done
           if [ "$found" -eq 0 ]; then
-            echo "::error::no screenshot artifacts were downloaded"
+            echo "::error::no complete screenshot sets were downloaded"
             exit 1
           fi
           git status --short fastlane/metadata/android

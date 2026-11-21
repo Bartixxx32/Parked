@@ -270,7 +270,12 @@ def open_history(labels: dict[str, str]) -> None:
         print("history is not ready, retrying", flush=True)
         if dismiss_system_dialog():
             time.sleep(2)
-    tap_text(labels["add_manual_spot"], timeout=10)
+    print("history is still not ready, restarting the app", flush=True)
+    shell(f"am force-stop {PKG}")
+    time.sleep(1)
+    launch()
+    tap_tab(1)
+    tap_text(labels["add_manual_spot"], timeout=20)
 
 
 def add_spots(labels: dict[str, str]) -> None:
@@ -356,6 +361,9 @@ def main() -> int:
 def run() -> int:
     # Prepare the device.
     shell("settings put secure show_ime_with_hard_keyboard 1")
+    # A launcher ANR must not cover the app while screens are captured.
+    shell("settings put global hide_error_dialogs 1")
+    shell("settings put secure anr_show_background 0")
     for permission in (
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",
