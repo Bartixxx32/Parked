@@ -1,0 +1,1 @@
+Novità: timer di sosta opzionale con un promemoria prima della fine (disattivato per impostazione predefinita), backup crittografato e ripristino di luoghi, foto e impostazioni, percorsi a piedi accanto alla navigazione auto, statistiche locali e codici QR per gli inviti famiglia. Traduzioni aggiornate.

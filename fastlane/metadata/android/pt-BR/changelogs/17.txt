@@ -1,0 +1,1 @@
+Novo: temporizador de estacionamento opcional com um lembrete antes do fim (desativado por padrão), backup criptografado e restauração de locais, fotos e configurações, rotas a pé além da navegação por carro, estatísticas locais e códigos QR para convites de família. Traduções atualizadas.

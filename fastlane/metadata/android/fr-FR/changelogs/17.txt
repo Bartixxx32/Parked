@@ -1,0 +1,1 @@
+Nouveau : minuteur de stationnement optionnel avec un rappel avant la fin (désactivé par défaut), sauvegarde chiffrée et restauration des lieux, photos et réglages, itinéraires à pied en plus de la navigation auto, statistiques locales et QR codes d’invitation familiale. Mises à jour des traductions.

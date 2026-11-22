@@ -1,0 +1,1 @@
+Neu: optionaler Park-Timer mit einer Erinnerung vor Ablauf (standardmäßig aus), verschlüsselte Sicherung und Wiederherstellung von Orten, Fotos und Einstellungen, Fußwege neben der Auto-Navigation, lokale Parkstatistiken und QR-Codes für Familieneinladungen. Übersetzungen verbessert.

@@ -1,0 +1,1 @@
+Nuevo: temporizador de aparcamiento opcional con un recordatorio antes de que termine (desactivado por defecto), copia cifrada y restauración de lugares, fotos y ajustes, rutas a pie junto a la navegación en coche, estadísticas locales y códigos QR para invitaciones familiares. Mejoras de traducción.

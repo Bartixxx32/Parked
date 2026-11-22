@@ -1,0 +1,1 @@
+Nieuw: optionele parkeertimer met één herinnering voor het einde (standaard uit), versleutelde back-up en herstel van plekken, foto's en instellingen, wandelroutes naast autonavigatie, lokale parkeerstatistieken en QR-codes voor gezinsuitnodigingen. Vertalingen bijgewerkt.

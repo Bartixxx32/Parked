@@ -1,0 +1,1 @@
+Nově: volitelný časovač parkování s jedním připomenutím před koncem (ve výchozím nastavení vypnuto), šifrovaná záloha a obnovení míst, fotografií a nastavení, pěší trasy vedle navigace autem, místní statistiky a QR kódy pro rodinné pozvánky. Aktualizace překladů.
