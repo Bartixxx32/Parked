@@ -12,6 +12,7 @@ data class PermissionSnapshot(
     val coarseLocation: Boolean,
     val backgroundLocation: Boolean,
     val batteryOptimizationIgnored: Boolean,
+    val notificationsGranted: Boolean = true,
 ) {
     val locationOk: Boolean
         get() = fineLocation || coarseLocation
@@ -30,6 +31,7 @@ data class PermissionSnapshot(
                 coarseLocation = PermissionUtils.hasCoarseLocation(context),
                 backgroundLocation = PermissionUtils.hasBackgroundLocation(context),
                 batteryOptimizationIgnored = PermissionUtils.isIgnoringBatteryOptimizations(context),
+                notificationsGranted = PermissionUtils.hasNotifications(context),
             )
         }
     }

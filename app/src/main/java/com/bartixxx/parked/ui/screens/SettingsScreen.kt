@@ -1,5 +1,10 @@
 package com.bartixxx.parked.ui.screens
 
+import android.Manifest
+import android.net.Uri
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,23 +14,33 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.bartixxx.parked.BuildConfig
 import com.bartixxx.parked.R
@@ -51,6 +66,12 @@ fun SettingsScreen(
     onMaxAccuracyChange: (Int) -> Unit,
     onFallbackEnabledChange: (Boolean) -> Unit,
     onFallbackMaxAgeChange: (Int) -> Unit,
+    onParkingTimerEnabledChange: (Boolean) -> Unit,
+    onParkingTimerMinutesChange: (Int) -> Unit,
+    backupBusy: Boolean,
+    onBackupSuggestedName: () -> String,
+    onCreateBackup: (String, Uri) -> Unit,
+    onRestoreBackup: (String, Uri) -> Unit,
     onOpenNotificationSettings: () -> Unit,
     onRequestPermissions: () -> Unit,
     onRequestBackgroundLocation: () -> Unit,
@@ -70,6 +91,41 @@ fun SettingsScreen(
     onSetFamilyGroupName: (String) -> Unit,
     onSetFamilyServerUrl: (String) -> Unit,
 ) {
+    var enableTimerAfterGrant by remember { mutableStateOf(false) }
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted && enableTimerAfterGrant) onParkingTimerEnabledChange(true)
+        enableTimerAfterGrant = false
+    }
+
+    var backupMode by remember { mutableStateOf<BackupDialogMode?>(null) }
+    var backupUri by remember { mutableStateOf<Uri?>(null) }
+    var backupPassword by remember { mutableStateOf("") }
+    var backupConfirm by remember { mutableStateOf("") }
+    val resetBackupDialog = {
+        backupMode = null
+        backupUri = null
+        backupPassword = ""
+        backupConfirm = ""
+    }
+    val backupExportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/octet-stream"),
+    ) { uri ->
+        if (uri != null) {
+            backupUri = uri
+            backupMode = BackupDialogMode.EXPORT
+        }
+    }
+    val backupImportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri != null) {
+            backupUri = uri
+            backupMode = BackupDialogMode.RESTORE
+        }
+    }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
@@ -222,6 +278,57 @@ fun SettingsScreen(
                     enabled = settings.allowFallbackLastKnown,
                     onValueChange = onFallbackMaxAgeChange,
                 )
+                androidx.compose.material3.HorizontalDivider()
+                SwitchRow(
+                    title = stringResource(R.string.timer_enable_title),
+                    subtitle = stringResource(R.string.timer_enable_desc),
+                    checked = settings.parkingTimerEnabled,
+                    onCheckedChange = { enabled ->
+                        if (!enabled) {
+                            onParkingTimerEnabledChange(false)
+                        } else if (!permissions.notificationsGranted &&
+                            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                        ) {
+                            enableTimerAfterGrant = true
+                            notificationPermissionLauncher.launch(
+                                Manifest.permission.POST_NOTIFICATIONS,
+                            )
+                        } else {
+                            onParkingTimerEnabledChange(true)
+                        }
+                    },
+                )
+                SettingSlider(
+                    title = stringResource(R.string.timer_duration_title),
+                    value = settings.parkingTimerMinutes,
+                    range = AppSettings.PARKING_TIMER_RANGE,
+                    step = 15,
+                    unit = "min",
+                    description = stringResource(R.string.timer_duration_desc),
+                    enabled = settings.parkingTimerEnabled,
+                    onValueChange = onParkingTimerMinutesChange,
+                )
+                if (settings.parkingTimerEnabled && !permissions.notificationsGranted) {
+                    Text(
+                        text = stringResource(R.string.timer_notifications_missing),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    TextButton(
+                        onClick = {
+                            enableTimerAfterGrant = false
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                notificationPermissionLauncher.launch(
+                                    Manifest.permission.POST_NOTIFICATIONS,
+                                )
+                            } else {
+                                onOpenNotificationSettings()
+                            }
+                        },
+                    ) {
+                        Text(stringResource(R.string.timer_allow_notifications))
+                    }
+                }
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
                         text = stringResource(R.string.notifications_title),
@@ -255,6 +362,54 @@ fun SettingsScreen(
                 onSetGroupName = onSetFamilyGroupName,
                 onSetServerUrl = onSetFamilyServerUrl,
             )
+        }
+
+        item(key = "backup") {
+            SectionCard(title = stringResource(R.string.backup_title)) {
+                Text(
+                    text = stringResource(R.string.backup_intro),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = stringResource(R.string.backup_includes),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Button(
+                    onClick = { backupExportLauncher.launch(onBackupSuggestedName()) },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !backupBusy,
+                ) {
+                    Text(stringResource(R.string.backup_create))
+                }
+                FilledTonalButton(
+                    onClick = {
+                        backupImportLauncher.launch(
+                            arrayOf("application/octet-stream", "application/zip", "*/*"),
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !backupBusy,
+                ) {
+                    Text(stringResource(R.string.backup_restore))
+                }
+                if (backupBusy) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                        )
+                        Text(
+                            text = stringResource(R.string.backup_busy),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
         }
 
         item(key = "permissions") {
@@ -386,7 +541,127 @@ fun SettingsScreen(
             Spacer(Modifier.size(16.dp))
         }
     }
+
+    val mode = backupMode
+    val uri = backupUri
+    if (mode != null && uri != null) {
+        BackupPasswordDialog(
+            mode = mode,
+            password = backupPassword,
+            confirmation = backupConfirm,
+            onPasswordChange = { backupPassword = it },
+            onConfirmationChange = { backupConfirm = it },
+            onDismiss = resetBackupDialog,
+            onConfirm = {
+                val password = backupPassword
+                resetBackupDialog()
+                if (mode == BackupDialogMode.EXPORT) {
+                    onCreateBackup(password, uri)
+                } else {
+                    onRestoreBackup(password, uri)
+                }
+            },
+        )
+    }
 }
+
+private enum class BackupDialogMode { EXPORT, RESTORE }
+
+@Composable
+private fun BackupPasswordDialog(
+    mode: BackupDialogMode,
+    password: String,
+    confirmation: String,
+    onPasswordChange: (String) -> Unit,
+    onConfirmationChange: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    val exporting = mode == BackupDialogMode.EXPORT
+    val longEnough = password.length >= MIN_BACKUP_PASSWORD_LENGTH
+    val matches = !exporting || password == confirmation
+    val confirmEnabled = longEnough && matches
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                stringResource(
+                    if (exporting) {
+                        R.string.backup_password_title
+                    } else {
+                        R.string.backup_password_restore_title
+                    },
+                ),
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = stringResource(
+                        if (exporting) {
+                            R.string.backup_password_warning
+                        } else {
+                            R.string.backup_restore_warning
+                        },
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { onPasswordChange(it.take(128)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text(stringResource(R.string.backup_password_hint)) },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                )
+                if (exporting) {
+                    OutlinedTextField(
+                        value = confirmation,
+                        onValueChange = { onConfirmationChange(it.take(128)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(stringResource(R.string.backup_password_confirm)) },
+                        singleLine = true,
+                        isError = confirmation.isNotEmpty() && !matches,
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    )
+                    if (confirmation.isNotEmpty() && !matches) {
+                        Text(
+                            text = stringResource(R.string.backup_password_mismatch),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
+                if (password.isNotEmpty() && !longEnough) {
+                    Text(
+                        text = stringResource(R.string.backup_password_short),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm, enabled = confirmEnabled) {
+                Text(
+                    stringResource(
+                        if (exporting) R.string.backup_create else R.string.backup_restore,
+                    ),
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.action_cancel))
+            }
+        },
+    )
+}
+
+private const val MIN_BACKUP_PASSWORD_LENGTH = 8
 
 @Composable
 private fun SwitchRow(

@@ -3,6 +3,7 @@ package com.bartixxx.parked.ui.components
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -40,6 +41,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -63,6 +65,8 @@ import com.bartixxx.parked.family.FamilyState
 import com.bartixxx.parked.family.InviteCode
 import com.bartixxx.parked.ui.Formatters
 import com.bartixxx.parked.util.AppIntents
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 
 /**
  * Settings card for the optional family mode. Kept out of SettingsScreen so the
@@ -101,7 +105,14 @@ fun FamilySection(
     var showServer by rememberSaveable { mutableStateOf(false) }
     var showLeave by rememberSaveable { mutableStateOf(false) }
     var showRotate by rememberSaveable { mutableStateOf(false) }
+    var showQr by rememberSaveable { mutableStateOf(false) }
     var copied by rememberSaveable { mutableStateOf(false) }
+    val qrPayload = inviteLink
+        ?: if (!credentials.encrypted) {
+            credentials.inviteCode?.let(InviteCode::format)
+        } else {
+            null
+        }
 
     SectionCard(title = stringResource(R.string.family_title)) {
         if (!state.joined) {
@@ -319,6 +330,13 @@ fun FamilySection(
                             }
                         }
                     }
+                    FilledTonalButton(
+                        onClick = { showQr = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = qrPayload != null,
+                    ) {
+                        Text(stringResource(R.string.family_show_qr))
+                    }
                     Text(
                         text = stringResource(R.string.family_encrypted_warning),
                         style = MaterialTheme.typography.bodySmall,
@@ -387,6 +405,13 @@ fun FamilySection(
                                 Text(stringResource(R.string.family_rotate_code))
                             }
                         }
+                    }
+                    FilledTonalButton(
+                        onClick = { showQr = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = qrPayload != null,
+                    ) {
+                        Text(stringResource(R.string.family_show_qr))
                     }
                 }
             }
@@ -734,6 +759,49 @@ fun FamilySection(
             },
         )
     }
+    if (showQr && qrPayload != null) {
+        AlertDialog(
+            onDismissRequest = { showQr = false },
+            title = { Text(stringResource(R.string.family_qr_title)) },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = Color.White,
+                    ) {
+                        FamilyQrCode(
+                            text = qrPayload,
+                            modifier = Modifier
+                                .padding(12.dp)
+                                .size(240.dp),
+                        )
+                    }
+                    Text(
+                        text = stringResource(R.string.family_qr_help),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (!credentials.encrypted) {
+                        Text(
+                            text = InviteCode.format(credentials.inviteCode.orEmpty()),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showQr = false }) {
+                    Text(stringResource(android.R.string.ok))
+                }
+            },
+        )
+    }
 }
 
 /**
@@ -886,8 +954,28 @@ private fun FamilyJoinDialog(
     onDismiss: () -> Unit,
     onConfirm: (String, String) -> Unit,
 ) {
+    val context = LocalContext.current
     var invite by rememberSaveable { mutableStateOf("") }
     var carLabel by rememberSaveable { mutableStateOf(initialName) }
+    var scanFailed by rememberSaveable { mutableStateOf(false) }
+    val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
+        val contents = result.contents
+        if (contents != null && FamilyCrypto.parseInvite(contents) != null) {
+            invite = contents.take(256)
+            scanFailed = false
+        } else if (contents != null) {
+            scanFailed = true
+        }
+    }
+    val scanOptions = remember(context) {
+        ScanOptions().apply {
+            setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+            setPrompt(context.getString(R.string.family_scan_prompt))
+            setBeepEnabled(false)
+            setOrientationLocked(false)
+            setBarcodeImageEnabled(false)
+        }
+    }
     val inviteValid = FamilyCrypto.parseInvite(invite) != null
     val labelValid = carLabel.isNotBlank() && carLabel.length <= 60
     AlertDialog(
@@ -895,6 +983,22 @@ private fun FamilyJoinDialog(
         title = { Text(stringResource(R.string.family_join_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                FilledTonalButton(
+                    onClick = {
+                        scanFailed = false
+                        scanLauncher.launch(scanOptions)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(stringResource(R.string.family_scan_qr))
+                }
+                if (scanFailed) {
+                    Text(
+                        text = stringResource(R.string.family_scan_failed),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
                 OutlinedTextField(
                     value = invite,
                     onValueChange = { invite = it.take(256) },

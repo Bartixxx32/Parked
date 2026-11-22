@@ -1,0 +1,1 @@
+Optional parking timer with one reminder before it ends (off by default), encrypted backup and restore of spots, photos and settings, walking directions next to drive navigation, local parking statistics, and QR codes for family invites. Translation updates.

@@ -42,14 +42,21 @@ dependencies — no Google Play Services.
 - Manual save of the current location and manual entry of coordinates, including
   picking the point directly on a map instead of typing latitude and longitude.
 - OpenStreetMap: pins for all spots, tap to select, accuracy circle around the selected
-  point, current position and an external navigation button.
+  point, current position, and external drive or walking navigation without Play Services.
 - Built-in target compass: a dial that reacts to phone rotation, cardinal direction
   (for example `NE`), bearing in degrees and distance in metres to the selected or latest
   spot.
-- Optional family mode, off by default: create or join a group with an invite link and
-  see each member's latest parked car on the map. Every car has a label (model,
-  nickname or registration plate) and the group has its own name. New groups are
-  end-to-end encrypted: the single latest spot and group name are uploaded as
+- Optional parking timer, off by default: choose 15–720 minutes and get one reminder
+  before the latest parking session ends. It uses WorkManager and posts nothing else.
+- History statistics calculated only on the phone: spots this month and in the last
+  30 days, average and longest parking time, current session and the most common weekday.
+- Encrypted local backup and restore for spots, photos and app settings (PBKDF2 and
+  AES-GCM). Family credentials, group keys and invite links are never included, and
+  monitoring stays off after a restore.
+- Optional family mode, off by default: create or join a group with an invite link, invite
+  code or QR code and see each member's latest parked car on the map. Every car has a
+  label (model, nickname or registration plate) and the group has its own name. New
+  groups are end-to-end encrypted: the single latest spot and group name are uploaded as
   ciphertext and only family phones can read the label, coordinates and an optionally
   shared note. A spot photo can be sent explicitly to
   the family; it is encrypted on the phone, stored temporarily and deleted from the
@@ -62,9 +69,10 @@ dependencies — no Google Play Services.
 - History export to **JSON**, **CSV** and **GPX** via the system file picker.
 - Diagnostics screen: service state, permissions, GPS test and local logs (max 300
   entries).
-- No save or error notifications. The only notification is the Android-required silent,
-  low-priority notification of the monitoring foreground service (it can be hidden in
-  the system settings — monitoring keeps working).
+- No save or error notifications. The only notifications are the Android-required silent,
+  low-priority notification of the monitoring foreground service and an optional parking
+  reminder that is off unless you enable the timer (it can be hidden in the system
+  settings — monitoring keeps working).
 - Monitoring is restored after a phone reboot and after an app update (best effort).
 - No ads, analytics, telemetry or accounts. Outside optional family mode, no location
   uploads.
@@ -93,7 +101,8 @@ are signed with the same key — official releases are.
    - Bluetooth (`BLUETOOTH_CONNECT` on Android 12+),
    - precise or approximate location,
    - **background location → "Allow all the time"**.
-   The app does not ask for notification permission.
+   The app asks for notification permission only when you enable the optional parking
+   timer, and for camera access only when you choose to scan a family QR code.
 4. Disable battery optimization and enable autostart (see below).
 5. Turn on **Monitoring** on the Dashboard.
 
@@ -110,8 +119,10 @@ in the meantime, the save is cancelled and the acquired point is discarded.
 | Max accuracy | 100 m | Less accurate fixes are rejected. |
 | Last known fallback | enabled | Emergency point, clearly marked in history. |
 | Max fallback age | 12 h | Older points are not used. |
+| Parking timer | disabled, 120 min | One reminder before the latest spot's timer ends; range 15–720 min. |
 
 Parked has no save-notification setting — it simply does not send such notifications.
+The parking timer is the only optional notification and can be turned off at any time.
 
 Ranges are validated in DataStore; out-of-range values are clamped.
 

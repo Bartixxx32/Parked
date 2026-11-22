@@ -181,7 +181,7 @@
     <string name="fallback_enabled_desc">Jeśli świeży GPS jest niedostępny, zapisz ostatni znany punkt i oznacz go ostrzeżeniem.</string>
     <string name="fallback_age_title">Maksymalny wiek punktu awaryjnego</string>
     <string name="notifications_title">Powiadomienia</string>
-    <string name="notifications_body">Parked nie wysyła powiadomień o zapisie ani błędach. Jedyne powiadomienie to wymagane przez Androida powiadomienie usługi monitorującej. Możesz je wyłączyć w ustawieniach systemowych — monitorowanie nadal będzie działać.</string>
+    <string name="notifications_body">Parked nie wysyła powiadomień o zapisie ani błędach. Jedyne powiadomienie to wymagane przez Androida powiadomienie usługi monitorującej oraz opcjonalne przypomnienie o parkowaniu, jeśli włączysz timer. Możesz wyłączyć powiadomienia w ustawieniach systemowych — monitorowanie nadal będzie działać.</string>
     <string name="notification_settings">Ustawienia powiadomień</string>
     <string name="section_permissions">Uprawnienia</string>
     <string name="permission_location">Lokalizacja (dokładna lub przybliżona)</string>
@@ -445,6 +445,70 @@
         <item quantity="many">%1$d dni temu</item>
         <item quantity="other">%1$d dnia temu</item>
     </plurals>
+
+    <!-- Nawigacja piesza -->
+    <string name="action_walk">Pieszo</string>
+    <string name="open_walking_navigation">Otwórz trasę pieszą</string>
+
+    <!-- Statystyki lokalne -->
+    <string name="stats_title">Statystyki</string>
+    <string name="stats_total">Zapisane miejsca</string>
+    <string name="stats_this_month">W tym miesiącu</string>
+    <string name="stats_last_30_days">Ostatnie 30 dni</string>
+    <string name="stats_avg_duration">Średni czas parkowania</string>
+    <string name="stats_longest_duration">Najdłuższe parkowanie</string>
+    <string name="stats_current_duration">Bieżący czas parkowania</string>
+    <string name="stats_busiest_day">Najczęstszy dzień</string>
+    <string name="stats_not_enough">Za mało danych</string>
+    <string name="stats_local_note">Obliczane na tym telefonie na podstawie historii. Nic nie jest nigdzie wysyłane.</string>
+    <string name="stats_duration_hm">%1$d godz. %2$d min</string>
+    <string name="stats_duration_m">%1$d min</string>
+
+    <!-- Timer parkowania -->
+    <string name="timer_enable_title">Przypomnij przed końcem parkowania</string>
+    <string name="timer_enable_desc">Jedno powiadomienie przed końcem timera. Domyślnie wyłączone; inne powiadomienia o zdarzeniach nie są wysyłane.</string>
+    <string name="timer_duration_title">Czas parkowania</string>
+    <string name="timer_duration_desc">Dotyczy ostatnio zapisanego miejsca. Zapis nowego miejsca restartuje timer.</string>
+    <string name="timer_notifications_missing">Zezwól na powiadomienia, aby przypomnienie o parkowaniu mogło się pojawić.</string>
+    <string name="timer_allow_notifications">Zezwól na powiadomienia</string>
+    <string name="timer_channel_name">Timer parkowania</string>
+    <string name="timer_channel_desc">Jedno przypomnienie przed końcem czasu parkowania.</string>
+    <string name="timer_notification_title">Czas parkowania prawie minął</string>
+    <string name="timer_notification_text">Zostało około %1$d min. Auto jest w zapisanym miejscu.</string>
+    <string name="timer_notification_expired">Czas parkowania minął. Auto jest w zapisanym miejscu.</string>
+
+    <!-- Szyfrowana kopia zapasowa -->
+    <string name="backup_title">Szyfrowana kopia zapasowa</string>
+    <string name="backup_intro">Zapisz miejsca, zdjęcia i ustawienia w jednym szyfrowanym pliku. Plik nie opuszcza telefonu, dopóki sam nie wskażesz miejsca zapisu lub udostępnienia.</string>
+    <string name="backup_includes">Zawiera historię parkowań, zdjęcia, notatki i ustawienia aplikacji. Logowanie do rodziny, klucze grup i linki zaproszeń nie są uwzględniane.</string>
+    <string name="backup_create">Utwórz szyfrowaną kopię</string>
+    <string name="backup_restore">Przywróć kopię</string>
+    <string name="backup_password_title">Hasło kopii zapasowej</string>
+    <string name="backup_password_restore_title">Przywróć kopię zapasową</string>
+    <string name="backup_password_hint">Hasło (co najmniej 8 znaków)</string>
+    <string name="backup_password_confirm">Powtórz hasło</string>
+    <string name="backup_password_mismatch">Hasła nie są takie same.</string>
+    <string name="backup_password_short">Hasło musi mieć co najmniej 8 znaków.</string>
+    <string name="backup_password_warning">Hasła nie da się odzyskać. Bez niego kopii nie można otworzyć.</string>
+    <string name="backup_restore_warning">Przywrócenie zastąpi wszystkie miejsca, zdjęcia i ustawienia na tym telefonie. Członkostwo w rodzinie zostaje na tym telefonie. Monitorowanie pozostanie wyłączone po przywróceniu.</string>
+    <string name="backup_created">Kopia zapisana: %1$d miejsc, %2$d zdjęć.</string>
+    <string name="backup_restored">Kopia przywrócona: %1$d miejsc, %2$d zdjęć.</string>
+    <string name="backup_busy">Przetwarzanie…</string>
+    <string name="backup_error_password">Nieprawidłowe hasło lub uszkodzona kopia.</string>
+    <string name="backup_error_invalid">Ten plik nie jest prawidłową kopią zapasową Parked.</string>
+    <string name="backup_error_unsupported">Ta kopia pochodzi z nowszej wersji aplikacji.</string>
+    <string name="backup_error_too_large">Plik kopii jest za duży.</string>
+    <string name="backup_error_io">Nie udało się odczytać lub zapisać wybranego pliku.</string>
+    <string name="backup_error_unknown">Nie udało się przetworzyć kopii: %1$s</string>
+
+    <!-- Kod QR zaproszenia rodzinnego -->
+    <string name="family_show_qr">Pokaż kod QR</string>
+    <string name="family_qr_title">Zeskanuj, aby dołączyć</string>
+    <string name="family_qr_help">Inny członek rodziny może zeskanować ten kod w Parked i dołączyć do grupy.</string>
+    <string name="family_scan_qr">Skanuj kod QR</string>
+    <string name="family_scan_prompt">Skieruj kamerę na kod QR zaproszenia</string>
+    <string name="family_scan_failed">Nie udało się odczytać kodu QR. Spróbuj ponownie.</string>
+    <string name="cd_family_qr">Kod QR zaproszenia do rodziny</string>
 
     <!-- Intencje -->
     <string name="parked_car_default">Zaparkowane auto</string>

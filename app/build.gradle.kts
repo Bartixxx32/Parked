@@ -20,8 +20,8 @@ android {
         applicationId = "com.bartixxx.parked"
         minSdk = 29
         targetSdk = 36
-        versionCode = 16
-        versionName = "1.5.5"
+        versionCode = 17
+        versionName = "1.6.0"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -107,6 +107,8 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.osmdroid.android)
+    implementation(libs.zxing.android.embedded)
+    implementation(libs.zxing.core)
     implementation(libs.kotlinx.coroutines.android)
 
     testImplementation(libs.junit)

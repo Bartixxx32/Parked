@@ -13,6 +13,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 
+data class RestoredParkingSpot(
+    val spot: ParkingSpot,
+    val photoSource: File?,
+)
+
 class ParkingRepository(
     private val context: Context,
     private val dao: ParkingSpotDao,
@@ -67,6 +72,47 @@ class ParkingRepository(
     suspend fun deleteAll() {
         dao.all().forEach { spot -> spot.photoPath?.let { deletePhotoFile(it) } }
         dao.deleteAll()
+    }
+
+    /**
+     * Replaces the whole local history with a restored backup. Photos are staged
+     * before the old records are deleted, and imported spots get a new id so a
+     * backup can be restored more than once without collision.
+     */
+    suspend fun replaceAll(items: List<RestoredParkingSpot>): Int = withContext(Dispatchers.IO) {
+        val directory = photosDir()
+        val staged = mutableListOf<Pair<ParkingSpot, File?>>()
+        try {
+            items.forEach { item ->
+                val destination = item.photoSource?.let { source ->
+                    File.createTempFile("spot_restored_", ".jpg", directory).also { target ->
+                        source.copyTo(target, overwrite = true)
+                    }
+                }
+                staged += item.spot to destination
+            }
+            dao.all().forEach { spot -> spot.photoPath?.let(::deletePhotoFile) }
+            dao.deleteAll()
+            var inserted = 0
+            staged.forEach { (spot, photo) ->
+                val id = dao.insert(
+                    spot.copy(
+                        id = 0L,
+                        photoPath = photo?.absolutePath,
+                        cycleId = null,
+                    ),
+                )
+                if (id < 0L) {
+                    photo?.delete()
+                } else {
+                    inserted += 1
+                }
+            }
+            inserted
+        } catch (error: Throwable) {
+            staged.forEach { (_, photo) -> photo?.delete() }
+            throw error
+        }
     }
 
     suspend fun attachPhoto(spotId: Long, uri: Uri): Result<Unit> = withContext(Dispatchers.IO) {

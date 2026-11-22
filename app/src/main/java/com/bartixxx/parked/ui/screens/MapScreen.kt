@@ -28,12 +28,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -133,7 +135,9 @@ fun MapScreen(
     initialCamera: MapCamera?,
     onCameraChanged: (MapCamera) -> Unit,
     onNavigate: (ParkingSpot) -> Unit,
+    onWalk: (ParkingSpot) -> Unit,
     onNavigateFamily: (FamilySpot) -> Unit,
+    onWalkFamily: (FamilySpot) -> Unit,
     onRequestPermissions: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
@@ -489,6 +493,7 @@ fun MapScreen(
                     distanceBearing = familyDistanceBearing,
                     hasLocationAccess = permissions.locationOk,
                     onNavigate = { spot -> onNavigateFamily(spot) },
+                    onWalk = { spot -> onWalkFamily(spot) },
                     onOpenPhoto = { path -> enlargedPhotoPath = path },
                     onClearSelection = { selectedFamilyDeviceId = null },
                 )
@@ -500,6 +505,7 @@ fun MapScreen(
                     distanceBearing = distanceBearing,
                     hasLocationAccess = permissions.locationOk,
                     onNavigate = { spot -> onNavigate(spot) },
+                    onWalk = { spot -> onWalk(spot) },
                     onOpenPhoto = { path -> enlargedPhotoPath = path },
                     onClearSelection = { selectedSpotId = null },
                     onOpenSettings = onOpenSettings,
@@ -551,6 +557,7 @@ private fun SpotCard(
     distanceBearing: DistanceBearing?,
     hasLocationAccess: Boolean,
     onNavigate: (ParkingSpot) -> Unit,
+    onWalk: (ParkingSpot) -> Unit,
     onOpenPhoto: (String) -> Unit,
     onClearSelection: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -727,6 +734,19 @@ private fun SpotCard(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    FilledTonalButton(
+                        onClick = { onWalk(spot) },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(16.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.DirectionsWalk,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(stringResource(R.string.action_walk))
+                    }
                     Button(
                         onClick = { onNavigate(spot) },
                         modifier = Modifier.weight(1f),
@@ -737,7 +757,7 @@ private fun SpotCard(
                             contentDescription = null,
                             modifier = Modifier.size(18.dp),
                         )
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(6.dp))
                         Text(stringResource(R.string.action_navigate))
                     }
                     if (isSelected) {
@@ -771,6 +791,7 @@ private fun FamilySpotCard(
     distanceBearing: DistanceBearing?,
     hasLocationAccess: Boolean,
     onNavigate: (FamilySpot) -> Unit,
+    onWalk: (FamilySpot) -> Unit,
     onOpenPhoto: (String) -> Unit,
     onClearSelection: () -> Unit,
 ) {
@@ -901,6 +922,19 @@ private fun FamilySpotCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                FilledTonalButton(
+                    onClick = { onWalk(spot) },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(16.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.DirectionsWalk,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.action_walk))
+                }
                 Button(
                     onClick = { onNavigate(spot) },
                     modifier = Modifier.weight(1f),
@@ -911,7 +945,7 @@ private fun FamilySpotCard(
                         contentDescription = null,
                         modifier = Modifier.size(18.dp),
                     )
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(6.dp))
                     Text(stringResource(R.string.action_navigate))
                 }
                 IconButton(

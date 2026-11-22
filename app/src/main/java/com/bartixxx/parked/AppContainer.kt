@@ -2,6 +2,7 @@ package com.bartixxx.parked
 
 import android.content.Context
 import androidx.room.Room
+import com.bartixxx.parked.backup.BackupManager
 import com.bartixxx.parked.bluetooth.BluetoothRepository
 import com.bartixxx.parked.capture.ParkingCaptureEngine
 import com.bartixxx.parked.data.DiagnosticsRepository
@@ -15,6 +16,7 @@ import com.bartixxx.parked.location.LocationSource
 import com.bartixxx.parked.location.PlatformLocationSource
 import com.bartixxx.parked.monitor.MonitorStateHolder
 import com.bartixxx.parked.notifications.NotificationHelper
+import com.bartixxx.parked.timer.ParkingTimerScheduler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -33,6 +35,8 @@ class AppContainer(context: Context) {
 
     val settingsRepository by lazy { SettingsRepository(appContext) }
 
+    val parkingTimerScheduler by lazy { ParkingTimerScheduler(appContext) }
+
     val triggerStateRepository by lazy { TriggerStateRepository(appContext) }
 
     val diagnosticsRepository by lazy {
@@ -41,6 +45,15 @@ class AppContainer(context: Context) {
 
     val parkingRepository by lazy {
         ParkingRepository(appContext, database.parkingSpotDao())
+    }
+
+    val backupManager by lazy {
+        BackupManager(
+            context = appContext,
+            parkingRepository = parkingRepository,
+            settingsRepository = settingsRepository,
+            timerScheduler = parkingTimerScheduler,
+        )
     }
 
     val familyStore by lazy { FamilyStore(appContext) }

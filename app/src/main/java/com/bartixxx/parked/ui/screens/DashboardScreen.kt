@@ -13,6 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bluetooth
+import androidx.compose.material.icons.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Map
@@ -70,6 +71,7 @@ fun DashboardScreen(
     onOpenHistory: () -> Unit,
     onOpenMap: (ParkingSpot) -> Unit,
     onNavigate: (ParkingSpot) -> Unit,
+    onWalk: (ParkingSpot) -> Unit,
     onOpenSettings: () -> Unit,
     onRequestPermissions: () -> Unit,
     onRequestBackgroundLocation: () -> Unit,
@@ -405,6 +407,18 @@ fun DashboardScreen(
                         )
                         Spacer(Modifier.size(6.dp))
                         Text(stringResource(R.string.action_navigate))
+                    }
+                    FilledTonalButton(
+                        onClick = { onWalk(spot) },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Icon(
+                            Icons.Filled.DirectionsWalk,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(Modifier.size(6.dp))
+                        Text(stringResource(R.string.action_walk))
                     }
                 }
                 TextButton(onClick = onOpenHistory, modifier = Modifier.fillMaxWidth()) {

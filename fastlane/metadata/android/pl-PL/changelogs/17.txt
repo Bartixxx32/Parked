@@ -1,0 +1,1 @@
+Opcjonalny timer parkowania z jednym przypomnieniem przed końcem (domyślnie wyłączony), szyfrowana kopia zapasowa i przywracanie miejsc, zdjęć oraz ustawień, trasa piesza obok nawigacji samochodowej, lokalne statystyki parkowania i kody QR do zaproszeń rodzinnych. Poprawki tłumaczeń.

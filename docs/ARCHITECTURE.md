@@ -55,7 +55,7 @@ cannot delete a file outside the app directory.
 ### DataStore
 
 - `parked_settings` — user configuration; every value is clamped to its defined range on
-  read and write.
+  read and write. Includes the optional parking timer (off by default, 15–720 minutes).
 - `parked_trigger_state` — phase, `cycleId`, device address, deadline and the time of the
   last automatic save. Saved after every state change.
 
@@ -220,6 +220,21 @@ settings, and the app declares all locales in `locales_config.xml` for the Andro
 per-app language picker. The diagnostics log is technical and always written in English,
 so reports are consistent regardless of the device language.
 
+## Backup, statistics and timer
+
+- `BackupManager` writes a zip with `manifest.properties`, `spots.bin` and at most one
+  photo per spot, then encrypts the whole archive with PBKDF2-HMAC-SHA256 (210 000
+  iterations) and AES-256-GCM. The password is never stored. Restore stages photos,
+  replaces the database, restores settings and forces monitoring off. Family
+  credentials, group keys, invite secrets and family photos are not part of the
+  archive; uploads are never involved.
+- `calculateParkingStats` is pure JVM code over the local history. Consecutive saves
+  delimit parking sessions; gaps under 15 minutes and over 7 days are ignored.
+- `ParkingTimerScheduler` uses a unique `OneTimeWorkRequest` with a stored spot id and
+  target time. `ParkingTimerWorker` verifies that the spot is still the latest and the
+  timer is still enabled before posting one reminder, so disabling the timer or deleting
+  the spot cancels the alert.
+
 ## Export
 
 `ParkingExporter` is pure JVM code:
@@ -252,12 +267,13 @@ has no permission to access all storage.
 - Bluetooth receiver registered as `RECEIVER_NOT_EXPORTED`.
 - `BootReceiver` is exported (a system broadcast requirement), but it does nothing beyond
   checking its own settings and trying to start its own service.
-- Minimal permissions: location, Bluetooth, FGS, boot, wake lock. `POST_NOTIFICATIONS` is
-  declared in the manifest, but the app **does not request** it — the required FGS
-  notification may then appear only in the task manager, and monitoring keeps working.
-  No SMS, contacts, microphone or file access. Photos are taken in the system
-  camera app through a FileProvider URI (the app does not request the CAMERA
-  permission) or chosen through SAF, then copied into private app storage.
+- Minimal permissions: location, Bluetooth, FGS, boot, wake lock and an optional
+  `POST_NOTIFICATIONS` that is requested only when the user enables the parking timer.
+  The required FGS notification may appear only in the task manager, and monitoring keeps
+  working. No SMS, contacts, microphone or file access. Photos are taken in the system
+  camera app through a FileProvider URI or chosen through SAF, then copied into private
+  app storage. `CAMERA` is requested only when the user chooses to scan a family QR code;
+  QR generation uses ZXing core and needs no camera or Play Services.
 
 ## Tests and manual checklist
 
@@ -268,6 +284,8 @@ Automatic (JVM, run in CI):
 - capture engine with fake source/sink (including saving a fix acquired at disconnect
   without changing its coordinates),
 - exporters,
+- parking statistics,
+- backup crypto round-trip, wrong password and invalid format,
 - compilation of all Compose screens and services.
 
 Manual (phone, preferably OnePlus/ColorOS):

@@ -592,6 +592,7 @@ class BluetoothMonitorService : Service() {
                     container.applicationScope.launch {
                         container.familyRepository.syncSpot(outcome.spot)
                     }
+                    container.parkingTimerScheduler.sync(outcome.spot, currentSettings)
                 }
 
                 CaptureOutcome.Duplicate -> {

@@ -179,7 +179,7 @@
     <string name="fallback_enabled_desc">If a fresh GPS fix is unavailable, save the last known point and mark it with a warning.</string>
     <string name="fallback_age_title">Maximum age of the emergency point</string>
     <string name="notifications_title">Notifications</string>
-    <string name="notifications_body">Parked does not send notifications about saves or errors. The only notification is the Android-required notification of the monitoring service. You can disable it in the system settings — monitoring will still work.</string>
+    <string name="notifications_body">Parked does not send notifications about saves or errors. The only notification is the Android-required monitoring notification, plus an optional parking reminder if you enable the timer. You can disable notifications in the system settings — monitoring will still work.</string>
     <string name="notification_settings">Notification settings</string>
     <string name="section_permissions">Permissions</string>
     <string name="permission_location">Location (precise or approximate)</string>
@@ -441,6 +441,70 @@
         <item quantity="one">%1$d day ago</item>
         <item quantity="other">%1$d days ago</item>
     </plurals>
+
+    <!-- Walking navigation -->
+    <string name="action_walk">Walk</string>
+    <string name="open_walking_navigation">Open walking directions</string>
+
+    <!-- Local statistics -->
+    <string name="stats_title">Statistics</string>
+    <string name="stats_total">Spots saved</string>
+    <string name="stats_this_month">This month</string>
+    <string name="stats_last_30_days">Last 30 days</string>
+    <string name="stats_avg_duration">Average parking time</string>
+    <string name="stats_longest_duration">Longest parking</string>
+    <string name="stats_current_duration">Current parking time</string>
+    <string name="stats_busiest_day">Most common day</string>
+    <string name="stats_not_enough">Not enough data yet</string>
+    <string name="stats_local_note">Calculated on this phone from your history. Nothing is sent anywhere.</string>
+    <string name="stats_duration_hm">%1$d h %2$d min</string>
+    <string name="stats_duration_m">%1$d min</string>
+
+    <!-- Parking timer -->
+    <string name="timer_enable_title">Remind me before parking ends</string>
+    <string name="timer_enable_desc">One notification before the timer ends. Off by default; no other event notifications are sent.</string>
+    <string name="timer_duration_title">Parking duration</string>
+    <string name="timer_duration_desc">Used for the latest saved spot. Saving a new spot restarts the timer.</string>
+    <string name="timer_notifications_missing">Allow notifications so the parking reminder can appear.</string>
+    <string name="timer_allow_notifications">Allow notifications</string>
+    <string name="timer_channel_name">Parking timer</string>
+    <string name="timer_channel_desc">A single reminder before the parking time ends.</string>
+    <string name="timer_notification_title">Parking time is almost up</string>
+    <string name="timer_notification_text">About %1$d min left. Your car is at the saved spot.</string>
+    <string name="timer_notification_expired">Your parking time has ended. Your car is at the saved spot.</string>
+
+    <!-- Encrypted backup -->
+    <string name="backup_title">Encrypted backup</string>
+    <string name="backup_intro">Save your spots, photos and settings in one encrypted file. The file never leaves the phone unless you choose where to save or share it.</string>
+    <string name="backup_includes">Includes parking history, photos, notes and app settings. Family login, group keys and invite links are not included.</string>
+    <string name="backup_create">Create encrypted backup</string>
+    <string name="backup_restore">Restore backup</string>
+    <string name="backup_password_title">Backup password</string>
+    <string name="backup_password_restore_title">Restore backup</string>
+    <string name="backup_password_hint">Password (at least 8 characters)</string>
+    <string name="backup_password_confirm">Repeat password</string>
+    <string name="backup_password_mismatch">Passwords do not match.</string>
+    <string name="backup_password_short">The password must have at least 8 characters.</string>
+    <string name="backup_password_warning">The password cannot be recovered. Without it the backup cannot be opened.</string>
+    <string name="backup_restore_warning">Restoring replaces all spots, photos and settings on this phone. Family membership stays on this phone. Monitoring stays off after restore.</string>
+    <string name="backup_created">Backup saved: %1$d spots, %2$d photos.</string>
+    <string name="backup_restored">Backup restored: %1$d spots, %2$d photos.</string>
+    <string name="backup_busy">Working…</string>
+    <string name="backup_error_password">Wrong password or damaged backup.</string>
+    <string name="backup_error_invalid">This file is not a valid Parked backup.</string>
+    <string name="backup_error_unsupported">This backup comes from a newer app version.</string>
+    <string name="backup_error_too_large">The backup file is too large.</string>
+    <string name="backup_error_io">Could not read or write the selected file.</string>
+    <string name="backup_error_unknown">Could not process the backup: %1$s</string>
+
+    <!-- Family invite QR -->
+    <string name="family_show_qr">Show QR code</string>
+    <string name="family_qr_title">Scan to join</string>
+    <string name="family_qr_help">Another family member can scan this code in Parked to join the group.</string>
+    <string name="family_scan_qr">Scan QR code</string>
+    <string name="family_scan_prompt">Point the camera at the invite QR code</string>
+    <string name="family_scan_failed">Could not read that QR code. Try again.</string>
+    <string name="cd_family_qr">Family invite QR code</string>
 
     <!-- Intents -->
     <string name="parked_car_default">Parked car</string>

@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.PowerManager
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 
 object PermissionUtils {
@@ -29,6 +30,14 @@ object PermissionUtils {
         } else {
             true
         }
+
+    fun hasNotifications(context: Context): Boolean =
+        NotificationManagerCompat.from(context).areNotificationsEnabled() &&
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                granted(context, Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                true
+            }
 
     fun isIgnoringBatteryOptimizations(context: Context): Boolean {
         val powerManager = context.getSystemService(PowerManager::class.java) ?: return false

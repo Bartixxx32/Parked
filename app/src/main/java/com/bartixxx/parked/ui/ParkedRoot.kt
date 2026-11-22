@@ -121,6 +121,14 @@ fun ParkedRoot(viewModel: MainViewModel) {
         if (settings.monitoringEnabled) viewModel.ensureMonitoringRunning()
     }
 
+    LaunchedEffect(
+        settings.parkingTimerEnabled,
+        settings.parkingTimerMinutes,
+        latestSpot?.id,
+    ) {
+        viewModel.syncParkingTimer()
+    }
+
     LaunchedEffect(tab, family.joined, lifecycleOwner) {
         if (tab != ParkedTab.MAP || !family.joined) return@LaunchedEffect
         // Poll only while the map is on screen and the app is resumed. A plain
@@ -177,8 +185,25 @@ fun ParkedRoot(viewModel: MainViewModel) {
             notifyFailure(context.getString(R.string.msg_no_navigation_app))
         }
     }
+    val walkTo: (ParkingSpot) -> Unit = { spot ->
+        if (!AppIntents.navigateTo(context, spot.latitude, spot.longitude, spot.note, walking = true)) {
+            notifyFailure(context.getString(R.string.msg_no_navigation_app))
+        }
+    }
     val navigateToFamily: (FamilySpot) -> Unit = { spot ->
         if (!AppIntents.navigateTo(context, spot.latitude, spot.longitude, spot.carLabel)) {
+            notifyFailure(context.getString(R.string.msg_no_navigation_app))
+        }
+    }
+    val walkToFamily: (FamilySpot) -> Unit = { spot ->
+        if (!AppIntents.navigateTo(
+                context,
+                spot.latitude,
+                spot.longitude,
+                spot.carLabel,
+                walking = true,
+            )
+        ) {
             notifyFailure(context.getString(R.string.msg_no_navigation_app))
         }
     }
@@ -227,6 +252,7 @@ fun ParkedRoot(viewModel: MainViewModel) {
                     onOpenHistory = { tabName = ParkedTab.HISTORY.name },
                     onOpenMap = openMap,
                     onNavigate = navigateTo,
+                    onWalk = walkTo,
                     onOpenSettings = { tabName = ParkedTab.SETTINGS.name },
                     onRequestPermissions = requestPermissions,
                     onRequestBackgroundLocation = requestBackgroundLocation,
@@ -248,6 +274,7 @@ fun ParkedRoot(viewModel: MainViewModel) {
                     onExport = viewModel::exportSpots,
                     onSuggestedExportName = viewModel::exportSuggestedName,
                     onNavigate = navigateTo,
+                    onWalk = walkTo,
                     onOpenMap = openMap,
                     canSendToFamily = family.joined &&
                         family.enabled &&
@@ -271,7 +298,9 @@ fun ParkedRoot(viewModel: MainViewModel) {
                     initialCamera = mapCamera,
                     onCameraChanged = { camera -> mapCamera = camera },
                     onNavigate = navigateTo,
+                    onWalk = walkTo,
                     onNavigateFamily = navigateToFamily,
+                    onWalkFamily = walkToFamily,
                     onRequestPermissions = requestPermissions,
                     onOpenSettings = { tabName = ParkedTab.SETTINGS.name },
                 )
@@ -288,6 +317,12 @@ fun ParkedRoot(viewModel: MainViewModel) {
                     onMaxAccuracyChange = viewModel::updateMaxAccuracy,
                     onFallbackEnabledChange = viewModel::updateFallbackEnabled,
                     onFallbackMaxAgeChange = viewModel::updateFallbackMaxAge,
+                    onParkingTimerEnabledChange = viewModel::updateParkingTimerEnabled,
+                    onParkingTimerMinutesChange = viewModel::updateParkingTimerMinutes,
+                    backupBusy = uiState.backupBusy,
+                    onBackupSuggestedName = viewModel::backupSuggestedName,
+                    onCreateBackup = viewModel::createBackup,
+                    onRestoreBackup = viewModel::restoreBackup,
                     onOpenNotificationSettings = openNotificationSettings,
                     onRequestPermissions = requestPermissions,
                     onRequestBackgroundLocation = requestBackgroundLocation,

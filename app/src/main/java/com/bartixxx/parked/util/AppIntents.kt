@@ -90,13 +90,52 @@ object AppIntents {
         return openAppDetails(context)
     }
 
-    fun navigateTo(context: Context, latitude: Double, longitude: Double, label: String): Boolean {
+    fun navigateTo(
+        context: Context,
+        latitude: Double,
+        longitude: Double,
+        label: String,
+        walking: Boolean = false,
+    ): Boolean = if (walking) {
+        walkTo(context, latitude, longitude)
+    } else {
+        driveTo(context, latitude, longitude, label)
+    }
+
+    private fun driveTo(
+        context: Context,
+        latitude: Double,
+        longitude: Double,
+        label: String,
+    ): Boolean {
         val encodedLabel = Uri.encode(label.ifBlank { context.getString(R.string.parked_car_default) })
         val uri = Uri.parse("geo:$latitude,$longitude?q=$latitude,$longitude($encodedLabel)")
         val intent = Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         val chooser = Intent.createChooser(intent, context.getString(R.string.open_navigation)).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
+        return start(context, chooser)
+    }
+
+    /**
+     * Prefers a native walking navigation intent (Google Maps and compatible
+     * apps) and falls back to web directions, so no Play Services are needed.
+     */
+    private fun walkTo(context: Context, latitude: Double, longitude: Double): Boolean {
+        val native = Intent(
+            Intent.ACTION_VIEW,
+            Uri.parse("google.navigation:q=$latitude,$longitude&mode=w"),
+        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (start(context, native)) return true
+
+        val web = Uri.parse(
+            "https://www.google.com/maps/dir/?api=1" +
+                "&destination=$latitude,$longitude&travelmode=walking",
+        )
+        val chooser = Intent.createChooser(
+            Intent(Intent.ACTION_VIEW, web).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            context.getString(R.string.open_walking_navigation),
+        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         return start(context, chooser)
     }
 

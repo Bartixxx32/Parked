@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.LocationOn
@@ -66,11 +67,13 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.core.content.FileProvider
 import com.bartixxx.parked.R
 import com.bartixxx.parked.data.db.ParkingSpot
+import com.bartixxx.parked.data.stats.calculateParkingStats
 import com.bartixxx.parked.export.ExportFormat
 import com.bartixxx.parked.ui.Formatters
 import com.bartixxx.parked.ui.components.EmptyState
 import com.bartixxx.parked.ui.components.InfoRow
 import com.bartixxx.parked.ui.components.SpotPhoto
+import com.bartixxx.parked.ui.components.StatisticsSection
 import java.io.File
 import java.util.Locale
 
@@ -87,6 +90,7 @@ fun HistoryScreen(
     onExport: (ExportFormat, Uri) -> Unit,
     onSuggestedExportName: (ExportFormat) -> String,
     onNavigate: (ParkingSpot) -> Unit,
+    onWalk: (ParkingSpot) -> Unit,
     onOpenMap: (ParkingSpot) -> Unit,
     canSendToFamily: Boolean,
     familyPhotoSending: Boolean,
@@ -214,6 +218,12 @@ fun HistoryScreen(
             }
         }
 
+        if (spots.isNotEmpty()) {
+            item(key = "statistics") {
+                StatisticsSection(stats = remember(spots) { calculateParkingStats(spots) })
+            }
+        }
+
         if (spots.isEmpty()) {
             item(key = "empty") {
                 EmptyState(
@@ -233,6 +243,7 @@ fun HistoryScreen(
                 SpotCard(
                     spot = spot,
                     onNavigate = { onNavigate(spot) },
+                    onWalk = { onWalk(spot) },
                     onOpenMap = { onOpenMap(spot) },
                     onDelete = { deleteTarget = spot },
                     onPickPhoto = { photoTargetSpotId = spot.id },
@@ -410,6 +421,7 @@ fun HistoryScreen(
 private fun SpotCard(
     spot: ParkingSpot,
     onNavigate: () -> Unit,
+    onWalk: () -> Unit,
     onOpenMap: () -> Unit,
     onDelete: () -> Unit,
     onPickPhoto: () -> Unit,
@@ -535,6 +547,11 @@ private fun SpotCard(
                     Icon(Icons.Filled.Navigation, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.size(4.dp))
                     Text(stringResource(R.string.action_navigate))
+                }
+                TextButton(onClick = onWalk, modifier = Modifier.weight(1f)) {
+                    Icon(Icons.Filled.DirectionsWalk, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.size(4.dp))
+                    Text(stringResource(R.string.action_walk))
                 }
                 TextButton(onClick = onOpenMap, modifier = Modifier.weight(1f)) {
                     Icon(Icons.Filled.Map, contentDescription = null, modifier = Modifier.size(16.dp))

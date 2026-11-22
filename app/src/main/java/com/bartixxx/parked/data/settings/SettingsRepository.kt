@@ -69,6 +69,47 @@ class SettingsRepository(private val context: Context) {
         context.parkedSettingsDataStore.edit { it[Keys.FALLBACK_MAX_AGE_HOURS] = clamped }
     }
 
+    suspend fun setParkingTimerEnabled(enabled: Boolean) {
+        context.parkedSettingsDataStore.edit { it[Keys.PARKING_TIMER_ENABLED] = enabled }
+    }
+
+    suspend fun setParkingTimerMinutes(minutes: Int) {
+        val clamped = minutes.coerceIn(AppSettings.PARKING_TIMER_RANGE)
+        context.parkedSettingsDataStore.edit { it[Keys.PARKING_TIMER_MINUTES] = clamped }
+    }
+
+    /**
+     * Replaces the user configuration after a backup restore. Monitoring is
+     * deliberately left off so opening a backup file cannot silently start a
+     * background service; the user can enable it again in Settings.
+     */
+    suspend fun restoreFromBackup(settings: AppSettings) {
+        context.parkedSettingsDataStore.edit { preferences ->
+            preferences[Keys.MONITORING_ENABLED] = false
+            if (settings.deviceAddress.isNullOrBlank()) {
+                preferences.remove(Keys.DEVICE_ADDRESS)
+                preferences.remove(Keys.DEVICE_NAME)
+            } else {
+                preferences[Keys.DEVICE_ADDRESS] = settings.deviceAddress
+                preferences[Keys.DEVICE_NAME] = settings.deviceName
+                    ?.takeIf { it.isNotBlank() }
+                    ?: settings.deviceAddress
+            }
+            preferences[Keys.SAVE_DELAY_SECONDS] =
+                settings.saveDelaySeconds.coerceIn(AppSettings.SAVE_DELAY_RANGE)
+            preferences[Keys.GPS_TIMEOUT_SECONDS] =
+                settings.gpsTimeoutSeconds.coerceIn(AppSettings.GPS_TIMEOUT_RANGE)
+            preferences[Keys.MAX_ACCURACY_METERS] =
+                settings.maxAccuracyMeters.coerceIn(AppSettings.MAX_ACCURACY_RANGE)
+            preferences[Keys.ALLOW_FALLBACK] = settings.allowFallbackLastKnown
+            preferences[Keys.FALLBACK_MAX_AGE_HOURS] =
+                settings.fallbackMaxAgeHours.coerceIn(AppSettings.FALLBACK_MAX_AGE_RANGE)
+            preferences[Keys.PARKING_TIMER_ENABLED] = settings.parkingTimerEnabled
+            preferences[Keys.PARKING_TIMER_MINUTES] =
+                settings.parkingTimerMinutes.coerceIn(AppSettings.PARKING_TIMER_RANGE)
+        }
+    }
+
     private fun Preferences.toSettings(): AppSettings = AppSettings(
         monitoringEnabled = this[Keys.MONITORING_ENABLED] ?: false,
         deviceAddress = this[Keys.DEVICE_ADDRESS]?.takeIf { it.isNotBlank() },
@@ -82,6 +123,10 @@ class SettingsRepository(private val context: Context) {
         allowFallbackLastKnown = this[Keys.ALLOW_FALLBACK] ?: true,
         fallbackMaxAgeHours = (this[Keys.FALLBACK_MAX_AGE_HOURS]
             ?: AppSettings.DEFAULT_FALLBACK_MAX_AGE_HOURS).coerceIn(AppSettings.FALLBACK_MAX_AGE_RANGE),
+        parkingTimerEnabled = this[Keys.PARKING_TIMER_ENABLED] ?: false,
+        parkingTimerMinutes = (this[Keys.PARKING_TIMER_MINUTES]
+            ?: AppSettings.DEFAULT_PARKING_TIMER_MINUTES)
+            .coerceIn(AppSettings.PARKING_TIMER_RANGE),
     )
 
     private object Keys {
@@ -93,5 +138,7 @@ class SettingsRepository(private val context: Context) {
         val MAX_ACCURACY_METERS = intPreferencesKey("max_accuracy_meters")
         val ALLOW_FALLBACK = booleanPreferencesKey("allow_fallback_last_known")
         val FALLBACK_MAX_AGE_HOURS = intPreferencesKey("fallback_max_age_hours")
+        val PARKING_TIMER_ENABLED = booleanPreferencesKey("parking_timer_enabled")
+        val PARKING_TIMER_MINUTES = intPreferencesKey("parking_timer_minutes")
     }
 }

@@ -8,6 +8,8 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.bartixxx.parked.AppContainer
 import com.bartixxx.parked.R
+import com.bartixxx.parked.backup.BackupException
+import com.bartixxx.parked.backup.BackupFailure
 import com.bartixxx.parked.bluetooth.BondedDevice
 import com.bartixxx.parked.capture.CaptureOutcome
 import com.bartixxx.parked.capture.CaptureRequest
@@ -46,6 +48,7 @@ data class MainUiState(
     val saving: Boolean = false,
     val testingLocation: Boolean = false,
     val locationTestResult: String? = null,
+    val backupBusy: Boolean = false,
 )
 
 class MainViewModel(private val container: AppContainer) : ViewModel() {
@@ -188,6 +191,29 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch { container.settingsRepository.setFallbackMaxAgeHours(hours) }
     }
 
+    fun updateParkingTimerEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            container.settingsRepository.setParkingTimerEnabled(enabled)
+            syncParkingTimer()
+        }
+    }
+
+    fun updateParkingTimerMinutes(minutes: Int) {
+        viewModelScope.launch {
+            container.settingsRepository.setParkingTimerMinutes(minutes)
+            syncParkingTimer()
+        }
+    }
+
+    fun syncParkingTimer() {
+        viewModelScope.launch {
+            container.parkingTimerScheduler.sync(
+                spot = container.parkingRepository.latestSpot(),
+                settings = container.settingsRepository.current(),
+            )
+        }
+    }
+
     fun saveCurrentLocation() {
         if (_uiState.value.saving) return
         viewModelScope.launch {
@@ -208,6 +234,7 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
                             ),
                         )
                         container.familyRepository.syncSpot(outcome.spot)
+                        container.parkingTimerScheduler.sync(outcome.spot, currentSettings)
                     }
                     CaptureOutcome.Duplicate -> message(appContext.getString(R.string.msg_duplicate_spot))
                     is CaptureOutcome.Failed -> message(
@@ -239,6 +266,10 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
                 message(appContext.getString(R.string.msg_manual_spot_added))
                 container.parkingRepository.latestSpot()?.let { spot ->
                     container.familyRepository.syncSpot(spot)
+                    container.parkingTimerScheduler.sync(
+                        spot,
+                        container.settingsRepository.current(),
+                    )
                 }
             }.onFailure {
                 message(
@@ -319,6 +350,7 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
                 .onSuccess {
                     message(appContext.getString(R.string.msg_spot_deleted))
                     if (wasLatest) {
+                        container.parkingTimerScheduler.cancel()
                         container.familyRepository.onLocalSpotDeleted()?.let { error ->
                             message(familyErrorMessage(error))
                         }
@@ -336,6 +368,7 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
             runCatching { container.parkingRepository.deleteAll() }
                 .onSuccess {
                     message(appContext.getString(R.string.msg_history_deleted))
+                    container.parkingTimerScheduler.cancel()
                     container.familyRepository.onLocalSpotDeleted()?.let { error ->
                         message(familyErrorMessage(error))
                     }
@@ -376,6 +409,72 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
     fun exportSuggestedName(format: ExportFormat): String {
         val stamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
         return "parked-$stamp.${format.extension}"
+    }
+
+    fun backupSuggestedName(): String = container.backupManager.suggestedName()
+
+    fun createBackup(password: String, uri: Uri) {
+        if (_uiState.value.backupBusy) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(backupBusy = true) }
+            try {
+                val summary = container.backupManager.export(uri, password.toCharArray())
+                message(
+                    appContext.getString(
+                        R.string.backup_created,
+                        summary.spots,
+                        summary.photos,
+                    ),
+                )
+            } catch (error: Throwable) {
+                message(backupErrorMessage(error))
+            } finally {
+                _uiState.update { it.copy(backupBusy = false) }
+            }
+        }
+    }
+
+    fun restoreBackup(password: String, uri: Uri) {
+        if (_uiState.value.backupBusy) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(backupBusy = true) }
+            try {
+                val summary = container.backupManager.restore(uri, password.toCharArray())
+                // Old family photo ids no longer match the restored spots.
+                runCatching { container.familyRepository.revokeAllSentPhotos() }
+                runCatching { container.familyRepository.onLocalSpotDeleted() }
+                // Restored settings force monitoring off; make sure a running service stops too.
+                container.triggerStateRepository.clear()
+                BluetoothMonitorService.stop(appContext)
+                message(
+                    appContext.getString(
+                        R.string.backup_restored,
+                        summary.spots,
+                        summary.photos,
+                    ),
+                )
+            } catch (error: Throwable) {
+                message(backupErrorMessage(error))
+            } finally {
+                _uiState.update { it.copy(backupBusy = false) }
+            }
+        }
+    }
+
+    private fun backupErrorMessage(error: Throwable): String = when (
+        (error as? BackupException)?.failure
+    ) {
+        BackupFailure.WRONG_PASSWORD_OR_CORRUPT ->
+            appContext.getString(R.string.backup_error_password)
+        BackupFailure.INVALID_FORMAT -> appContext.getString(R.string.backup_error_invalid)
+        BackupFailure.UNSUPPORTED_VERSION ->
+            appContext.getString(R.string.backup_error_unsupported)
+        BackupFailure.TOO_LARGE -> appContext.getString(R.string.backup_error_too_large)
+        BackupFailure.IO -> appContext.getString(R.string.backup_error_io)
+        null -> appContext.getString(
+            R.string.backup_error_unknown,
+            error.message.orEmpty(),
+        )
     }
 
     fun testLocation() {
