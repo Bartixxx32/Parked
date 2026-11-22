@@ -19,15 +19,23 @@ fun StatisticsSection(stats: ParkingStats) {
         stats.currentParkingMinutes?.let { minutes ->
             InfoRow(stringResource(R.string.stats_current_duration), durationText(minutes))
         }
+        val averageMinutes = stats.averageParkingMinutes
         InfoRow(
             stringResource(R.string.stats_avg_duration),
-            stats.averageParkingMinutes?.let(::durationText)
-                ?: stringResource(R.string.stats_not_enough),
+            if (averageMinutes != null) {
+                durationText(averageMinutes)
+            } else {
+                stringResource(R.string.stats_not_enough)
+            },
         )
+        val longestMinutes = stats.longestParkingMinutes
         InfoRow(
             stringResource(R.string.stats_longest_duration),
-            stats.longestParkingMinutes?.let(::durationText)
-                ?: stringResource(R.string.stats_not_enough),
+            if (longestMinutes != null) {
+                durationText(longestMinutes)
+            } else {
+                stringResource(R.string.stats_not_enough)
+            },
         )
         InfoRow(
             stringResource(R.string.stats_busiest_day),

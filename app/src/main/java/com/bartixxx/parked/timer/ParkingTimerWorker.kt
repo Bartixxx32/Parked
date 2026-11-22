@@ -28,8 +28,11 @@ class ParkingTimerWorker(
         if (latest?.id != spotId) return Result.success()
 
         val triggerAt = inputData.getLong(KEY_TRIGGER_AT, 0L)
+        val now = System.currentTimeMillis()
+        // Do not surface a stale reminder after the phone was off for a long time.
+        if (triggerAt > 0L && now - triggerAt > MAX_LATE_MS) return Result.success()
         val minutesLeft = if (triggerAt > 0L) {
-            ((triggerAt - System.currentTimeMillis()) / 60_000L).toInt()
+            ((triggerAt - now) / 60_000L).toInt()
         } else {
             0
         }
@@ -40,5 +43,6 @@ class ParkingTimerWorker(
     companion object {
         const val KEY_SPOT_ID = "spot_id"
         const val KEY_TRIGGER_AT = "trigger_at"
+        private const val MAX_LATE_MS = 6L * 60L * 60_000L
     }
 }

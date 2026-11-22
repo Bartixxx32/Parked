@@ -121,8 +121,9 @@ prefetch, the service performs a regular `capture` with the full timeout.
 - if `startForeground` with the location type throws (missing permission, system
   restriction), it falls back to `connectedDevice`,
 - foreground notification (low-priority, silent channel) with a "Stop" action — the only
-  notification in the app; Parked does not send save or error notifications (the old
-  `parked_events` channel is removed at startup),
+  persistent notification; Parked does not send save or error notifications (the old
+  `parked_events` channel is removed at startup). The optional parking timer posts one
+  separate reminder on its own channel,
 - dynamic `BroadcastReceiver` for:
   - `ACTION_ACL_CONNECTED`, `ACTION_ACL_DISCONNECTED`,
   - adapter `ACTION_STATE_CHANGED`,

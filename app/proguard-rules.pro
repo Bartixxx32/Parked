@@ -5,3 +5,7 @@
 # osmdroid uses reflection for some optional components.
 -dontwarn org.osmdroid.**
 -keep class org.osmdroid.tileprovider.modules.** { *; }
+
+# zxing-android-embedded bundles a legacy IntentIntegrator for Fragment-based
+# integrations. Parked uses ScanContract, so those optional classes are unused.
+-dontwarn androidx.fragment.app.**
