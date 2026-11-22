@@ -279,12 +279,7 @@ JVM unit tests cover, among others:
 - duplicate cycle and minimum interval between saves,
 - a fix acquired at disconnect saved later without moving the coordinates,
 - JSON/CSV/GPX export (XML validity and quoting),
-- invite-code normalization and validation (Crockford base32),
-- family store persistence and session/group-name migration (Robolectric).
-
-A manual Firebase Test Lab Robo smoke test runs the debug APK on Google's
-devices; setup and usage are in [docs/ROBO_TEST.md](docs/ROBO_TEST.md). It is
-separate from the JVM tests and from the screenshot workflow.
+- invite-code normalization and validation (Crockford base32).
 
 The backend has its own Node tests for input validation, token/code helpers,
 constant-time comparison, security headers, CORS removal, body limits and rate

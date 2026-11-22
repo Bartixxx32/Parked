@@ -26,12 +26,9 @@ private val Context.familyDataStore: DataStore<Preferences> by preferencesDataSt
  * For E2EE groups the raw group key is never stored here: [wrappedGroupKey]
  * contains ciphertext from [FamilyKeyVault], bound to the Android Keystore.
  */
-class FamilyStore internal constructor(
-    private val dataStore: DataStore<Preferences>,
-) {
-    constructor(context: Context) : this(context.familyDataStore)
+class FamilyStore(private val context: Context) {
 
-    val credentials: Flow<FamilyCredentials> = dataStore.data
+    val credentials: Flow<FamilyCredentials> = context.familyDataStore.data
         .catch { error ->
             if (error is IOException) emit(emptyPreferences()) else throw error
         }
@@ -52,7 +49,7 @@ class FamilyStore internal constructor(
         wrappedGroupKey: String?,
         inviteSecret: String?,
     ) {
-        dataStore.edit { preferences ->
+        context.familyDataStore.edit { preferences ->
             preferences[Keys.ENABLED] = true
             preferences[Keys.SERVER_URL] = serverUrl
             preferences[Keys.GROUP_ID] = groupId
@@ -80,27 +77,27 @@ class FamilyStore internal constructor(
     }
 
     suspend fun setEnabled(enabled: Boolean) {
-        dataStore.edit { it[Keys.ENABLED] = enabled }
+        context.familyDataStore.edit { it[Keys.ENABLED] = enabled }
     }
 
     suspend fun setShareNote(enabled: Boolean) {
-        dataStore.edit { it[Keys.SHARE_NOTE] = enabled }
+        context.familyDataStore.edit { it[Keys.SHARE_NOTE] = enabled }
     }
 
     suspend fun setServerUrl(url: String) {
-        dataStore.edit { it[Keys.SERVER_URL] = url }
+        context.familyDataStore.edit { it[Keys.SERVER_URL] = url }
     }
 
     suspend fun setCarLabel(label: String) {
-        dataStore.edit { it[Keys.CAR_LABEL] = label }
+        context.familyDataStore.edit { it[Keys.CAR_LABEL] = label }
     }
 
     suspend fun setGroupName(name: String) {
-        dataStore.edit { it[Keys.GROUP_NAME] = name }
+        context.familyDataStore.edit { it[Keys.GROUP_NAME] = name }
     }
 
     suspend fun setInvite(code: String, secret: String?) {
-        dataStore.edit { preferences ->
+        context.familyDataStore.edit { preferences ->
             preferences[Keys.INVITE_CODE] = code
             preferences[Keys.INVITE_SECRET] = secret.orEmpty()
         }
@@ -112,7 +109,7 @@ class FamilyStore internal constructor(
      * group back to the public server.
      */
     suspend fun clear() {
-        dataStore.edit { preferences ->
+        context.familyDataStore.edit { preferences ->
             val serverUrl = preferences[Keys.SERVER_URL]
             val carLabel = preferences[Keys.CAR_LABEL]
             preferences.clear()
