@@ -24,7 +24,7 @@ import com.bartixxx.parked.monitor.BluetoothMonitorService
 object NotificationHelper {
 
     const val MONITOR_NOTIFICATION_ID = 1001
-    const val TIMER_NOTIFICATION_ID = 1003
+    const val TIMER_NOTIFICATION_ID = 1004
     private const val CHANNEL_MONITOR = "parked_monitor"
     private const val CHANNEL_TIMER = "parked_timer"
     private const val LEGACY_CHANNEL_EVENTS = "parked_events"
