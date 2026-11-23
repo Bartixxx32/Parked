@@ -12,16 +12,16 @@ Repo: https://github.com/Bartixxx32/Parked
 Binaries: https://github.com/Bartixxx32/Parked/releases/download/v%v/Parked-%v.apk
 
 Builds:
-  - versionName: 1.6.0
-    versionCode: 17
-    commit: a98ba5b8b8214bd99dca948c1b8511689f2bc8c0
+  - versionName: 1.5.5
+    versionCode: 16
+    commit: daa8eeaa68265fc034f29a246640b89ea132efde
     subdir: app
     gradle:
       - yes
 
-  - versionName: 1.5.5
-    versionCode: 16
-    commit: daa8eeaa68265fc034f29a246640b89ea132efde
+  - versionName: 1.6.0
+    versionCode: 17
+    commit: a98ba5b8b8214bd99dca948c1b8511689f2bc8c0
     subdir: app
     gradle:
       - yes
