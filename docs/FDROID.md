@@ -91,7 +91,8 @@ before tagging a release.
 
 The complete recipe is kept in
 [`docs/fdroiddata/com.bartixxx.parked.yml`](fdroiddata/com.bartixxx.parked.yml).
-The newest `Builds` entry points at the `v1.5.5` tag commit, which already
+The newest `Builds` entry points at the `v1.6.0` tag commit. Older entries stay
+in the file so F-Droid can rebuild and ship past versions. Every tag also
 contains `backend/worker/package-lock.json` (F-Droid rejects a `package.json`
 without a lockfile). For later releases, add a new entry with the full SHA of
 the new tag before submitting. F-Droid builds from that commit, never from a
